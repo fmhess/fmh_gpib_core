@@ -1,0 +1,120 @@
+-- IEEE 488.1 source handshake interface function
+--
+-- Author: Frank Mori Hess fmh6jj@gmail.com
+-- Copyright Frank Mori Hess 2017
+
+
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.std_logic_arith.all;
+use ieee.std_logic_unsigned.all;
+use work.interface_function_states.all;
+
+entity interface_function_SH is
+	port(
+		clock : in std_logic;
+		talker_state_1 : in T_state_1;
+		controller_state_1 : in C_state_1;
+		ATN : in std_logic; -- negative logic
+		NDAC : in std_logic; -- negative logic
+		NRFD : in std_logic; -- negative logic
+		nba : in std_logic;
+		pon : in std_logic;
+		first_T1_terminal_count : in std_logic_vector (7 downto 0); -- longer T1 used for first cycle only
+		T1_terminal_count : in std_logic_vector (7 downto 0);
+		check_no_listeners : in std_logic; -- do optional check in SDYS for no listeners
+
+		source_handshake_state : out SH_state;
+		DAV : out std_logic; -- negative logic, asserted with '0' unasserted with 'Z'
+		no_listeners : out std_logic; -- pulses true during SDYS if no listeners are detected at end of T1 delay
+	);
+ 
+end interface_function_SH;
+ 
+architecture interface_function_SH_arch of interface_function_SH is
+ 
+	signal interrupt : boolean;
+	signal active : boolean;
+	signal T1_current_count : unsigned range 0 to T1_terminal_count'HIGH;
+	signal T1_counter_done : boolean;
+	signal first_cycle : boolean; -- we are on the first transfer since leaving SIDS
+	-- used to insure we only report no listeners one time during SDYS
+	signal no_listeners_reported : boolean;
+ 
+begin
+ 
+	interrupt <= (ATN = '0' and controller_state_1 /= CACS and controller_state_1 /= CTRS) or
+		 (ATN = '1' and talker_state_1 /= TACS and talker_state_1 /= SPAS);
+	active <= talker_state_1 = TACS or talker_state_1 = SPAS or controller_state_1 = CACS;
+		 
+	process(pon, clock) begin
+		if pon = '1' then
+			source_handshake_state <= SIDS;
+			DAV <= 'Z';
+			no_listeners <= '0';
+		elsif rising_edge(clock) then
+			-- no_listeners only pulses high for 1 clock so clear it if it was set
+			if no_listeners /= '0' then
+				no_listeners <= '0';
+			end if;
+			
+			case source_handshake_state is
+				when SIDS =>
+					if active then
+						source_handshake_state <= SGNS;
+					end if;
+					first_cycle <= true;
+				when SGNS =>
+					if nba = '1' then
+						T1_current_count <= 0;
+						T1_counter_done <= false;
+						no_listeners_reported <= false;
+						source_handshake_state <= SDYS;
+					elsif interrupt then
+						source_handshake_state <= SIDS;
+					end if;
+				when SDYS =>
+					-- check if T1 delay is done
+					if(T1_counter_done = false then
+						T1_current_count <= T1_current_count + 1;
+					elsif (first_cycle and T1_current_count >= conv_integer(first_T1_terminal_count)) or
+						(first_cycle = false and T1_current_count >= conv_integer(T1_terminal_count)) then
+						T1_counter_done <= true;
+					end if;
+					-- transitions
+					if interrupt then
+						source_handshake_state <= SIDS;
+					elsif T1_counter_done and NRFD = '1' then
+						if(check_no_listeners = '0' or NDAC = '0') then
+							first_cycle <= false;
+							DAV <= '0';
+							source_handshake_state <= STRS;
+						elsif (no_listeners_reported = false) then
+							no_listeners <= '1';
+							no_listeners_reported <= true;
+						end if;
+					end if;
+				when STRS =>
+					if interrupt then
+						DAV <= 'Z';
+						source_handshake_state <= SIWS;
+					elsif NDAC = '1' then
+						DAV <= 'Z';
+						source_handshake_state <= SWNS;
+					end if;
+				when SWNS =>
+					if nba = '0' then
+						source_handshake_state <= SGNS;
+					elsif interrupt then
+						source_handshake_state <= SIWS;
+					end if;
+				when SIWS =>
+					if nba = '0' then
+						source_handshake_state <= SIDS;
+					elsif active then
+						source_handshake_state <= SWNS;
+					end if;
+			end case;
+		end if;
+	end process; 
+end interface_function_SH_arch;
