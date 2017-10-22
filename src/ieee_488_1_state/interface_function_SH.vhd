@@ -14,9 +14,9 @@ entity interface_function_SH is
 		clock : in std_logic;
 		talker_state_p1 : in TE_state_p1;
 		controller_state_p1 : in C_state_p1;
-		ATN : in std_logic; -- negative logic
-		NDAC : in std_logic; -- negative logic
-		NRFD : in std_logic; -- negative logic
+		ATN : in std_logic;
+		NDAC : in std_logic;
+		NRFD : in std_logic;
 		nba : in std_logic;
 		pon : in std_logic;
 		first_T1_terminal_count : in std_logic_vector (15 downto 0); -- longer T1 used for first cycle only
@@ -26,7 +26,7 @@ entity interface_function_SH is
 		source_handshake_state : out SH_state;
 		-- state from previous clock cycle, allows external code to trigger on arbitrary state transition
 		old_source_handshake_state : out SH_state; 
-		DAV : out std_logic; -- negative logic
+		DAV : out std_logic;
 		no_listeners : out std_logic -- pulses true during SDYS if no listeners are detected at end of T1 delay
 	);
  
@@ -45,8 +45,8 @@ architecture interface_function_SH_arch of interface_function_SH is
  
 begin
  
-	interrupt <= (to_bit(ATN) = '0' and controller_state_p1 /= CACS and controller_state_p1 /= CTRS) or
-		 (to_bit(ATN) = '1' and talker_state_p1 /= TACS and talker_state_p1 /= SPAS);
+	interrupt <= (to_bit(ATN) = '1' and controller_state_p1 /= CACS and controller_state_p1 /= CTRS) or
+		 (to_bit(ATN) = '0' and talker_state_p1 /= TACS and talker_state_p1 /= SPAS);
 	active <= talker_state_p1 = TACS or talker_state_p1 = SPAS or controller_state_p1 = CACS;	
 	source_handshake_state <= source_handshake_state_buffer;
 		 
@@ -54,7 +54,7 @@ begin
 		if pon = '1' then
 			source_handshake_state_buffer <= SIDS;
 			old_source_handshake_state <= SIDS;
-			DAV <= 'H';
+			DAV <= 'L';
 			no_listeners <= '0';
 		elsif rising_edge(clock) then
 			-- no_listeners only pulses high for 1 clock so clear it.  no_listeners may
@@ -68,7 +68,7 @@ begin
 						source_handshake_state_buffer <= SGNS;
 					end if;
 					first_cycle <= true;
-					DAV <= 'H';
+					DAV <= 'L';
 				when SGNS =>
 					if nba = '1' then
 						T1_current_count <= to_unsigned(0, T1_current_count'length);
@@ -78,7 +78,7 @@ begin
 					elsif interrupt then
 						source_handshake_state_buffer <= SIDS;
 					end if;
-					DAV <= '1';
+					DAV <= '0';
 				when SDYS =>
 					-- check if T1 delay is done
 					if (first_cycle and T1_current_count >= 
@@ -92,8 +92,8 @@ begin
 					-- transitions
 					if interrupt then
 						source_handshake_state_buffer <= SIDS;
-					elsif T1_counter_done and to_bit(NRFD) = '1' then
-						if(check_for_listeners = '0' or to_bit(NDAC) = '0') then
+					elsif T1_counter_done and to_bit(NRFD) = '0' then
+						if(check_for_listeners = '0' or to_bit(NDAC) = '1') then
 							first_cycle <= false;
 							source_handshake_state_buffer <= STRS;
 						elsif (no_listeners_reported = false) then
@@ -101,21 +101,21 @@ begin
 							no_listeners_reported <= true;
 						end if;
 					end if;
-					DAV <= '1';
+					DAV <= '0';
 				when STRS =>
 					if interrupt then
 						source_handshake_state_buffer <= SIWS;
-					elsif to_bit(NDAC) = '1' then
+					elsif to_bit(NDAC) = '0' then
 						source_handshake_state_buffer <= SWNS;
 					end if;
-					DAV <= '0';
+					DAV <= '1';
 				when SWNS =>
 					if nba = '0' then
 						source_handshake_state_buffer <= SGNS;
 					elsif interrupt then
 						source_handshake_state_buffer <= SIWS;
 					end if;
-					DAV <= '1';
+					DAV <= '0';
 				when SIWS =>
 					if nba = '0' then
 						source_handshake_state_buffer <= SIDS;
@@ -123,7 +123,7 @@ begin
 						source_handshake_state_buffer <= SWNS;
 					end if;
 					first_cycle <= true;
-					DAV <= 'H';
+					DAV <= 'L';
 			end case;
 		end if;
 	end process;

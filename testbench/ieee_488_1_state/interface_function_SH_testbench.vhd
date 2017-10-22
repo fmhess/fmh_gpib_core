@@ -90,9 +90,9 @@ architecture behav of interface_function_SH_testbench is
 	process
 	begin
 		pon <= '0';
-		ATN <= 'H';
-		NDAC <= 'H';
-		NRFD <= 'H';
+		ATN <= 'L';
+		NDAC <= 'L';
+		NRFD <= 'L';
 		nba <= '0';
 		
 		
@@ -136,15 +136,15 @@ architecture behav of interface_function_SH_testbench is
 		
 		wait until rising_edge(clock);
 		assert no_listeners = '0';
-		assert DAV = '1';
-		NDAC <= '0';
+		assert DAV = '0';
+		NDAC <= '1';
 		
 		for i in 1 to 3 loop
 			wait until rising_edge(clock);
 		end loop;
 		assert source_handshake_state = STRS;
-		assert DAV = '0';
-		NDAC <= 'H';
+		assert DAV = '1';
+		NDAC <= 'L';
 		
 		wait until rising_edge(clock);
 		for i in 1 to 3 loop
@@ -178,7 +178,7 @@ architecture behav of interface_function_SH_testbench is
 		assert source_handshake_state = SWNS;
 
 		-- interrupt to SIWS
-		ATN <= '0';
+		ATN <= '1';
 		talker_state_p1 <= TADS;
 		
 		wait until rising_edge(clock);
@@ -193,7 +193,7 @@ architecture behav of interface_function_SH_testbench is
 		end loop;
 		
 		talker_state_p1 <= SPAS;
-		ATN <= 'H';
+		ATN <= 'L';
 
 		wait until rising_edge(clock);
 		for i in 1 to 3 loop
@@ -227,7 +227,7 @@ architecture behav of interface_function_SH_testbench is
 		end loop;
 
 		-- interrupt back to SIDS
-		ATN <= '0';
+		ATN <= '1';
 		talker_state_p1 <= TADS;
 		
 		wait until rising_edge(clock);
@@ -236,10 +236,10 @@ architecture behav of interface_function_SH_testbench is
 			assert source_handshake_state = SIDS;
 		end loop;
 
-		ATN <= 'H';
+		ATN <= 'L';
 		talker_state_p1 <= SPAS;
 		check_for_listeners <= '1';
-		NDAC <= '0';
+		NDAC <= '1';
 		
 		for i in 1 to 3 loop
 			wait until rising_edge(clock);
@@ -252,7 +252,7 @@ architecture behav of interface_function_SH_testbench is
 		assert source_handshake_state = STRS;
 
 		-- interrupt to SIWS
-		ATN <= '0';
+		ATN <= '1';
 		talker_state_p1 <= TADS;
 		
 		for i in 1 to 3 loop
