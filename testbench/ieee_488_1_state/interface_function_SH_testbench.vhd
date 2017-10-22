@@ -16,7 +16,7 @@ architecture behav of interface_function_SH_testbench is
 	component interface_function_SH
 		port(
 			clock : in std_logic;
-			talker_state_p1 : in T_state_p1;
+			talker_state_p1 : in TE_state_p1;
 			controller_state_p1 : in C_state_p1;
 			ATN : in std_logic;
 			NDAC : in std_logic;
@@ -36,7 +36,7 @@ architecture behav of interface_function_SH_testbench is
 
 	for my_SH: interface_function_SH use entity work.interface_function_SH;
 	signal clock : std_logic;
-	signal talker_state_p1 : T_state_p1;
+	signal talker_state_p1 : TE_state_p1;
 	signal controller_state_p1 : C_state_p1;
 	signal ATN : std_logic;
 	signal NDAC : std_logic;
@@ -136,11 +136,12 @@ architecture behav of interface_function_SH_testbench is
 		
 		wait until rising_edge(clock);
 		assert no_listeners = '0';
-		assert DAV = 'Z';
+		assert DAV = '1';
 		NDAC <= '0';
 		
-		wait until rising_edge(clock);
-		wait until rising_edge(clock);
+		for i in 1 to 3 loop
+			wait until rising_edge(clock);
+		end loop;
 		assert source_handshake_state = STRS;
 		assert DAV = '0';
 		NDAC <= 'H';

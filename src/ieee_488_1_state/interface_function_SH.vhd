@@ -12,7 +12,7 @@ use work.interface_function_states.all;
 entity interface_function_SH is
 	port(
 		clock : in std_logic;
-		talker_state_p1 : in T_state_p1;
+		talker_state_p1 : in TE_state_p1;
 		controller_state_p1 : in C_state_p1;
 		ATN : in std_logic; -- negative logic
 		NDAC : in std_logic; -- negative logic
@@ -26,7 +26,7 @@ entity interface_function_SH is
 		source_handshake_state : out SH_state;
 		-- state from previous clock cycle, allows external code to trigger on arbitrary state transition
 		old_source_handshake_state : out SH_state; 
-		DAV : out std_logic; -- negative logic, asserted with '0' unasserted with 'Z'
+		DAV : out std_logic; -- negative logic
 		no_listeners : out std_logic -- pulses true during SDYS if no listeners are detected at end of T1 delay
 	);
  
@@ -54,7 +54,7 @@ begin
 		if pon = '1' then
 			source_handshake_state_buffer <= SIDS;
 			old_source_handshake_state <= SIDS;
-			DAV <= 'Z';
+			DAV <= 'H';
 			no_listeners <= '0';
 		elsif rising_edge(clock) then
 			-- no_listeners only pulses high for 1 clock so clear it.  no_listeners may
@@ -68,6 +68,7 @@ begin
 						source_handshake_state_buffer <= SGNS;
 					end if;
 					first_cycle <= true;
+					DAV <= 'H';
 				when SGNS =>
 					if nba = '1' then
 						T1_current_count <= to_unsigned(0, T1_current_count'length);
@@ -77,6 +78,7 @@ begin
 					elsif interrupt then
 						source_handshake_state_buffer <= SIDS;
 					end if;
+					DAV <= '1';
 				when SDYS =>
 					-- check if T1 delay is done
 					if (first_cycle and T1_current_count >= 
@@ -93,27 +95,27 @@ begin
 					elsif T1_counter_done and to_bit(NRFD) = '1' then
 						if(check_for_listeners = '0' or to_bit(NDAC) = '0') then
 							first_cycle <= false;
-							DAV <= '0';
 							source_handshake_state_buffer <= STRS;
 						elsif (no_listeners_reported = false) then
 							no_listeners <= '1';
 							no_listeners_reported <= true;
 						end if;
 					end if;
+					DAV <= '1';
 				when STRS =>
 					if interrupt then
-						DAV <= 'Z';
 						source_handshake_state_buffer <= SIWS;
 					elsif to_bit(NDAC) = '1' then
-						DAV <= 'Z';
 						source_handshake_state_buffer <= SWNS;
 					end if;
+					DAV <= '0';
 				when SWNS =>
 					if nba = '0' then
 						source_handshake_state_buffer <= SGNS;
 					elsif interrupt then
 						source_handshake_state_buffer <= SIWS;
 					end if;
+					DAV <= '1';
 				when SIWS =>
 					if nba = '0' then
 						source_handshake_state_buffer <= SIDS;
@@ -121,6 +123,7 @@ begin
 						source_handshake_state_buffer <= SWNS;
 					end if;
 					first_cycle <= true;
+					DAV <= 'H';
 			end case;
 		end if;
 	end process;
