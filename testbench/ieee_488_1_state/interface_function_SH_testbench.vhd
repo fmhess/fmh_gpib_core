@@ -23,11 +23,12 @@ architecture behav of interface_function_SH_testbench is
 			NRFD : in std_logic;
 			nba : in std_logic;
 			pon : in std_logic;
-			first_T1_terminal_count : in std_logic_vector (7 downto 0);
-			T1_terminal_count : in std_logic_vector (7 downto 0);
-			check_no_listeners : in std_logic;
+			first_T1_terminal_count : in std_logic_vector (15 downto 0);
+			T1_terminal_count : in std_logic_vector (15 downto 0);
+			check_for_listeners : in std_logic;
 
 			source_handshake_state : out SH_state;
+			old_source_handshake_state : out SH_state;
 			DAV : out std_logic;
 			no_listeners : out std_logic
 		);
@@ -42,9 +43,9 @@ architecture behav of interface_function_SH_testbench is
 	signal NRFD : std_logic;
 	signal nba : std_logic;
 	signal pon : std_logic;
-	signal first_T1_terminal_count : std_logic_vector (7 downto 0);
-	signal T1_terminal_count : std_logic_vector (7 downto 0);
-	signal check_no_listeners : std_logic;
+	signal first_T1_terminal_count : std_logic_vector (15 downto 0);
+	signal T1_terminal_count : std_logic_vector (15 downto 0);
+	signal check_for_listeners : std_logic;
 
 	signal source_handshake_state : SH_state;
 	signal DAV : std_logic;
@@ -67,7 +68,7 @@ architecture behav of interface_function_SH_testbench is
 			pon => pon,
 			first_T1_terminal_count => first_T1_terminal_count,
 			T1_terminal_count => T1_terminal_count,
-			check_no_listeners => check_no_listeners,
+			check_for_listeners => check_for_listeners,
 			
 			source_handshake_state => source_handshake_state,
 			DAV => DAV,
@@ -95,9 +96,9 @@ architecture behav of interface_function_SH_testbench is
 		nba <= '0';
 		
 		
-		first_T1_terminal_count <= X"04";
-		T1_terminal_count <= X"02";
-		check_no_listeners <= '1';
+		first_T1_terminal_count <= X"0004";
+		T1_terminal_count <= X"0002";
+		check_for_listeners <= '1';
 		talker_state_1 <= TIDS;
 		controller_state_1 <= CIDS;
 		
@@ -156,7 +157,7 @@ architecture behav of interface_function_SH_testbench is
 		wait until rising_edge(clock);
 		assert source_handshake_state = SGNS;
 		nba <= '1';
-		check_no_listeners <= '0';
+		check_for_listeners <= '0';
 
 		wait until rising_edge(clock);
 		wait until rising_edge(clock);
@@ -236,7 +237,7 @@ architecture behav of interface_function_SH_testbench is
 
 		ATN <= 'H';
 		talker_state_1 <= SPAS;
-		check_no_listeners <= '1';
+		check_for_listeners <= '1';
 		NDAC <= '0';
 		
 		for i in 1 to 3 loop

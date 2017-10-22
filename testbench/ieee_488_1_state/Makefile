@@ -5,3 +5,8 @@ test_SH:
 	nvc -e interface_function_SH_testbench
 	nvc -r interface_function_SH_testbench --wave
 
+.PHONY: clean
+clean:
+	rm work/*
+	rmdir work/
+
