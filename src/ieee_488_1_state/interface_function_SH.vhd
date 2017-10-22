@@ -6,8 +6,7 @@
 
 library ieee;
 use ieee.std_logic_1164.all;
-use ieee.std_logic_arith.all;
-use ieee.std_logic_unsigned.all;
+use ieee.numeric_std.all;
 use work.interface_function_states.all;
 
 entity interface_function_SH is
@@ -26,7 +25,7 @@ entity interface_function_SH is
 
 		source_handshake_state : out SH_state;
 		DAV : out std_logic; -- negative logic, asserted with '0' unasserted with 'Z'
-		no_listeners : out std_logic; -- pulses true during SDYS if no listeners are detected at end of T1 delay
+		no_listeners : out std_logic -- pulses true during SDYS if no listeners are detected at end of T1 delay
 	);
  
 end interface_function_SH;
@@ -43,8 +42,8 @@ architecture interface_function_SH_arch of interface_function_SH is
  
 begin
  
-	interrupt <= (ATN = '0' and controller_state_1 /= CACS and controller_state_1 /= CTRS) or
-		 (ATN = '1' and talker_state_1 /= TACS and talker_state_1 /= SPAS);
+	interrupt <= (to_bit(ATN) = '0' and controller_state_1 /= CACS and controller_state_1 /= CTRS) or
+		 (to_bit(ATN) = '1' and talker_state_1 /= TACS and talker_state_1 /= SPAS);
 	active <= talker_state_1 = TACS or talker_state_1 = SPAS or controller_state_1 = CACS;
 		 
 	process(pon, clock) begin
@@ -53,10 +52,9 @@ begin
 			DAV <= 'Z';
 			no_listeners <= '0';
 		elsif rising_edge(clock) then
-			-- no_listeners only pulses high for 1 clock so clear it if it was set
-			if no_listeners /= '0' then
-				no_listeners <= '0';
-			end if;
+			-- no_listeners only pulses high for 1 clock so clear it.  no_listeners may
+			-- be set high (for a cycle) later in this process.
+			no_listeners <= '0';
 			
 			case source_handshake_state is
 				when SIDS =>
@@ -66,7 +64,7 @@ begin
 					first_cycle <= true;
 				when SGNS =>
 					if nba = '1' then
-						T1_current_count <= 0;
+						T1_current_count <= to_unsigned(0, T1_current_count'length);
 						T1_counter_done <= false;
 						no_listeners_reported <= false;
 						source_handshake_state <= SDYS;
@@ -75,17 +73,19 @@ begin
 					end if;
 				when SDYS =>
 					-- check if T1 delay is done
-					if(T1_counter_done = false then
-						T1_current_count <= T1_current_count + 1;
-					elsif (first_cycle and T1_current_count >= conv_integer(first_T1_terminal_count)) or
-						(first_cycle = false and T1_current_count >= conv_integer(T1_terminal_count)) then
+					if (first_cycle and T1_current_count >= 
+						unsigned(first_T1_terminal_count)) or
+						(first_cycle = false and T1_current_count >= 
+							unsigned(T1_terminal_count)) then
 						T1_counter_done <= true;
+					else
+						T1_current_count <= T1_current_count + 1;
 					end if;
 					-- transitions
 					if interrupt then
 						source_handshake_state <= SIDS;
-					elsif T1_counter_done and NRFD = '1' then
-						if(check_no_listeners = '0' or NDAC = '0') then
+					elsif T1_counter_done and to_bit(NRFD) = '1' then
+						if(check_no_listeners = '0' or to_bit(NDAC) = '0') then
 							first_cycle <= false;
 							DAV <= '0';
 							source_handshake_state <= STRS;
@@ -98,7 +98,7 @@ begin
 					if interrupt then
 						DAV <= 'Z';
 						source_handshake_state <= SIWS;
-					elsif NDAC = '1' then
+					elsif to_bit(NDAC) = '1' then
 						DAV <= 'Z';
 						source_handshake_state <= SWNS;
 					end if;

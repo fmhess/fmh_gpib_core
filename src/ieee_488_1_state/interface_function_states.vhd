@@ -14,4 +14,4 @@ package interface_function_states is
 	type C_state_4 is (SRIS, SRAS, SRNS);
 	type C_state_5 is (SIIS, SIAS, SINS);
 
-end interface_function_states
+end interface_function_states;
