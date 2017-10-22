@@ -16,8 +16,8 @@ architecture behav of interface_function_SH_testbench is
 	component interface_function_SH
 		port(
 			clock : in std_logic;
-			talker_state_1 : in T_state_1;
-			controller_state_1 : in C_state_1;
+			talker_state_p1 : in T_state_p1;
+			controller_state_p1 : in C_state_p1;
 			ATN : in std_logic;
 			NDAC : in std_logic;
 			NRFD : in std_logic;
@@ -36,8 +36,8 @@ architecture behav of interface_function_SH_testbench is
 
 	for my_SH: interface_function_SH use entity work.interface_function_SH;
 	signal clock : std_logic;
-	signal talker_state_1 : T_state_1;
-	signal controller_state_1 : C_state_1;
+	signal talker_state_p1 : T_state_p1;
+	signal controller_state_p1 : C_state_p1;
 	signal ATN : std_logic;
 	signal NDAC : std_logic;
 	signal NRFD : std_logic;
@@ -59,8 +59,8 @@ architecture behav of interface_function_SH_testbench is
 	my_SH: interface_function_SH 
 		port map (
 			clock => clock,
-			talker_state_1 => talker_state_1,
-			controller_state_1 => controller_state_1,
+			talker_state_p1 => talker_state_p1,
+			controller_state_p1 => controller_state_p1,
 			ATN => ATN,
 			NDAC => NDAC,
 			NRFD => NRFD,
@@ -99,8 +99,8 @@ architecture behav of interface_function_SH_testbench is
 		first_T1_terminal_count <= X"0004";
 		T1_terminal_count <= X"0002";
 		check_for_listeners <= '1';
-		talker_state_1 <= TIDS;
-		controller_state_1 <= CIDS;
+		talker_state_p1 <= TIDS;
+		controller_state_p1 <= CIDS;
 		
 		wait until rising_edge(clock);
 		pon <= '1';
@@ -111,7 +111,7 @@ architecture behav of interface_function_SH_testbench is
 		wait until rising_edge(clock);
 		
 		wait until rising_edge(clock);
-		talker_state_1 <= TACS;
+		talker_state_p1 <= TACS;
 
 		wait until rising_edge(clock);
 		wait until rising_edge(clock);
@@ -178,7 +178,7 @@ architecture behav of interface_function_SH_testbench is
 
 		-- interrupt to SIWS
 		ATN <= '0';
-		talker_state_1 <= TADS;
+		talker_state_p1 <= TADS;
 		
 		wait until rising_edge(clock);
 		wait until rising_edge(clock);
@@ -191,7 +191,7 @@ architecture behav of interface_function_SH_testbench is
 			assert source_handshake_state = SIDS;
 		end loop;
 		
-		talker_state_1 <= SPAS;
+		talker_state_p1 <= SPAS;
 		ATN <= 'H';
 
 		wait until rising_edge(clock);
@@ -201,7 +201,7 @@ architecture behav of interface_function_SH_testbench is
 		end loop;
 
 		-- interrupt back to SIDS
-		talker_state_1 <= TADS;
+		talker_state_p1 <= TADS;
 		
 		wait until rising_edge(clock);
 		for i in 1 to 3 loop
@@ -209,7 +209,7 @@ architecture behav of interface_function_SH_testbench is
 			assert source_handshake_state = SIDS;
 		end loop;
 		
-		talker_state_1 <= SPAS;
+		talker_state_p1 <= SPAS;
 		
 		wait until rising_edge(clock);
 		for i in 1 to 3 loop
@@ -227,7 +227,7 @@ architecture behav of interface_function_SH_testbench is
 
 		-- interrupt back to SIDS
 		ATN <= '0';
-		talker_state_1 <= TADS;
+		talker_state_p1 <= TADS;
 		
 		wait until rising_edge(clock);
 		for i in 1 to 3 loop
@@ -236,7 +236,7 @@ architecture behav of interface_function_SH_testbench is
 		end loop;
 
 		ATN <= 'H';
-		talker_state_1 <= SPAS;
+		talker_state_p1 <= SPAS;
 		check_for_listeners <= '1';
 		NDAC <= '0';
 		
@@ -252,7 +252,7 @@ architecture behav of interface_function_SH_testbench is
 
 		-- interrupt to SIWS
 		ATN <= '0';
-		talker_state_1 <= TADS;
+		talker_state_p1 <= TADS;
 		
 		for i in 1 to 3 loop
 			wait until rising_edge(clock);

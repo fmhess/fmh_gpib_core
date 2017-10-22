@@ -12,8 +12,8 @@ use work.interface_function_states.all;
 entity interface_function_SH is
 	port(
 		clock : in std_logic;
-		talker_state_1 : in T_state_1;
-		controller_state_1 : in C_state_1;
+		talker_state_p1 : in T_state_p1;
+		controller_state_p1 : in C_state_p1;
 		ATN : in std_logic; -- negative logic
 		NDAC : in std_logic; -- negative logic
 		NRFD : in std_logic; -- negative logic
@@ -45,9 +45,9 @@ architecture interface_function_SH_arch of interface_function_SH is
  
 begin
  
-	interrupt <= (to_bit(ATN) = '0' and controller_state_1 /= CACS and controller_state_1 /= CTRS) or
-		 (to_bit(ATN) = '1' and talker_state_1 /= TACS and talker_state_1 /= SPAS);
-	active <= talker_state_1 = TACS or talker_state_1 = SPAS or controller_state_1 = CACS;	
+	interrupt <= (to_bit(ATN) = '0' and controller_state_p1 /= CACS and controller_state_p1 /= CTRS) or
+		 (to_bit(ATN) = '1' and talker_state_p1 /= TACS and talker_state_p1 /= SPAS);
+	active <= talker_state_p1 = TACS or talker_state_p1 = SPAS or controller_state_p1 = CACS;	
 	source_handshake_state <= source_handshake_state_buffer;
 		 
 	process(pon, clock) begin
