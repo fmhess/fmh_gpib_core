@@ -13,7 +13,7 @@ entity interface_function_TE is
 	port(
 		clock : in std_logic;
 		acceptor_handshake_state : in AH_state;
-		listener_state : in L_state;
+		listener_state_p2 : in LE_state_p2;
 		service_request_state : in SR_state;
 		ATN : in std_logic;
 		IFC : in std_logic;
@@ -38,7 +38,7 @@ entity interface_function_TE is
 		old_talker_state_p3 : out TE_state_p3;
 		END_msg : out std_logic;
 		RQS : out std_logic;
-		NUL : out std_logic;
+		NUL : out std_logic
 	);
  
 end interface_function_TE;
@@ -48,12 +48,12 @@ architecture interface_function_TE_arch of interface_function_TE is
 	signal talker_state_p1_buffer : TE_state_p1;
 	signal talker_state_p2_buffer : TE_state_p2;
 	signal talker_state_p3_buffer : TE_state_p3;
-	signal TE_addressed : std_logic;
-	signal T_addressed : std_logic;
-	signal addressed : std_logic;
-	signal TE_unaddressed : std_logic;
-	signal T_unaddressed : std_logic;
-	signal unaddressed : std_logic;
+	signal TE_addressed : boolean;
+	signal T_addressed : boolean;
+	signal addressed : boolean;
+	signal TE_unaddressed : boolean;
+	signal T_unaddressed : boolean;
+	signal unaddressed : boolean;
 	
 begin
  
@@ -61,15 +61,17 @@ begin
 	talker_state_p2 <= talker_state_p2_buffer;
 	talker_state_p3 <= talker_state_p3_buffer;
 	
-	T_addressed <= not IFC and MTA and acceptor_handshake_state = ACDS;		
-	TE_addressed <= not IFC and MSA and talker_state_p2_buffer = TPAS and acceptor_handshake_state = ACDS;		
-	addressed <= (not IFC and ton) or ((enable_secondary_addressing and TE_addressed) or
-		(not enable_secondary_addressing and T_addressed));
+	T_addressed <= to_bit(IFC) = '0' and to_bit(MTA) = '1' and acceptor_handshake_state = ACDS;	
+	TE_addressed <= to_bit(IFC) = '0' and to_bit(MSA) = '1' and talker_state_p2_buffer = TPAS and acceptor_handshake_state = ACDS;
+	addressed <= (to_bit(IFC) = '0' and to_bit(ton) = '1') or ((to_bit(enable_secondary_addressing) = '1' and TE_addressed) or
+		(to_bit(enable_secondary_addressing) = '0' and T_addressed));
 
-	T_unaddressed <= OTA or MLA;
-	TE_unaddressed <= OTA or (OSA and talker_state_p2 = TPAS) or (MSA and listener_state = LPAS);
-	unaddressed <= acceptor_handshake_state = ACDS and ((enable_secondary_addressing and TE_unaddressed) or
-		(not enable_secondary_addressing and T_unaddressed));
+	T_unaddressed <= to_bit(OTA or MLA) = '1';
+	TE_unaddressed <= to_bit(OTA) = '1' or 
+		(to_bit(OSA) = '1' and talker_state_p2_buffer = TPAS) or (to_bit(MSA) = '1' and listener_state_p2 = LPAS);
+	unaddressed <= acceptor_handshake_state = ACDS and 
+		((to_bit(enable_secondary_addressing) = '1' and TE_unaddressed) or
+		(to_bit(enable_secondary_addressing) = '0' and T_unaddressed));
 
 	
 	process(pon, clock) begin
@@ -101,7 +103,7 @@ begin
 				when TADS =>
 					if unaddressed then
 						talker_state_p1_buffer <= TIDS;
-					elsif not ATN then
+					elsif to_bit(ATN) = '0' then
 						if talker_state_p3_buffer /= SPMS then
 							talker_state_p1_buffer <= TACS;
 						else
@@ -113,29 +115,33 @@ begin
 					RQS <= 'L';
 					NUL <= 'H';
 				when TACS =>
-					if ATN then
+					if to_bit(ATN) = '1' then
 						talker_state_p1_buffer <= TADS;
 					end if;
 					END_msg <= 'Z';
 					RQS <= 'L';
 					NUL <= 'Z';
 				when SPAS =>
-					if ATN then
+					if to_bit(ATN) = '1' then
 						talker_state_p1_buffer <= TADS;
 					end if;
 					END_msg <= '0';
-					RQS <= service_request_state = APRS;
+					if service_request_state = APRS then
+						RQS <= '1';
+					else
+						RQS <= '0';
+					end if;
 					NUL <= 'Z';
 			end case;
 
 			-- part 2 state machine
 			case talker_state_p2_buffer is
 				when TPIS =>
-					if MTA and acceptor_handshake_state = ACDS then
+					if to_bit(MTA) = '1' and acceptor_handshake_state = ACDS then
 						talker_state_p2_buffer <= TPAS;
 					end if;
 				when TPAS =>
-					if PCG and not MTA and acceptor_handshake_state = ACDS then
+					if to_bit(PCG) = '1' and to_bit(MTA) = '0' and acceptor_handshake_state = ACDS then
 						talker_state_p2_buffer <= TPIS;
 					end if;
 			end case;
@@ -143,18 +149,18 @@ begin
 			-- part 3 state machine
 			case talker_state_p3_buffer is
 				when SPIS =>
-					if not IFC and SPE and acceptor_handshake_state = ACDS then
+					if to_bit(not IFC and SPE) = '1' and acceptor_handshake_state = ACDS then
 						talker_state_p3_buffer <= SPMS;
 					end if;
 				when SPMS =>
-					if SPD and acceptor_handshake_state = ACDS then
+					if to_bit(SPD) = '1' and acceptor_handshake_state = ACDS then
 						talker_state_p3_buffer <= SPIS;
 					end if;
 			end case;
 
 			if to_bit(IFC) = '1' then
-				talker_state_p1 <= TIDS;
-				talker_state_p3 <= SPIS;
+				talker_state_p1_buffer <= TIDS;
+				talker_state_p3_buffer <= SPIS;
 			end if;
 
 		end if;

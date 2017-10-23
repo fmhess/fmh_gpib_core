@@ -13,28 +13,6 @@ entity interface_function_SH_testbench is
 end interface_function_SH_testbench;
      
 architecture behav of interface_function_SH_testbench is
-	component interface_function_SH
-		port(
-			clock : in std_logic;
-			talker_state_p1 : in TE_state_p1;
-			controller_state_p1 : in C_state_p1;
-			ATN : in std_logic;
-			NDAC : in std_logic;
-			NRFD : in std_logic;
-			nba : in std_logic;
-			pon : in std_logic;
-			first_T1_terminal_count : in std_logic_vector (15 downto 0);
-			T1_terminal_count : in std_logic_vector (15 downto 0);
-			check_for_listeners : in std_logic;
-
-			source_handshake_state : out SH_state;
-			old_source_handshake_state : out SH_state;
-			DAV : out std_logic;
-			no_listeners : out std_logic
-		);
-	end component;
-
-	for my_SH: interface_function_SH use entity work.interface_function_SH;
 	signal clock : std_logic;
 	signal talker_state_p1 : TE_state_p1;
 	signal controller_state_p1 : C_state_p1;
@@ -56,7 +34,7 @@ architecture behav of interface_function_SH_testbench is
 	shared variable test_finished : boolean := false;
 
 	begin
-	my_SH: interface_function_SH 
+	my_SH : entity work.interface_function_SH
 		port map (
 			clock => clock,
 			talker_state_p1 => talker_state_p1,
