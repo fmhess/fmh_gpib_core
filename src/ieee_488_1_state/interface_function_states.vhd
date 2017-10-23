@@ -16,5 +16,6 @@ package interface_function_states is
 	type C_state_p5 is (SIIS, SIAS, SINS);
 	type AH_state is (AIDS, ANRS, ACRS, ACDS, AWNC);
 	type L_state is (LIDS, LADS, LACS);
+	type SR_state is (NPRS, SRQS, APRS);
 
 end interface_function_states;

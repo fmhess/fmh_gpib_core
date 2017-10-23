@@ -62,7 +62,7 @@ begin
 			no_listeners <= '0';
 			old_source_handshake_state <= source_handshake_state_buffer;
 			
-			case source_handshake_state is
+			case source_handshake_state_buffer is
 				when SIDS =>
 					if active then
 						source_handshake_state_buffer <= SGNS;
