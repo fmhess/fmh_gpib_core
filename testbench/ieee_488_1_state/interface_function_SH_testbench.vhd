@@ -17,8 +17,8 @@ architecture behav of interface_function_SH_testbench is
 	signal talker_state_p1 : TE_state_p1;
 	signal controller_state_p1 : C_state_p1;
 	signal ATN : std_logic;
-	signal NDAC : std_logic;
-	signal NRFD : std_logic;
+	signal DAC : std_logic;
+	signal RFD : std_logic;
 	signal nba : std_logic;
 	signal pon : std_logic;
 	signal first_T1_terminal_count : std_logic_vector (15 downto 0);
@@ -40,8 +40,8 @@ architecture behav of interface_function_SH_testbench is
 			talker_state_p1 => talker_state_p1,
 			controller_state_p1 => controller_state_p1,
 			ATN => ATN,
-			NDAC => NDAC,
-			NRFD => NRFD,
+			DAC => DAC,
+			RFD => RFD,
 			nba => nba,
 			pon => pon,
 			first_T1_terminal_count => first_T1_terminal_count,
@@ -69,8 +69,8 @@ architecture behav of interface_function_SH_testbench is
 	begin
 		pon <= '0';
 		ATN <= 'L';
-		NDAC <= 'L';
-		NRFD <= 'L';
+		DAC <= 'H';
+		RFD <= 'H';
 		nba <= '0';
 		
 		
@@ -115,14 +115,22 @@ architecture behav of interface_function_SH_testbench is
 		wait until rising_edge(clock);
 		assert no_listeners = '0';
 		assert DAV = '0';
-		NDAC <= '1';
-		
+
+		-- make sure RFD holdoff works
+		DAC <= '0';
+		RFD <= '0';
+		for i in 1 to 3 loop
+			wait until rising_edge(clock);
+		end loop;
+		assert source_handshake_state = SDYS;
+
+		RFD <= 'H';
 		for i in 1 to 3 loop
 			wait until rising_edge(clock);
 		end loop;
 		assert source_handshake_state = STRS;
 		assert DAV = '1';
-		NDAC <= 'L';
+		DAC <= 'H';
 		
 		wait until rising_edge(clock);
 		for i in 1 to 3 loop
@@ -217,7 +225,7 @@ architecture behav of interface_function_SH_testbench is
 		ATN <= 'L';
 		talker_state_p1 <= SPAS;
 		check_for_listeners <= '1';
-		NDAC <= '1';
+		DAC <= '0';
 		
 		for i in 1 to 3 loop
 			wait until rising_edge(clock);

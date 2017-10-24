@@ -15,8 +15,8 @@ entity interface_function_SH is
 		talker_state_p1 : in TE_state_p1;
 		controller_state_p1 : in C_state_p1;
 		ATN : in std_logic;
-		NDAC : in std_logic;
-		NRFD : in std_logic;
+		DAC : in std_logic;
+		RFD : in std_logic;
 		nba : in std_logic;
 		pon : in std_logic;
 		first_T1_terminal_count : in std_logic_vector (15 downto 0); -- longer T1 used for first cycle only
@@ -92,8 +92,8 @@ begin
 					-- transitions
 					if interrupt then
 						source_handshake_state_buffer <= SIDS;
-					elsif T1_counter_done and to_bit(NRFD) = '0' then
-						if(check_for_listeners = '0' or to_bit(NDAC) = '1') then
+					elsif T1_counter_done and to_bit(RFD) = '1' then
+						if(check_for_listeners = '0' or to_bit(DAC) = '0') then
 							first_cycle <= false;
 							source_handshake_state_buffer <= STRS;
 						elsif (no_listeners_reported = false) then
@@ -105,7 +105,7 @@ begin
 				when STRS =>
 					if interrupt then
 						source_handshake_state_buffer <= SIWS;
-					elsif to_bit(NDAC) = '0' then
+					elsif to_bit(DAC) = '1' then
 						source_handshake_state_buffer <= SWNS;
 					end if;
 					DAV <= '1';

@@ -120,7 +120,7 @@ begin
 					end if;
 					END_msg <= 'Z';
 					RQS <= 'L';
-					NUL <= 'Z';
+					NUL <= '0';
 				when SPAS =>
 					if to_bit(ATN) = '1' then
 						talker_state_p1_buffer <= TADS;
@@ -131,7 +131,7 @@ begin
 					else
 						RQS <= '0';
 					end if;
-					NUL <= 'Z';
+					NUL <= '0';
 			end case;
 
 			-- part 2 state machine
