@@ -68,7 +68,7 @@ architecture behav of interface_function_AH_testbench is
 		ATN <= 'L';
 		DAV <= 'L';
 		pon <= '0';
-		rdy <= '1';
+		rdy <= '0';
 		tcs <= '0';
 		
 		wait until rising_edge(clock);
@@ -83,6 +83,55 @@ architecture behav of interface_function_AH_testbench is
 		assert RFD = 'H';
 		assert DAC = 'H';
 
+		listener_state_p1 <= LACS;
+
+		wait_for_ticks(3);
+		assert acceptor_handshake_state = ANRS;
+		
+		-- accept a data byte
+		
+		rdy <= '1';
+		wait_for_ticks(3);
+		assert acceptor_handshake_state = ACRS;
+
+		DAV <= '1';
+		wait_for_ticks(3);
+		assert acceptor_handshake_state = ACDS;
+		
+		rdy <= '0';
+		wait_for_ticks(3);
+		assert acceptor_handshake_state = AWNS;
+
+		DAV <= 'L';
+		wait_for_ticks(3);
+		assert acceptor_handshake_state = ANRS;
+
+		-- accept a command byte
+
+		ATN <= '1';
+		wait_for_ticks(3);
+		assert acceptor_handshake_state = ACRS;
+		
+		DAV <= '1';
+		wait_for_ticks(2);
+		assert acceptor_handshake_state = ACDS;
+		wait_for_ticks(1);
+		assert acceptor_handshake_state = AWNS;
+
+		DAV <= 'L';
+		wait_for_ticks(2);
+		assert acceptor_handshake_state = ANRS;
+		wait_for_ticks(1);
+		assert acceptor_handshake_state = ACRS;
+
+		ATN <= 'L';
+		rdy <= '0';
+		wait_for_ticks(3);
+		assert acceptor_handshake_state = ANRS;
+
+		listener_state_p1 <= LIDS;
+		wait_for_ticks(3);
+		assert acceptor_handshake_state = AIDS;
 		
 		wait until rising_edge(clock);
 		assert false report "end of test" severity note;
