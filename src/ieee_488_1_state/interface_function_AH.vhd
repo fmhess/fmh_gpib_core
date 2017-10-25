@@ -76,7 +76,7 @@ begin
 					RFD <= 'H';
 					DAC <= '0';
 				when ACDS =>
-					if (to_bit(rdy) = '0' and to_bit(ATN) = '0') or to_bit(T3_rdy) = '1' and to_bit(ATN) = '1') then
+					if (to_bit(rdy) = '0' and to_bit(ATN) = '0') or (to_bit(T3_rdy) = '1' and to_bit(ATN) = '1') then
 						acceptor_handshake_state_buffer <= AWNS;
 					elsif to_bit(DAV) = '0' then
 						acceptor_handshake_state_buffer <= ACRS;
