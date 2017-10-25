@@ -32,9 +32,6 @@ architecture behav of interface_function_TE_testbench is
 	signal talker_state_p1 : TE_state_p1;
 	signal talker_state_p2 : TE_state_p2;
 	signal talker_state_p3 : TE_state_p3;
-	signal old_talker_state_p1 : TE_state_p1;
-	signal old_talker_state_p2 : TE_state_p2;
-	signal old_talker_state_p3 : TE_state_p3;
 	signal END_msg : std_logic;
 	signal RQS : std_logic;
 	signal NUL : std_logic;
@@ -66,9 +63,6 @@ architecture behav of interface_function_TE_testbench is
 			talker_state_p1 => talker_state_p1,
 			talker_state_p2 => talker_state_p2,
 			talker_state_p3 => talker_state_p3,
-			old_talker_state_p1 => old_talker_state_p1,
-			old_talker_state_p2 => old_talker_state_p2,
-			old_talker_state_p3 => old_talker_state_p3,
 			END_msg => END_msg,
 			RQS => RQS,
 			NUL => NUL
@@ -127,9 +121,7 @@ architecture behav of interface_function_TE_testbench is
 		ton <= '1';
 		wait_for_ticks( 2 );
 		assert talker_state_p1 = TADS;
-		assert old_talker_state_p1 = TIDS;
 		wait until rising_edge(clock);
-		assert old_talker_state_p1 = TADS;
 		assert talker_state_p1 = TACS;
 		
 		ATN <= '1';

@@ -32,10 +32,6 @@ entity interface_function_TE is
 		talker_state_p1 : out TE_state_p1;
 		talker_state_p2 : out TE_state_p2;
 		talker_state_p3 : out TE_state_p3;
-		-- state from previous clock cycle, allows external code to trigger on arbitrary state transition
-		old_talker_state_p1 : out TE_state_p1;
-		old_talker_state_p2 : out TE_state_p2;
-		old_talker_state_p3 : out TE_state_p3;
 		END_msg : out std_logic;
 		RQS : out std_logic;
 		NUL : out std_logic
@@ -77,19 +73,13 @@ begin
 	process(pon, clock) begin
 		if pon = '1' then
 			talker_state_p1_buffer <= TIDS;
-			old_talker_state_p1 <= TIDS;
 			talker_state_p2_buffer <= TPIS;
-			old_talker_state_p2 <= TPIS;
 			talker_state_p3_buffer <= SPIS;
-			old_talker_state_p3 <= SPIS;
 			END_msg <= 'L';
 			RQS <= 'L';
 			NUL <= 'H';
 		elsif rising_edge(clock) then
-			old_talker_state_p1 <= talker_state_p1_buffer;
-			old_talker_state_p2 <= talker_state_p2_buffer;
-			old_talker_state_p3 <= talker_state_p3_buffer;
-			
+
 			-- part 1 state machine
 			case talker_state_p1_buffer is
 				when TIDS =>

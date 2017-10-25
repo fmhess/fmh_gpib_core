@@ -24,8 +24,6 @@ entity interface_function_SH is
 		check_for_listeners : in std_logic; -- do optional check in SDYS for listeners
 
 		source_handshake_state : out SH_state;
-		-- state from previous clock cycle, allows external code to trigger on arbitrary state transition
-		old_source_handshake_state : out SH_state; 
 		DAV : out std_logic;
 		no_listeners : out std_logic -- pulses true during SDYS if no listeners are detected at end of T1 delay
 	);
@@ -53,14 +51,12 @@ begin
 	process(pon, clock) begin
 		if pon = '1' then
 			source_handshake_state_buffer <= SIDS;
-			old_source_handshake_state <= SIDS;
 			DAV <= 'L';
 			no_listeners <= '0';
 		elsif rising_edge(clock) then
 			-- no_listeners only pulses high for 1 clock so clear it.  no_listeners may
 			-- be set high (for a cycle) later in this process.
 			no_listeners <= '0';
-			old_source_handshake_state <= source_handshake_state_buffer;
 			
 			case source_handshake_state_buffer is
 				when SIDS =>

@@ -18,11 +18,8 @@ entity interface_function_AH is
 		pon : in std_logic;
 		rdy : in std_logic;
 		tcs : in std_logic;
-		T3 : in std_logic;
 		
 		acceptor_handshake_state : out AH_state;
-		-- state from previous clock cycle, allows external code to trigger on arbitrary state transition
-		old_acceptor_handshake_state : out AH_state;
 		RFD : out std_logic;
 		DAC : out std_logic
 	);
@@ -34,7 +31,11 @@ architecture interface_function_AH_arch of interface_function_AH is
 	signal acceptor_handshake_state_buffer : AH_state;
 	signal addressed : boolean;
 	-- state of rdy on previous clock cycle.  rdy is not allowed to transition false during ACRS
-	signal old_rdy : std_logic; 
+	signal old_rdy : std_logic;
+	-- we only need to stay in ACDS 1 cycle to successfully read a command byte, so we hard
+	-- code T3 to always be satisfied.  Really, T3_rdy is only here to document that
+	-- we haven't overlooked it from the standard.
+	constant T3_rdy : std_logic := '1';
 begin
  
 	acceptor_handshake_state <= acceptor_handshake_state_buffer;
@@ -43,11 +44,9 @@ begin
 	process(pon, clock) begin
 		if pon = '1' then
 			acceptor_handshake_state_buffer <= AIDS;
-			old_acceptor_handshake_state_buffer <= AIDS;
 			RFD <= 'H';
 			DAC <= 'H';
 		elsif rising_edge(clock) then
-			old_acceptor_handshake_state <= acceptor_handshake_state_buffer;
 			old_rdy <= rdy;
 			
 			case acceptor_handshake_state_buffer is
@@ -77,7 +76,7 @@ begin
 					RFD <= 'H';
 					DAC <= '0';
 				when ACDS =>
-					if (to_bit(rdy) = '0' and to_bit(ATN) = '0') or to_bit(T3) = '1' and to_bit(ATN) = '1') then
+					if (to_bit(rdy) = '0' and to_bit(ATN) = '0') or to_bit(T3_rdy) = '1' and to_bit(ATN) = '1') then
 						acceptor_handshake_state_buffer <= AWNS;
 					elsif to_bit(DAV) = '0' then
 						acceptor_handshake_state_buffer <= ACRS;
