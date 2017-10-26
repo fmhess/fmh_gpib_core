@@ -44,8 +44,6 @@ begin
 	process(pon, clock) begin
 		if pon = '1' then
 			acceptor_handshake_state_buffer <= AIDS;
-			RFD <= 'H';
-			DAC <= 'H';
 		elsif rising_edge(clock) then
 			old_rdy <= rdy;
 			
@@ -54,16 +52,12 @@ begin
 					if to_bit(ATN) = '1' or addressed  then
 						acceptor_handshake_state_buffer <= ANRS;
 					end if;
-					RFD <= 'H';
-					DAC <= 'H';
 				when ANRS =>
 					if ((to_bit(ATN) = '1' and to_bit(DAV) = '0') or to_bit(rdy) = '1') and to_bit(tcs) = '0' then
 						acceptor_handshake_state_buffer <= ACRS;
 					elsif to_bit(DAV) = '1' then
 						acceptor_handshake_state_buffer <= AWNS;
 					end if;
-					RFD <= '0';
-					DAC <= '0';
 				when ACRS =>
 					if to_bit(DAV) = '1' then
 						acceptor_handshake_state_buffer <= ACDS;
@@ -73,28 +67,48 @@ begin
 					if to_bit(old_rdy) = '1' and to_bit(rdy) = '0' then
 						assert false report "rdy is not permitted to transition false during ACRS.";
 					end if;
-					RFD <= 'H';
-					DAC <= '0';
 				when ACDS =>
 					if (to_bit(rdy) = '0' and to_bit(ATN) = '0') or (to_bit(T3_rdy) = '1' and to_bit(ATN) = '1') then
 						acceptor_handshake_state_buffer <= AWNS;
 					elsif to_bit(DAV) = '0' then
 						acceptor_handshake_state_buffer <= ACRS;
 					end if;
-					RFD <= '0';
-					DAC <= '0';
 				when AWNS =>
 					if to_bit(DAV) = '0' then
 						acceptor_handshake_state_buffer <= ANRS;
 					end if;
-					RFD <= '0';
-					DAC <= 'H';
 			end case;
 
 			if to_bit(ATN) = '0' and not addressed then
 				acceptor_handshake_state_buffer <= AIDS;
 			end if;
 
+		end if;
+	end process;
+
+	-- set local message outputs as soon as state changes for low latency
+	process(pon, acceptor_handshake_state_buffer) begin
+		if pon = '1' then
+			RFD <= 'H';
+			DAC <= 'H';
+		elsif acceptor_handshake_state_buffer'EVENT then
+			case acceptor_handshake_state_buffer is
+				when AIDS =>
+					RFD <= 'H';
+					DAC <= 'H';
+				when ANRS =>
+					RFD <= '0';
+					DAC <= '0';
+				when ACRS =>
+					RFD <= 'H';
+					DAC <= '0';
+				when ACDS =>
+					RFD <= '0';
+					DAC <= '0';
+				when AWNS =>
+					RFD <= '0';
+					DAC <= 'H';
+			end case;
 		end if;
 	end process;
 end interface_function_AH_arch;

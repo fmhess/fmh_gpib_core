@@ -75,9 +75,6 @@ begin
 			talker_state_p1_buffer <= TIDS;
 			talker_state_p2_buffer <= TPIS;
 			talker_state_p3_buffer <= SPIS;
-			END_msg <= 'L';
-			RQS <= 'L';
-			NUL <= 'H';
 		elsif rising_edge(clock) then
 
 			-- part 1 state machine
@@ -86,10 +83,6 @@ begin
 					if addressed then
 						talker_state_p1_buffer <= TADS;
 					end if;
-					
-					END_msg <= 'L';
-					RQS <= 'L';
-					NUL <= 'H';
 				when TADS =>
 					if unaddressed then
 						talker_state_p1_buffer <= TIDS;
@@ -100,28 +93,14 @@ begin
 							talker_state_p1_buffer <= SPAS;
 						end if;
 					end if;
-					
-					END_msg <= 'L';
-					RQS <= 'L';
-					NUL <= 'H';
 				when TACS =>
 					if to_bit(ATN) = '1' then
 						talker_state_p1_buffer <= TADS;
 					end if;
-					END_msg <= 'Z';
-					RQS <= 'L';
-					NUL <= '0';
 				when SPAS =>
 					if to_bit(ATN) = '1' then
 						talker_state_p1_buffer <= TADS;
 					end if;
-					END_msg <= '0';
-					if service_request_state = APRS then
-						RQS <= '1';
-					else
-						RQS <= '0';
-					end if;
-					NUL <= '0';
 			end case;
 
 			-- part 2 state machine
@@ -155,4 +134,39 @@ begin
 
 		end if;
 	end process;
+	
+	-- set local message outputs as soon as state changes for low latency
+	process(pon, talker_state_p1_buffer) begin
+		if pon = '1' then
+			END_msg <= 'L';
+			RQS <= 'L';
+			NUL <= 'H';
+		elsif talker_state_p1_buffer'EVENT then
+
+			-- part 1 state machine
+			case talker_state_p1_buffer is
+				when TIDS =>
+					END_msg <= 'L';
+					RQS <= 'L';
+					NUL <= 'H';
+				when TADS =>
+					END_msg <= 'L';
+					RQS <= 'L';
+					NUL <= 'H';
+				when TACS =>
+					END_msg <= 'Z';
+					RQS <= 'L';
+					NUL <= '0';
+				when SPAS =>
+					END_msg <= '0';
+					if service_request_state = APRS then
+						RQS <= '1';
+					else
+						RQS <= '0';
+					end if;
+					NUL <= '0';
+			end case;
+		end if;
+	end process;
+
 end interface_function_TE_arch;

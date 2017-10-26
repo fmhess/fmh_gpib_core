@@ -51,7 +51,6 @@ begin
 	process(pon, clock) begin
 		if pon = '1' then
 			source_handshake_state_buffer <= SIDS;
-			DAV <= 'L';
 			no_listeners <= '0';
 		elsif rising_edge(clock) then
 			-- no_listeners only pulses high for 1 clock so clear it.  no_listeners may
@@ -64,7 +63,6 @@ begin
 						source_handshake_state_buffer <= SGNS;
 					end if;
 					first_cycle <= true;
-					DAV <= 'L';
 				when SGNS =>
 					if nba = '1' then
 						T1_current_count <= to_unsigned(0, T1_current_count'length);
@@ -74,7 +72,6 @@ begin
 					elsif interrupt then
 						source_handshake_state_buffer <= SIDS;
 					end if;
-					DAV <= '0';
 				when SDYS =>
 					-- check if T1 delay is done
 					if (first_cycle and T1_current_count >= 
@@ -97,21 +94,18 @@ begin
 							no_listeners_reported <= true;
 						end if;
 					end if;
-					DAV <= '0';
 				when STRS =>
 					if interrupt then
 						source_handshake_state_buffer <= SIWS;
 					elsif to_bit(DAC) = '1' then
 						source_handshake_state_buffer <= SWNS;
 					end if;
-					DAV <= '1';
 				when SWNS =>
 					if nba = '0' then
 						source_handshake_state_buffer <= SGNS;
 					elsif interrupt then
 						source_handshake_state_buffer <= SIWS;
 					end if;
-					DAV <= '0';
 				when SIWS =>
 					if nba = '0' then
 						source_handshake_state_buffer <= SIDS;
@@ -119,8 +113,30 @@ begin
 						source_handshake_state_buffer <= SWNS;
 					end if;
 					first_cycle <= true;
+			end case;
+		end if;
+	end process;
+
+	-- set local message outputs as soon as state changes for low latency
+	process(pon, source_handshake_state_buffer) begin
+		if pon = '1' then
+			DAV <= 'L';
+		elsif source_handshake_state_buffer'EVENT then
+			case source_handshake_state_buffer is
+				when SIDS =>
+					DAV <= 'L';
+				when SGNS =>
+					DAV <= '0';
+				when SDYS =>
+					DAV <= '0';
+				when STRS =>
+					DAV <= '1';
+				when SWNS =>
+					DAV <= '0';
+				when SIWS =>
 					DAV <= 'L';
 			end case;
 		end if;
 	end process;
+	
 end interface_function_SH_arch;
