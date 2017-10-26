@@ -136,37 +136,30 @@ begin
 	end process;
 	
 	-- set local message outputs as soon as state changes for low latency
-	process(pon, talker_state_p1_buffer) begin
-		if pon = '1' then
-			END_msg <= 'L';
-			RQS <= 'L';
-			NUL <= 'H';
-		elsif talker_state_p1_buffer'EVENT then
-
-			-- part 1 state machine
-			case talker_state_p1_buffer is
-				when TIDS =>
-					END_msg <= 'L';
-					RQS <= 'L';
-					NUL <= 'H';
-				when TADS =>
-					END_msg <= 'L';
-					RQS <= 'L';
-					NUL <= 'H';
-				when TACS =>
-					END_msg <= 'Z';
-					RQS <= 'L';
-					NUL <= '0';
-				when SPAS =>
-					END_msg <= '0';
-					if service_request_state = APRS then
-						RQS <= '1';
-					else
-						RQS <= '0';
-					end if;
-					NUL <= '0';
-			end case;
-		end if;
+	process(talker_state_p1_buffer) begin
+		-- part 1 state machine
+		case talker_state_p1_buffer is
+			when TIDS =>
+				END_msg <= 'L';
+				RQS <= 'L';
+				NUL <= 'H';
+			when TADS =>
+				END_msg <= 'L';
+				RQS <= 'L';
+				NUL <= 'H';
+			when TACS =>
+				END_msg <= 'Z';
+				RQS <= 'L';
+				NUL <= '0';
+			when SPAS =>
+				END_msg <= '0';
+				if service_request_state = APRS then
+					RQS <= '1';
+				else
+					RQS <= '0';
+				end if;
+				NUL <= '0';
+		end case;
 	end process;
 
 end interface_function_TE_arch;

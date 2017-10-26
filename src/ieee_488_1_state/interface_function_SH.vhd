@@ -118,25 +118,21 @@ begin
 	end process;
 
 	-- set local message outputs as soon as state changes for low latency
-	process(pon, source_handshake_state_buffer) begin
-		if pon = '1' then
-			DAV <= 'L';
-		elsif source_handshake_state_buffer'EVENT then
-			case source_handshake_state_buffer is
-				when SIDS =>
-					DAV <= 'L';
-				when SGNS =>
-					DAV <= '0';
-				when SDYS =>
-					DAV <= '0';
-				when STRS =>
-					DAV <= '1';
-				when SWNS =>
-					DAV <= '0';
-				when SIWS =>
-					DAV <= 'L';
-			end case;
-		end if;
+	process(source_handshake_state_buffer) begin
+		case source_handshake_state_buffer is
+			when SIDS =>
+				DAV <= 'L';
+			when SGNS =>
+				DAV <= '0';
+			when SDYS =>
+				DAV <= '0';
+			when STRS =>
+				DAV <= '1';
+			when SWNS =>
+				DAV <= '0';
+			when SIWS =>
+				DAV <= 'L';
+		end case;
 	end process;
 	
 end interface_function_SH_arch;

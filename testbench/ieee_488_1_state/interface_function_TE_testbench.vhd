@@ -116,6 +116,7 @@ architecture behav of interface_function_TE_testbench is
 		wait until rising_edge(clock);
 		
 		assert talker_state_p1 = TIDS;
+		assert talker_state_p2 = TPIS;
 		assert talker_state_p3 = SPIS;
 
 		ton <= '1';

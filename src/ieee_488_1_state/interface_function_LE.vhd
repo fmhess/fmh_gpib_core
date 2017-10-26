@@ -19,15 +19,17 @@ entity interface_function_LE is
 		IFC : in std_logic;
 		pon : in std_logic;
 		ltn : in std_logic;
+		lon : in std_logic;
 		lun : in std_logic;
 		UNL : in std_logic;
 		MLA : in std_logic;
 		MSA : in std_logic;
 		PCG : in std_logic;
+		MTA : in std_logic;
 		enable_secondary_addressing : in std_logic; -- true for extended listener LE, false for listener L
 		
 		listener_state_p1 : out LE_state_p1;
-		listener_state_p2 : out LE_state_p2;
+		listener_state_p2 : out LE_state_p2
 	);
  
 end interface_function_LE;
@@ -48,15 +50,12 @@ begin
 	listener_state_p1 <= listener_state_p1_buffer;
 	listener_state_p2 <= listener_state_p2_buffer;
 	
-	L_addressed <= to_bit(IFC) = '0' and 
-		((to_bit(ltn) and controller_state_p1 = CACS) or
-		(to_bit(MLA) = '1' and acceptor_handshake_state = ACDS));	
-	LE_addressed <= to_bit(IFC) = '0' and 
-		(to_bit(lon) = '1' or 
-		(to_bit(ltn) = '1' and controller_state_p1 = CACS) or 
-		(to_bit(MSA) = '1' and listener_state_p2_buffer = LPAS and acceptor_handshake_state = ACDS));
-	addressed <= (to_bit(enable_secondary_addressing) = '1' and LE_addressed) or
-		(to_bit(enable_secondary_addressing) = '0' and L_addressed);
+	L_addressed <= (to_bit(MLA) = '1' and acceptor_handshake_state = ACDS);	
+	LE_addressed <= (to_bit(MSA) = '1' and listener_state_p2_buffer = LPAS and acceptor_handshake_state = ACDS);
+	addressed <= to_bit(IFC) = '0' and (to_bit(lon) = '1' or
+		(to_bit(ltn) = '1' and controller_state_p1 = CACS) or
+		(to_bit(enable_secondary_addressing) = '1' and LE_addressed) or
+		(to_bit(enable_secondary_addressing) = '0' and L_addressed));
 
 	L_unaddressed <= to_bit(MTA) = '1' and acceptor_handshake_state = ACDS;
 	LE_unaddressed <= to_bit(MSA) = '1' and acceptor_handshake_state = ACDS and talker_state_p2 = TPAS;
@@ -73,7 +72,7 @@ begin
 		elsif rising_edge(clock) then
 
 			-- part 1 state machine
-			case talker_state_p1_buffer is
+			case listener_state_p1_buffer is
 				when LIDS =>
 					if addressed then
 						listener_state_p1_buffer <= LADS;
@@ -91,7 +90,7 @@ begin
 			end case;
 
 			-- part 2 state machine
-			case listener_state_p1_buffer is
+			case listener_state_p2_buffer is
 				when LPIS =>
 					if to_bit(MLA) = '1' and acceptor_handshake_state = ACDS then
 						listener_state_p2_buffer <= LPAS;

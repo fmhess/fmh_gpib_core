@@ -87,28 +87,23 @@ begin
 	end process;
 
 	-- set local message outputs as soon as state changes for low latency
-	process(pon, acceptor_handshake_state_buffer) begin
-		if pon = '1' then
-			RFD <= 'H';
-			DAC <= 'H';
-		elsif acceptor_handshake_state_buffer'EVENT then
-			case acceptor_handshake_state_buffer is
-				when AIDS =>
-					RFD <= 'H';
-					DAC <= 'H';
-				when ANRS =>
-					RFD <= '0';
-					DAC <= '0';
-				when ACRS =>
-					RFD <= 'H';
-					DAC <= '0';
-				when ACDS =>
-					RFD <= '0';
-					DAC <= '0';
-				when AWNS =>
-					RFD <= '0';
-					DAC <= 'H';
-			end case;
-		end if;
+	process(acceptor_handshake_state_buffer) begin
+		case acceptor_handshake_state_buffer is
+			when AIDS =>
+				RFD <= 'H';
+				DAC <= 'H';
+			when ANRS =>
+				RFD <= '0';
+				DAC <= '0';
+			when ACRS =>
+				RFD <= 'H';
+				DAC <= '0';
+			when ACDS =>
+				RFD <= '0';
+				DAC <= '0';
+			when AWNS =>
+				RFD <= '0';
+				DAC <= 'H';
+		end case;
 	end process;
 end interface_function_AH_arch;
