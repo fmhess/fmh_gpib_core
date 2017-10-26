@@ -1,0 +1,9 @@
+fmh_gpib_core is a GPIB core written in VHDL.
+The underlying GPIB logic is separated from the register interface 
+so that multiple front end register layouts may be implemented on top
+of the common core.
+
+This package is copyright Frank Mori Hess 2017, all rights reserved.
+If you wish to obtain a license to use this code, contact the author:
+Frank Mori Hess fmh6jj@gmail.com .
+
