@@ -26,6 +26,7 @@ architecture interface_function_DC_arch of interface_function_DC is
 
 	signal device_clear_state_buffer : DC_state;
 	signal device_clear_message : boolean;
+	
 begin
 
 	device_clear_message <= (to_bit(DCL) = '1' or (to_bit(SDC) = '1' and listener_state_p1 = LADS)) and 

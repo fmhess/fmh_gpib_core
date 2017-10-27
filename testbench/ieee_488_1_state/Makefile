@@ -7,6 +7,15 @@ all: interface_function_LE_testbench.fst \
 	interface_function_RL_testbench.fst \
 	interface_function_SR_testbench.fst \
 	interface_function_DC_testbench.fst \
+	interface_function_DT_testbench.fst
+
+DT_TEST_SRC = ../../src/ieee_488_1_state/interface_function_states.vhd \
+	../../src/ieee_488_1_state/interface_function_DT.vhd \
+	interface_function_DT_testbench.vhd
+interface_function_DT_testbench.fst: $(DT_TEST_SRC)
+	nvc -a $(DT_TEST_SRC)
+	nvc -e interface_function_DT_testbench
+	nvc -r interface_function_DT_testbench --wave
 
 DC_TEST_SRC = ../../src/ieee_488_1_state/interface_function_states.vhd \
 	../../src/ieee_488_1_state/interface_function_DC.vhd \

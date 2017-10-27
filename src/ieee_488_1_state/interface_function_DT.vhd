@@ -16,19 +16,19 @@ entity interface_function_DT is
 		listener_state_p1 : in LE_state_p1;
 		GET : in std_logic;
 		
-		device_clear_state : out DC_state;
+		device_trigger_state : out DT_state
 	);
  
 end interface_function_DT;
  
 architecture interface_function_DT_arch of interface_function_DT is
 
-	signal device_trigger_state_buffer : DC_state;
+	signal device_trigger_state_buffer : DT_state;
 	signal device_trigger_message : boolean;
 begin
 
 	device_trigger_message <= to_bit(GET) = '1' and listener_state_p1 = LADS and 
-		acceptor_handshake_state = ACDS
+		acceptor_handshake_state = ACDS;
 
 	device_trigger_state <= device_trigger_state_buffer;
 
