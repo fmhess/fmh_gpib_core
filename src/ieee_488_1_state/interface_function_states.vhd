@@ -18,5 +18,6 @@ package interface_function_states is
 	type LE_state_p1 is (LIDS, LADS, LACS);
 	type LE_state_p2 is (LPIS, LPAS);
 	type SR_state is (NPRS, SRQS, APRS);
+	type RL_state is (LOCS, REMS, RWLS, LWLS);
 
 end interface_function_states;

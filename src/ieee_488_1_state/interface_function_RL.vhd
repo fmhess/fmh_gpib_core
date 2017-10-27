@@ -20,7 +20,9 @@ entity interface_function_RL is
 		LLO : in std_logic;
 		GTL : in std_logic;
 		MLA : in std_logic;
-
+		MSA : in std_logic;
+		enable_secondary_addressing : in std_logic;
+		
 		remote_local_state : out RL_state;
 	);
  
@@ -29,9 +31,13 @@ end interface_function_RL;
 architecture interface_function_RL_arch of interface_function_RL is
  
 	signal remote_local_state_buffer : RL_state;
+	signal listener_addressed : boolean;
 	
 begin
- 
+	listener_addressed <=  acceptor_handshake_state = ACDS and 
+		((to_bit(enable_secondary_addressing) = '0' and to_bit(MLA) = '1') or
+		(to_bit(enable_secondary_addressing) = '1' and to_bit(MSA) = '1' and listener_state_p1 = LPAS));
+
 	remote_local_state <= remote_local_state_buffer;
 		
 	process(pon, clock) begin
@@ -58,7 +64,7 @@ begin
 						remote_local_state_buffer <= LWLS;
 					end if;
 				when LWLS =>
-					if to_bit(MLA) = '1' and acceptor_handshake_state = ACDS then
+					if listener_addressed then
 						remote_local_state_buffer <= RWLS;
 					end if;
 			end case;
