@@ -2,7 +2,16 @@
 all: interface_function_LE_testbench.fst \
 	interface_function_TE_testbench.fst \
 	interface_function_AH_testbench.fst \
-	interface_function_SH_testbench.fst
+	interface_function_SH_testbench.fst \
+	interface_function_PP_testbench.fst \
+
+PP_TEST_SRC = ../../src/ieee_488_1_state/interface_function_states.vhd \
+	../../src/ieee_488_1_state/interface_function_PP.vhd \
+	interface_function_PP_testbench.vhd
+interface_function_PP_testbench.fst: $(PP_TEST_SRC)
+	nvc -a $(PP_TEST_SRC)
+	nvc -e interface_function_PP_testbench
+	nvc -r interface_function_PP_testbench --wave
 
 LE_TEST_SRC = ../../src/ieee_488_1_state/interface_function_states.vhd \
 	../../src/ieee_488_1_state/interface_function_LE.vhd \

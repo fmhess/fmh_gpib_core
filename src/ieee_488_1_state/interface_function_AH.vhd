@@ -34,7 +34,8 @@ architecture interface_function_AH_arch of interface_function_AH is
 	signal old_rdy : std_logic;
 	-- we only need to stay in ACDS 1 cycle to successfully read a command byte, so we hard
 	-- code T3 to always be satisfied.  Really, T3_rdy is only here to document that
-	-- we haven't overlooked it from the standard.
+	-- we haven't overlooked it from the standard.  If we implement command pass-through
+	-- for unrecognized commands we will need to turn T3_rdy into an input.
 	constant T3_rdy : std_logic := '1';
 begin
  
