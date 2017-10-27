@@ -17,7 +17,7 @@ entity interface_function_SR is
 		rsv : in std_logic;
 
 		service_request_state : out SR_state;
-		SRQ : out std_logic;
+		SRQ : out std_logic
 	);
  
 end interface_function_SR;
