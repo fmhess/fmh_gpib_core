@@ -109,6 +109,52 @@ architecture behav of interface_function_PP_testbench is
 		assert parallel_poll_state_p1 = PPIS;
 		assert parallel_poll_state_p2 = PUCS;
 
+		PPC <= '1';
+		listener_state_p1 <= LADS;
+		acceptor_handshake_state <= ACDS;
+
+		wait_for_ticks(3);
+		assert parallel_poll_state_p2 = PACS;
+		
+		ATN <= '1';
+		PPC <= '0';
+		PPE <= '1';
+		sense <= '1';
+		ist <= '1';
+		PPR_line <= "001";
+		wait_for_ticks(3);
+		assert parallel_poll_state_p1 = PPSS;
+		
+		PPE <= '0';
+		IDY <= '1';
+		wait_for_ticks(3);
+		assert parallel_poll_state_p1 = PPAS;
+		assert PPR = "LLLLLL1L";
+		
+		ATN <= 'L';
+		IDY <= '0';
+		wait_for_ticks(3);
+		assert parallel_poll_state_p1 = PPSS;
+		
+		PPU <= '1';
+		wait_for_ticks(3);
+		assert parallel_poll_state_p1 = PPIS;
+		
+		PPU <= '0';
+		ATN <= '1';
+		PPE <= '1';
+		wait_for_ticks(3);
+		assert parallel_poll_state_p1 = PPSS;
+
+		PPE <= '0';
+		PPD <= '1';
+		wait_for_ticks(3);
+		assert parallel_poll_state_p1 = PPIS;
+
+		PCG <= '1';
+		wait_for_ticks(3);
+		assert parallel_poll_state_p2 = PUCS;
+		
 		wait until rising_edge(clock);
 		assert false report "end of test" severity note;
 		test_finished := true;
