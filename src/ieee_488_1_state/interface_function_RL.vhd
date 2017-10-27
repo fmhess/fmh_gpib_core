@@ -14,6 +14,7 @@ entity interface_function_RL is
 		clock : in std_logic;
 		acceptor_handshake_state : in AH_state;
 		listener_state_p1 : in LE_state_p1;
+		listener_state_p2 : in LE_state_p2;
 		pon : in std_logic;
 		rtl : in std_logic;
 		REN : in std_logic;
@@ -23,7 +24,7 @@ entity interface_function_RL is
 		MSA : in std_logic;
 		enable_secondary_addressing : in std_logic;
 		
-		remote_local_state : out RL_state;
+		remote_local_state : out RL_state
 	);
  
 end interface_function_RL;
@@ -36,7 +37,7 @@ architecture interface_function_RL_arch of interface_function_RL is
 begin
 	listener_addressed <=  acceptor_handshake_state = ACDS and 
 		((to_bit(enable_secondary_addressing) = '0' and to_bit(MLA) = '1') or
-		(to_bit(enable_secondary_addressing) = '1' and to_bit(MSA) = '1' and listener_state_p1 = LPAS));
+		(to_bit(enable_secondary_addressing) = '1' and to_bit(MSA) = '1' and listener_state_p2 = LPAS));
 
 	remote_local_state <= remote_local_state_buffer;
 		
@@ -47,7 +48,7 @@ begin
 
 			case remote_local_state_buffer is
 				when LOCS =>
-					if to_bit(REN) = '1' and to_bit(rtl) = '0' and acceptor_handshake_state = ACDS then
+					if to_bit(REN) = '1' and to_bit(rtl) = '0' and listener_addressed then
 						remote_local_state_buffer <= REMS;
 					elsif to_bit(REN) = '1' and to_bit(LLO) = '1' and acceptor_handshake_state = ACDS then
 						remote_local_state_buffer <= LWLS;
@@ -60,7 +61,7 @@ begin
 						remote_local_state_buffer <= LOCS;
 					end if;
 				when RWLS =>
-					if to_bit(GTL) = '1' and talker_state_p1 = LADS and acceptor_handshake_state = ACDS then
+					if to_bit(GTL) = '1' and listener_state_p1 = LADS and acceptor_handshake_state = ACDS then
 						remote_local_state_buffer <= LWLS;
 					end if;
 				when LWLS =>
@@ -71,7 +72,7 @@ begin
 			
 			if to_bit(REN) = '0' then
 				remote_local_state_buffer <= LOCS;
-			end if
+			end if;
 		end if;
 	end process;
 end interface_function_RL_arch;

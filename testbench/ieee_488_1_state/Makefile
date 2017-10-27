@@ -4,6 +4,15 @@ all: interface_function_LE_testbench.fst \
 	interface_function_AH_testbench.fst \
 	interface_function_SH_testbench.fst \
 	interface_function_PP_testbench.fst \
+	interface_function_RL_testbench.fst \
+
+RL_TEST_SRC = ../../src/ieee_488_1_state/interface_function_states.vhd \
+	../../src/ieee_488_1_state/interface_function_RL.vhd \
+	interface_function_RL_testbench.vhd
+interface_function_RL_testbench.fst: $(RL_TEST_SRC)
+	nvc -a $(RL_TEST_SRC)
+	nvc -e interface_function_RL_testbench
+	nvc -r interface_function_RL_testbench --wave
 
 PP_TEST_SRC = ../../src/ieee_488_1_state/interface_function_states.vhd \
 	../../src/ieee_488_1_state/interface_function_PP.vhd \
