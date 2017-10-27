@@ -7,7 +7,16 @@ all: interface_function_LE_testbench.fst \
 	interface_function_RL_testbench.fst \
 	interface_function_SR_testbench.fst \
 	interface_function_DC_testbench.fst \
-	interface_function_DT_testbench.fst
+	interface_function_DT_testbench.fst \
+	remote_message_decoder_testbench.fst
+
+REMOTE_MESSAGE_DECODER_TEST_SRC = \
+	../../src/ieee_488_1_state/remote_message_decoder.vhd \
+	remote_message_decoder_testbench.vhd
+remote_message_decoder_testbench.fst: $(REMOTE_MESSAGE_DECODER_TEST_SRC)
+	nvc -a $(REMOTE_MESSAGE_DECODER_TEST_SRC)
+	nvc -e remote_message_decoder_testbench
+	nvc -r remote_message_decoder_testbench --wave
 
 DT_TEST_SRC = ../../src/ieee_488_1_state/interface_function_states.vhd \
 	../../src/ieee_488_1_state/interface_function_DT.vhd \
