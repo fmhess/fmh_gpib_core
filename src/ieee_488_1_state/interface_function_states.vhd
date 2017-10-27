@@ -21,5 +21,7 @@ package interface_function_states is
 	type RL_state is (LOCS, REMS, RWLS, LWLS);
 	type PP_state_p1 is (PPIS, PPSS, PPAS);
 	type PP_state_p2 is (PUCS, PACS);
+	type DC_state is (DCIS, DCAS);
+	type DT_state is (DTIS, DTAS);
 
 end interface_function_states;
