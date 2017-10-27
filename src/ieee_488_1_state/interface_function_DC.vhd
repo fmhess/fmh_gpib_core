@@ -17,7 +17,7 @@ entity interface_function_DC is
 		DCL : in std_logic;
 		SDC : in std_logic;
 		
-		device_clear_state : out DC_state;
+		device_clear_state : out DC_state
 	);
  
 end interface_function_DC;
@@ -29,7 +29,7 @@ architecture interface_function_DC_arch of interface_function_DC is
 begin
 
 	device_clear_message <= (to_bit(DCL) = '1' or (to_bit(SDC) = '1' and listener_state_p1 = LADS)) and 
-						acceptor_handshake_state = ACDS
+		acceptor_handshake_state = ACDS;
 
 	device_clear_state <= device_clear_state_buffer;
 
