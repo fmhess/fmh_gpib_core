@@ -10,6 +10,7 @@ use ieee.numeric_std.all;
 use work.interface_function_common.all;
 use work.remote_message_decoder.all;
 use work.interface_function_AH.all;
+use work.interface_function_C.all;
 use work.interface_function_DC.all;
 use work.interface_function_DT.all;
 use work.interface_function_LE.all;
@@ -364,6 +365,22 @@ begin
 			END_msg => END_msg,
 			RQS => RQS,
 			NUL => NUL
+		);
+		
+	my_C: entity work.interface_function_C
+		port map (
+			clock => clock,
+			pon => pon,
+			ATN => ATN,
+			IDY => IDY,
+			IFC => IFC,
+			REN => REN,
+			NUL => NUL,
+			controller_state_p1 => controller_state_p1_buffer,
+			controller_state_p2 => controller_state_p2_buffer,
+			controller_state_p3 => controller_state_p3_buffer,
+			controller_state_p4 => controller_state_p4_buffer,
+			controller_state_p5 => controller_state_p5_buffer
 		);
 
 	acceptor_handshake_state <= acceptor_handshake_state_buffer;
