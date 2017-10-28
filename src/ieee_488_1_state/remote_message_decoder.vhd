@@ -40,6 +40,7 @@ entity remote_message_decoder is
 		MLA : out std_logic;
 		MTA : out std_logic;
 		MSA : out std_logic;
+		NUL : out std_logic;
 		OSA : out std_logic;
 		OTA : out std_logic;
 		PCG : out std_logic;
@@ -173,12 +174,13 @@ begin
 		'0';
 	UCG <= UCG_buffer;
 		
-	UNL <= '1' when to_bitvector(bus_DIO(6 downto 0)) = "0111111" and to_bit(bus_ATN) = '1' else
+	UNL <= '1' when LAG_buffer = '1' and to_bitvector(bus_DIO(4 downto 0)) = "11111" and to_bit(bus_ATN) = '1' else
 		'0';
-	UNT <= '1' when to_bitvector(bus_DIO(6 downto 0)) = "1011111" and to_bit(bus_ATN) = '1' else
+	UNT <= '1' when TAG_buffer = '1' and to_bitvector(bus_DIO(4 downto 0)) = "11111" and to_bit(bus_ATN) = '1' else
 		'0';
 	NIC <= bus_NRFD;
 	CFE <= '1' when UCG_buffer = '1' and to_bitvector(bus_DIO(3 downto 0)) = "1111" and to_bit(bus_ATN) = '1' else
 		'0';
+	NUL <= '1' when to_bitvector(bus_DIO) = X"00" else '0';
 	
 end remote_message_decoder_arch;

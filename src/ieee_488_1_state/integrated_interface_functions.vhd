@@ -55,7 +55,9 @@ entity integrated_interface_functions is
 		first_T1_terminal_count : in std_logic_vector(15 downto 0);
 		T1_terminal_count : in std_logic_vector(15 downto 0);
 		check_for_listeners : in std_logic;
-
+		-- host should set high when it reads gpib_to_host_byte
+		gpib_to_host_byte_read : in std_logic;
+		
 		bus_DIO_out : out std_logic_vector(7 downto 0);
 		bus_REN_out : out std_logic;
 		bus_IFC_out : out std_logic;
@@ -83,14 +85,15 @@ entity integrated_interface_functions is
 		talker_state_p1 : out TE_state_p1;
 		talker_state_p2 : out TE_state_p2;
 		talker_state_p3 : out TE_state_p3;
-		no_listeners : out std_logic
+		no_listeners : out std_logic;
+		gpib_to_host_byte : out std_logic_vector(7 downto 0);
+		rdy : out std_logic
 	);
  
 end integrated_interface_functions;
  
 architecture integrated_interface_functions_arch of integrated_interface_functions is
 	signal nba : std_logic;
-	signal rdy : std_logic;
 
 	signal ACG : std_logic;
 	signal ATN : std_logic;
@@ -115,7 +118,6 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	signal PPE : std_logic;
 	signal PPE_sense : std_logic;
 	signal PPE_response_line : std_logic_vector(2 downto 0);
-	signal PPR : std_logic_vector(7 downto 0);
 	signal PPD : std_logic;
 	signal PPU : std_logic;
 	signal REN : std_logic;
@@ -134,6 +136,18 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	signal NIC : std_logic;
 	signal CFE : std_logic;
 	signal NUL : std_logic;
+	signal local_PPR : std_logic_vector(7 downto 0);
+	signal local_ATN : std_logic;
+	signal local_DAC : std_logic;
+	signal local_DAV : std_logic;
+	signal local_END : std_logic;
+	signal local_IFC : std_logic;
+	signal local_REN : std_logic;
+	signal local_RFD : std_logic;
+	signal local_RQS : std_logic;
+	signal local_SRQ : std_logic;
+	signal local_IDY : std_logic;
+	signal local_NUL : std_logic;
 
 	signal acceptor_handshake_state_buffer : AH_state;
 	signal controller_state_p1_buffer : C_state_p1;
@@ -192,6 +206,7 @@ begin
 			MSA => MSA,
 			OSA => OSA,
 			OTA => OTA,
+			NUL => NUL,
 			PCG => PCG,
 			PPC => PPC,
 			PPE => PPE,
@@ -226,8 +241,8 @@ begin
 			rdy => rdy,
 			tcs => tcs,
 			acceptor_handshake_state => acceptor_handshake_state_buffer,
-			RFD => RFD,
-			DAC => DAC
+			RFD => local_RFD,
+			DAC => local_DAC
 		);
 
 	my_DC: entity work.interface_function_DC 
@@ -289,7 +304,7 @@ begin
 			PCG => PCG,
 			local_configuration_mode => local_parallel_poll_config,
 			PPR_line => parallel_poll_response_line,
-			PPR => PPR,
+			PPR => local_PPR,
 			parallel_poll_state_p1 => parallel_poll_state_p1_buffer,
 			parallel_poll_state_p2 => parallel_poll_state_p2_buffer
 		);
@@ -326,7 +341,7 @@ begin
 			check_for_listeners => check_for_listeners,
 			
 			source_handshake_state => source_handshake_state_buffer,
-			DAV => DAV,
+			DAV => local_DAV,
 			no_listeners => no_listeners
 		);
 
@@ -337,7 +352,7 @@ begin
 			pon => pon,
 			rsv => rsv,
 			service_request_state => service_request_state_buffer,
-			SRQ => SRQ
+			SRQ => local_SRQ
 		);
 
 	my_TE: entity work.interface_function_TE 
@@ -362,20 +377,20 @@ begin
 			talker_state_p1 => talker_state_p1_buffer,
 			talker_state_p2 => talker_state_p2_buffer,
 			talker_state_p3 => talker_state_p3_buffer,
-			END_msg => END_msg,
-			RQS => RQS,
-			NUL => NUL
+			END_msg => local_END,
+			RQS => local_RQS,
+			NUL => local_NUL
 		);
 		
 	my_C: entity work.interface_function_C
 		port map (
 			clock => clock,
 			pon => pon,
-			ATN => ATN,
-			IDY => IDY,
-			IFC => IFC,
-			REN => REN,
-			NUL => NUL,
+			ATN => local_ATN,
+			IDY => local_IDY,
+			IFC => local_IFC,
+			REN => local_REN,
+			NUL => local_NUL,
 			controller_state_p1 => controller_state_p1_buffer,
 			controller_state_p2 => controller_state_p2_buffer,
 			controller_state_p3 => controller_state_p3_buffer,
@@ -417,6 +432,34 @@ begin
 		else
 			PPE_response_line;
 
-	process(clock) begin
+	bus_ATN_out <= '1' when to_bit(local_ATN) = '1' else 'L';
+	bus_DAV_out <= '1' when to_bit(local_DAV) = '1' else 'L';
+	bus_EOI_out <= '1' when to_bit(local_END or local_IDY) = '1' else 'L';
+	bus_IFC_out <= '1' when to_bit(local_IFC) = '1' else 'L';
+	bus_NDAC_out <= '1' when to_bit(not local_DAC) = '1' else 'L';
+	bus_NRFD_out <= '1' when to_bit(not local_RFD) = '1' else 'L';
+	bus_REN_out <= '1' when to_bit(local_REN) = '1' else 'L';
+	bus_SRQ_out <= '1' when to_bit(local_SRQ) = '1' else 'L';
+--	bus_DIO_out <= "LLLLLLLL" when to_bit(local_NUL) = '1' else "ZZZZZZZZ";
+
+	process(pon, clock) begin
+		if to_bit(pon) = '1' then
+			rdy <= '1';
+			gpib_to_host_byte <= "LLLLLLLL";
+		elsif rising_edge(clock) then
+		
+			-- latch byte written to us over gpib bus
+			if acceptor_handshake_state_buffer = ACDS then
+				if to_bit(ATN) = '0' then
+					rdy <= '0';
+					gpib_to_host_byte <= bus_DIO_in;
+				end if;
+			end if;
+			
+			if to_bit(gpib_to_host_byte_read) = '1' then
+				rdy <= '1';
+			end if;
+		end if;
+		
 	end process;
 end integrated_interface_functions_arch;

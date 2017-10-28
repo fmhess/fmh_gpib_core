@@ -35,13 +35,16 @@ architecture behav of integrated_interface_functions_testbench is
 	signal no_listeners : std_logic;
 	signal first_T1_terminal_count : std_logic_vector(15 downto 0);
 	signal T1_terminal_count : std_logic_vector(15 downto 0);
-
+	signal gpib_to_host_byte : std_logic_vector(7 downto 0);
+	signal gpib_to_host_byte_read : std_logic;
+	
 	signal ist : std_logic;
 	signal lon : std_logic;	
 	signal lpe : std_logic;
 	signal lun : std_logic;
 	signal ltn : std_logic;
 	signal pon : std_logic;
+	signal rdy : std_logic;
 	signal rsv : std_logic;
 	signal rtl : std_logic;
 	signal ton : std_logic;
@@ -91,9 +94,12 @@ architecture behav of integrated_interface_functions_testbench is
 			local_parallel_poll_sense => local_parallel_poll_sense,
 			local_parallel_poll_response_line => local_parallel_poll_response_line,
 			check_for_listeners => check_for_listeners,
+			gpib_to_host_byte_read => gpib_to_host_byte_read,
 			first_T1_terminal_count => first_T1_terminal_count,
 			T1_terminal_count => T1_terminal_count,
-			no_listeners => no_listeners
+			no_listeners => no_listeners,
+			gpib_to_host_byte => gpib_to_host_byte,
+			rdy => rdy
 		);
 	
 	process
@@ -117,6 +123,35 @@ architecture behav of integrated_interface_functions_testbench is
 				end loop;
 			end procedure wait_for_ticks;
 
+		-- write a byte from gpib bus to device
+		procedure gpib_write (data_byte : in std_logic_vector(7 downto 0);
+			assert_eoi : in boolean) is
+			begin
+					if (to_bit(bus_NRFD) /= '0' or to_bit(bus_NDAC) /= '1') then
+							wait until (to_bit(bus_NRFD) = '0' and to_bit(bus_NDAC) = '1');
+					end if;
+					wait for 99ns;
+					bus_DIO <= data_byte;
+					if assert_eoi then
+							bus_EOI <= '1';
+					else 
+						bus_EOI <= 'L';
+					end if;
+					wait for 499ns;
+					bus_DAV <='1';
+					if (to_bit(bus_NRFD) /= '1' or to_bit(bus_NDAC) /= '0') then
+							wait until (to_bit(bus_NRFD) = '1' and to_bit(bus_NDAC) = '0');
+					end if;
+					wait for 99ns;
+					bus_DAV <='L';
+					bus_EOI <= 'L';
+					bus_DIO <= "LLLLLLLL";
+					if (to_bit(bus_NDAC) /= '0') then
+							wait until (to_bit(bus_NDAC) = '0');
+					end if;
+					wait for 99ns;
+			end procedure gpib_write;
+
 	begin
 		bus_DIO <= "LLLLLLLL";
 		bus_REN <= 'L';
@@ -137,6 +172,7 @@ architecture behav of integrated_interface_functions_testbench is
 		check_for_listeners <= '1';
 		first_T1_terminal_count <= X"0004";
 		T1_terminal_count <= X"0002";
+		gpib_to_host_byte_read <= '0';
 		ist <= '0';
 		lon <= '0';
 		lpe <= '0';
@@ -154,6 +190,14 @@ architecture behav of integrated_interface_functions_testbench is
 		pon <= '0';
 		wait until rising_edge(clock);	
 		
+		-- address device as listener
+		configured_primary_address <= "00001";
+		bus_ATN <= '1';
+		gpib_write("00100001", false);
+
+		bus_ATN <= 'L';
+		gpib_write("00000001", false);
+
 		wait until rising_edge(clock);	
 		assert false report "end of test" severity note;
 		test_finished := true;
