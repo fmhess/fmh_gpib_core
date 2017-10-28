@@ -148,6 +148,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	signal local_SRQ : std_logic;
 	signal local_IDY : std_logic;
 	signal local_NUL : std_logic;
+	signal local_TCT : std_logic;
 
 	signal acceptor_handshake_state_buffer : AH_state;
 	signal controller_state_p1_buffer : C_state_p1;
@@ -391,6 +392,7 @@ begin
 			IFC => local_IFC,
 			REN => local_REN,
 			NUL => local_NUL,
+			TCT => local_TCT,
 			controller_state_p1 => controller_state_p1_buffer,
 			controller_state_p2 => controller_state_p2_buffer,
 			controller_state_p3 => controller_state_p3_buffer,

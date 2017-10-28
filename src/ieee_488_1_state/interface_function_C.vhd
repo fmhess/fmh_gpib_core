@@ -19,6 +19,7 @@ entity interface_function_C is
 		IFC : out std_logic;
 		REN : out std_logic;
 		NUL : out std_logic;
+		TCT : out std_logic;
 		
 		controller_state_p1 : out C_state_p1;
 		controller_state_p2 : out C_state_p2;
@@ -44,4 +45,5 @@ begin
 	NUL <= 'H';
 	REN <= 'L';
 	IFC <= 'L';
+	TCT <= 'L';
 end interface_function_C_arch;
