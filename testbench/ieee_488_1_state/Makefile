@@ -8,7 +8,27 @@ all: interface_function_LE_testbench.fst \
 	interface_function_SR_testbench.fst \
 	interface_function_DC_testbench.fst \
 	interface_function_DT_testbench.fst \
-	remote_message_decoder_testbench.fst
+	remote_message_decoder_testbench.fst \
+	integrated_interface_functions_testbench.fst
+
+INTEGRATED_INTERFACE_FUNCTIONS_TEST_SRC = \
+	../../src/ieee_488_1_state/interface_function_states.vhd \
+	../../src/ieee_488_1_state/interface_function_AH.vhd \
+	../../src/ieee_488_1_state/interface_function_DC.vhd \
+	../../src/ieee_488_1_state/interface_function_DT.vhd \
+	../../src/ieee_488_1_state/interface_function_LE.vhd \
+	../../src/ieee_488_1_state/interface_function_PP.vhd \
+	../../src/ieee_488_1_state/interface_function_RL.vhd \
+	../../src/ieee_488_1_state/interface_function_SH.vhd \
+	../../src/ieee_488_1_state/interface_function_SR.vhd \
+	../../src/ieee_488_1_state/interface_function_TE.vhd \
+	../../src/ieee_488_1_state/remote_message_decoder.vhd \
+	../../src/ieee_488_1_state/integrated_interface_functions.vhd \
+	integrated_interface_functions_testbench.vhd
+integrated_interface_functions_testbench.fst: $(INTEGRATED_INTERFACE_FUNCTIONS_TEST_SRC)
+	nvc -a $(INTEGRATED_INTERFACE_FUNCTIONS_TEST_SRC)
+	nvc -e integrated_interface_functions_testbench
+	nvc -r integrated_interface_functions_testbench --wave
 
 REMOTE_MESSAGE_DECODER_TEST_SRC = \
 	../../src/ieee_488_1_state/remote_message_decoder.vhd \

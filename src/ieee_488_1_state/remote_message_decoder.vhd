@@ -79,7 +79,6 @@ architecture remote_message_decoder_arch of remote_message_decoder is
 	signal MSA_buffer : std_logic;
 	signal PPE_buffer : std_logic;
 
-	constant NO_ADDRESS_CONFIGURED : bit_vector := "11111";
 begin
 
 	ACG_buffer <= '1' when to_bitvector(bus_DIO(7 downto 5)) = "000" and to_bit(bus_ATN) = '1'else

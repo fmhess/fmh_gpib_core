@@ -28,7 +28,7 @@ architecture behav of interface_function_AH_testbench is
 	shared variable test_finished : boolean := false;
 
 	begin
-	my_TE: entity work.interface_function_AH 
+	my_AH: entity work.interface_function_AH 
 		port map (
 			clock => clock,
 			listener_state_p1 => listener_state_p1,
