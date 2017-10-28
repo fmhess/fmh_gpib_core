@@ -7,7 +7,7 @@
 library IEEE;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
-use work.interface_function_states.all;
+use work.interface_function_common.all;
 
 entity interface_function_SH_testbench is
 end interface_function_SH_testbench;

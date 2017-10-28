@@ -6,7 +6,7 @@
 library IEEE;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
-use work.interface_function_states.all;
+use work.interface_function_common.all;
 
 entity remote_message_decoder_testbench is
 end remote_message_decoder_testbench;

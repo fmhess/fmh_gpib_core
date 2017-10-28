@@ -7,7 +7,7 @@
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
-use work.interface_function_states.all;
+use work.interface_function_common.all;
 use work.remote_message_decoder.all;
 use work.interface_function_AH.all;
 use work.interface_function_DC.all;

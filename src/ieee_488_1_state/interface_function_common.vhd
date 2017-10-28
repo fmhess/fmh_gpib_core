@@ -3,7 +3,7 @@
 -- Author: Frank Mori Hess fmh6jj@gmail.com
 -- Copyright Frank Mori Hess 2017
 
-package interface_function_states is
+package interface_function_common is
 
 	type AH_state is (AIDS, ANRS, ACRS, ACDS, AWNS);
 	type C_state_p1 is (CIDS, CADS, CACS, CTRS, CSBS, CSHS, CSWS, CAWS, CPWS, CPPS);
@@ -26,4 +26,4 @@ package interface_function_states is
 
 	constant NO_ADDRESS_CONFIGURED : bit_vector := "11111";
 
-end interface_function_states;
+end interface_function_common;

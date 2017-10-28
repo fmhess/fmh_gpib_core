@@ -6,7 +6,7 @@
 library IEEE;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
-use work.interface_function_states.all;
+use work.interface_function_common.all;
 use work.integrated_interface_functions.all;
 
 entity integrated_interface_functions_testbench is
