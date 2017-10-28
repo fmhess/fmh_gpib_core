@@ -434,15 +434,26 @@ begin
 		else
 			PPE_response_line;
 
-	bus_ATN_out <= '1' when to_bit(local_ATN) = '1' else 'L';
-	bus_DAV_out <= '1' when to_bit(local_DAV) = '1' else 'L';
-	bus_EOI_out <= '1' when to_bit(local_END or local_IDY) = '1' else 'L';
+	bus_ATN_out <= '1' when 
+			to_bit(local_ATN or local_TCT) = '1' or
+			to_bitvector(local_PPR) /= X"00" else 
+		'L';
+	bus_DAV_out <= '1' when to_bit(local_DAV) = '1' else 
+		'L';
+	bus_EOI_out <= '1' when 
+			to_bit(local_END or local_IDY) = '1' or
+			to_bitvector(local_PPR) /= X"00" else 
+		'L';
 	bus_IFC_out <= '1' when to_bit(local_IFC) = '1' else 'L';
 	bus_NDAC_out <= '1' when to_bit(not local_DAC) = '1' else 'L';
 	bus_NRFD_out <= '1' when to_bit(not local_RFD) = '1' else 'L';
 	bus_REN_out <= '1' when to_bit(local_REN) = '1' else 'L';
 	bus_SRQ_out <= '1' when to_bit(local_SRQ) = '1' else 'L';
---	bus_DIO_out <= "LLLLLLLL" when to_bit(local_NUL) = '1' else "ZZZZZZZZ";
+	bus_DIO_out(6) <= '1' when to_bit(local_RQS) = '1' else 'L';
+	bus_DIO_out <= "LLLLLLLL" when to_bit(local_NUL) = '1' else 
+		"00001001" when to_bit(local_TCT) = '1' else
+		local_PPR when to_bitvector(local_PPR) /= X"00" else 
+		"ZZZZZZZZ";
 
 	process(pon, clock) begin
 		if to_bit(pon) = '1' then
