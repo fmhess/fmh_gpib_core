@@ -55,8 +55,11 @@ entity integrated_interface_functions is
 		first_T1_terminal_count : in std_logic_vector(15 downto 0);
 		T1_terminal_count : in std_logic_vector(15 downto 0);
 		check_for_listeners : in std_logic;
-		-- host should set high when it reads gpib_to_host_byte
+		-- host should set high for a clock when it reads gpib_to_host_byte
 		gpib_to_host_byte_read : in std_logic;
+		host_to_gpib_data_byte : in std_logic_vector(7 downto 0);
+		host_to_gpib_data_byte_end : in std_logic;
+		host_to_gpib_data_byte_write : in std_logic;
 		
 		bus_DIO_out : out std_logic_vector(7 downto 0);
 		bus_REN_out : out std_logic;
@@ -96,6 +99,9 @@ end integrated_interface_functions;
  
 architecture integrated_interface_functions_arch of integrated_interface_functions is
 	signal nba : std_logic;
+	signal internal_host_to_gpib_data_byte_latched : std_logic;
+	signal internal_host_to_gpib_data_byte : std_logic_vector(7 downto 0);
+	signal internal_host_to_gpib_data_byte_end : std_logic;
 
 	signal ACG : std_logic;
 	signal ATN : std_logic;
@@ -151,7 +157,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	signal local_IDY : std_logic;
 	signal local_NUL : std_logic;
 	signal local_TCT : std_logic;
-
+	
 	signal acceptor_handshake_state_buffer : AH_state;
 	signal controller_state_p1_buffer : C_state_p1;
 	signal controller_state_p2_buffer : C_state_p2;
@@ -364,6 +370,7 @@ begin
 			acceptor_handshake_state => acceptor_handshake_state_buffer,
 			listener_state_p2 => listener_state_p2_buffer,
 			service_request_state => service_request_state_buffer,
+			source_handshake_state => source_handshake_state_buffer,
 			ATN => ATN,
 			IFC => IFC,
 			pon => pon,
@@ -377,6 +384,7 @@ begin
 			SPD => SPD,
 			PCG => PCG,
 			enable_secondary_addressing => enable_secondary_addressing,
+			host_to_gpib_data_byte_end => internal_host_to_gpib_data_byte_end,
 			talker_state_p1 => talker_state_p1_buffer,
 			talker_state_p2 => talker_state_p2_buffer,
 			talker_state_p3 => talker_state_p3_buffer,
@@ -455,31 +463,76 @@ begin
 	bus_DIO_out <= "LLLLLLLL" when to_bit(local_NUL) = '1' else 
 		"00001001" when to_bit(local_TCT) = '1' else
 		local_PPR when to_bitvector(local_PPR) /= X"00" else 
+		internal_host_to_gpib_data_byte when 
+			(source_handshake_state_buffer = SDYS or source_handshake_state_buffer = STRS) and
+			to_bit(ATN) = '0' else 
 		"ZZZZZZZZ";
 
-	process(pon, clock) begin
+	-- deal with byte read by host from gpib bus
+	process(pon, clock, acceptor_handshake_state_buffer) begin
 		if to_bit(pon) = '1' then
 			rdy <= '1';
 			gpib_to_host_byte <= "LLLLLLLL";
 			gpib_to_host_byte_end <= 'L';
 			gpib_to_host_byte_eos <= 'L';
-		elsif rising_edge(clock) then
-
-			-- latch byte written to us over gpib bus
-			if acceptor_handshake_state_buffer = ACDS then
-				if to_bit(ATN) = '0' then
+		else
+			if acceptor_handshake_state_buffer'EVENT and 
+				acceptor_handshake_state_buffer = ACDS and
+				to_bit(ATN) = '0' then
 					rdy <= '0';
 					gpib_to_host_byte <= bus_DIO_in;
 					gpib_to_host_byte_end <= END_msg;
 					gpib_to_host_byte_eos <= EOS;
+			end if;
+			if rising_edge(clock) then
+				if to_bit(gpib_to_host_byte_read) = '1' or
+					device_clear_state_buffer = DCAS then
+					rdy <= '1';
 				end if;
 			end if;
+		end if;
+	end process;
 
-			if to_bit(gpib_to_host_byte_read) = '1' or
-				device_clear_state_buffer = DCAS then
-				rdy <= '1';
+	-- deal with byte written by host to gpib bus
+	process(pon, clock, source_handshake_state_buffer) begin
+		if to_bit(pon) = '1' then
+			internal_host_to_gpib_data_byte_latched <= '0';
+			internal_host_to_gpib_data_byte <= "LLLLLLLL";
+			internal_host_to_gpib_data_byte_end <= 'L';
+		else
+			if source_handshake_state_buffer'EVENT and 
+				source_handshake_state_buffer = STRS and
+				to_bit(ATN) = '0' then
+					internal_host_to_gpib_data_byte_latched <= '0';
+			end if;
+			if rising_edge(clock) then
+				if device_clear_state_buffer = DCAS then
+					internal_host_to_gpib_data_byte_latched <= '0';
+				elsif to_bit(host_to_gpib_data_byte_write) = '1' then
+					internal_host_to_gpib_data_byte <= host_to_gpib_data_byte;
+					internal_host_to_gpib_data_byte_end <= host_to_gpib_data_byte_end;
+					internal_host_to_gpib_data_byte_latched <= '1';
+				end if;
 			end if;
 		end if;
-		
+	end process;
+
+	-- set nba
+	process(pon, source_handshake_state_buffer, internal_host_to_gpib_data_byte_latched) begin
+		if to_bit(pon) = '1' then
+			nba <= '0';
+		else
+			-- nba may only become true in SIDS, SGNS, etc.  may only become false in other states.
+			if source_handshake_state_buffer = SIDS or
+				source_handshake_state_buffer = SGNS then
+				if to_bit(internal_host_to_gpib_data_byte_latched) = '1' then
+					nba <= '1';
+				end if;
+			else
+				if to_bit(internal_host_to_gpib_data_byte_latched) = '0' then
+					nba <= '0';
+				end if;
+			end if;
+		end if;
 	end process;
 end integrated_interface_functions_arch;

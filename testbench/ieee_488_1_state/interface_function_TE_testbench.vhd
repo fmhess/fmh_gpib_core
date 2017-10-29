@@ -16,6 +16,7 @@ architecture behav of interface_function_TE_testbench is
 	signal acceptor_handshake_state : AH_state;
 	signal listener_state_p2 : LE_state_p2;
 	signal service_request_state : SR_state;
+	signal source_handshake_state : SH_state;
 	signal ATN : std_logic;
 	signal IFC : std_logic;
 	signal pon : std_logic;
@@ -29,6 +30,7 @@ architecture behav of interface_function_TE_testbench is
 	signal SPD : std_logic;
 	signal PCG : std_logic;
 	signal enable_secondary_addressing : std_logic;
+	signal host_to_gpib_data_byte_end : std_logic;
 	signal talker_state_p1 : TE_state_p1;
 	signal talker_state_p2 : TE_state_p2;
 	signal talker_state_p3 : TE_state_p3;
@@ -47,6 +49,7 @@ architecture behav of interface_function_TE_testbench is
 			acceptor_handshake_state => acceptor_handshake_state,
 			listener_state_p2 => listener_state_p2,
 			service_request_state => service_request_state,
+			source_handshake_state => source_handshake_state,
 			ATN => ATN,
 			IFC => IFC,
 			pon => pon,
@@ -60,6 +63,7 @@ architecture behav of interface_function_TE_testbench is
 			SPD => SPD,
 			PCG => PCG,
 			enable_secondary_addressing => enable_secondary_addressing,
+			host_to_gpib_data_byte_end => host_to_gpib_data_byte_end,
 			talker_state_p1 => talker_state_p1,
 			talker_state_p2 => talker_state_p2,
 			talker_state_p3 => talker_state_p3,
@@ -106,6 +110,7 @@ architecture behav of interface_function_TE_testbench is
 		SPD <= '0';
 		PCG <= '0';
 		enable_secondary_addressing <= '0';
+		host_to_gpib_data_byte_end <= '0';
 		
 		wait until rising_edge(clock);
 		pon <= '1';

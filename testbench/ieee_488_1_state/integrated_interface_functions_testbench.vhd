@@ -39,6 +39,9 @@ architecture behav of integrated_interface_functions_testbench is
 	signal gpib_to_host_byte_read : std_logic;
 	signal gpib_to_host_byte_end : std_logic;
 	signal gpib_to_host_byte_eos : std_logic;
+	signal host_to_gpib_data_byte : std_logic_vector(7 downto 0);
+	signal host_to_gpib_data_byte_end : std_logic;
+	signal host_to_gpib_data_byte_write : std_logic;
 	
 	signal ist : std_logic;
 	signal lon : std_logic;	
@@ -103,7 +106,10 @@ architecture behav of integrated_interface_functions_testbench is
 			gpib_to_host_byte => gpib_to_host_byte,
 			gpib_to_host_byte_end => gpib_to_host_byte_end,
 			gpib_to_host_byte_eos => gpib_to_host_byte_eos,
-			rdy => rdy
+			rdy => rdy,
+			host_to_gpib_data_byte => host_to_gpib_data_byte,
+			host_to_gpib_data_byte_end => host_to_gpib_data_byte_end,
+			host_to_gpib_data_byte_write => host_to_gpib_data_byte_write
 		);
 	
 	process
@@ -156,6 +162,32 @@ architecture behav of integrated_interface_functions_testbench is
 					wait for 99ns;
 			end procedure gpib_write;
 
+			procedure gpib_read (data_byte : out integer;
+					eoi : out boolean) is
+			begin
+					bus_NDAC <= '1';
+					wait for 99ns;
+					bus_NRFD <= 'L';
+					if (to_bit(bus_DAV) /= '1') then
+							wait until (to_bit(bus_DAV) = '1');
+					end if;
+					wait for 99ns;
+					bus_NRFD <= '1';
+					data_byte := to_integer(unsigned(bus_DIO));
+					eoi := to_bit(bus_EOI) = '1';
+					wait for 99ns;
+					bus_NDAC <= 'L';
+					if (to_bit(bus_DAV) /= '0') then
+							wait until (to_bit(bus_DAV) = '0');
+					end if;
+					wait for 99ns;
+					bus_NDAC <= '0';
+					wait for 99ns;
+			end procedure gpib_read;
+
+		variable gpib_read_result : integer;
+		variable gpib_read_eoi : boolean;
+	
 	begin
 		bus_DIO <= "LLLLLLLL";
 		bus_REN <= 'L';
@@ -177,6 +209,9 @@ architecture behav of integrated_interface_functions_testbench is
 		first_T1_terminal_count <= X"0004";
 		T1_terminal_count <= X"0002";
 		gpib_to_host_byte_read <= '0';
+		host_to_gpib_data_byte <= X"00";
+		host_to_gpib_data_byte_end <= '0';
+		host_to_gpib_data_byte_write <= '0'; 
 		ist <= '0';
 		lon <= '0';
 		lpe <= '0';
@@ -199,6 +234,8 @@ architecture behav of integrated_interface_functions_testbench is
 		bus_ATN <= '1';
 		gpib_write("00100001", false);
 
+		-- try sending some data bytes gpib to host
+		
 		bus_ATN <= 'L';
 		gpib_write(X"01", false);
 
@@ -233,6 +270,37 @@ architecture behav of integrated_interface_functions_testbench is
 		gpib_to_host_byte_read <= '0';
 		wait until rising_edge(clock);	
 		
+		-- address device as talker
+		bus_ATN <= '1';
+		gpib_write("01000001", false);
+
+		-- try sending some data bytes host to gpib
+
+		bus_ATN <= '0';
+
+		wait until rising_edge(clock);	
+		host_to_gpib_data_byte <= X"b3";
+		host_to_gpib_data_byte_end <= '0';
+		host_to_gpib_data_byte_write <= '1';
+		wait until rising_edge(clock);	
+		host_to_gpib_data_byte_write <= '0';
+		
+		gpib_read(gpib_read_result, gpib_read_eoi);
+		assert gpib_read_result = 16#b3#;
+		assert gpib_read_eoi = false;
+		
+		-- no try a sending a byte with end asserted
+		wait until rising_edge(clock);	
+		host_to_gpib_data_byte <= X"c4";
+		host_to_gpib_data_byte_end <= '1';
+		host_to_gpib_data_byte_write <= '1';
+		wait until rising_edge(clock);	
+		host_to_gpib_data_byte_write <= '0';
+		
+		gpib_read(gpib_read_result, gpib_read_eoi);
+		assert gpib_read_result = 16#c4#;
+		assert gpib_read_eoi = true;
+
 		wait until rising_edge(clock);	
 		assert false report "end of test" severity note;
 		test_finished := true;

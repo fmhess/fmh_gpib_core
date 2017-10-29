@@ -15,6 +15,7 @@ entity interface_function_TE is
 		acceptor_handshake_state : in AH_state;
 		listener_state_p2 : in LE_state_p2;
 		service_request_state : in SR_state;
+		source_handshake_state : in SH_state;
 		ATN : in std_logic;
 		IFC : in std_logic;
 		pon : in std_logic;
@@ -28,6 +29,7 @@ entity interface_function_TE is
 		SPD : in std_logic;
 		PCG : in std_logic;
 		enable_secondary_addressing : in std_logic; -- true for extended talker, false for talker
+		host_to_gpib_data_byte_end : in std_logic;
 		
 		talker_state_p1 : out TE_state_p1;
 		talker_state_p2 : out TE_state_p2;
@@ -136,7 +138,7 @@ begin
 	end process;
 	
 	-- set local message outputs as soon as state changes for low latency
-	process(talker_state_p1_buffer) begin
+	process(talker_state_p1_buffer, source_handshake_state, service_request_state) begin
 		-- part 1 state machine
 		case talker_state_p1_buffer is
 			when TIDS =>
@@ -148,7 +150,9 @@ begin
 				RQS <= 'L';
 				NUL <= 'H';
 			when TACS =>
-				END_msg <= 'Z';
+				if source_handshake_state'EVENT and source_handshake_state = SDYS then  
+					END_msg <= host_to_gpib_data_byte_end;
+				end if;
 				RQS <= 'L';
 				NUL <= '0';
 			when SPAS =>
