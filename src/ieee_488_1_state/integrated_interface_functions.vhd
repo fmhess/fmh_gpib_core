@@ -464,7 +464,7 @@ begin
 			gpib_to_host_byte_end <= 'L';
 			gpib_to_host_byte_eos <= 'L';
 		elsif rising_edge(clock) then
-		
+
 			-- latch byte written to us over gpib bus
 			if acceptor_handshake_state_buffer = ACDS then
 				if to_bit(ATN) = '0' then
@@ -474,8 +474,9 @@ begin
 					gpib_to_host_byte_eos <= EOS;
 				end if;
 			end if;
-			
-			if to_bit(gpib_to_host_byte_read) = '1' then
+
+			if to_bit(gpib_to_host_byte_read) = '1' or
+				device_clear_state_buffer = DCAS then
 				rdy <= '1';
 			end if;
 		end if;
