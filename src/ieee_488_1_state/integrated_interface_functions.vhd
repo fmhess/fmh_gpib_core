@@ -92,7 +92,10 @@ entity integrated_interface_functions is
 		gpib_to_host_byte : out std_logic_vector(7 downto 0);
 		gpib_to_host_byte_eos : out std_logic;
 		gpib_to_host_byte_end : out std_logic;
-		rdy : out std_logic
+		-- rdy false means there is a gpib to host byte waiting to be read out
+		rdy : out std_logic;
+		-- host_to_gpib_data_byte_latched false means a new host to gpib byte can be written in
+		host_to_gpib_data_byte_latched : out std_logic
 	);
  
 end integrated_interface_functions;
@@ -444,6 +447,12 @@ begin
 		else
 			PPE_response_line;
 
+	nba <= '1' when source_handshake_state_buffer = SGNS and
+			to_bit(internal_host_to_gpib_data_byte_latched) = '1' else
+		'0';
+	
+	host_to_gpib_data_byte_latched <= internal_host_to_gpib_data_byte_latched;
+	
 	bus_ATN_out <= '1' when 
 			to_bit(local_ATN or local_TCT) = '1' or
 			to_bitvector(local_PPR) /= X"00" else 
@@ -517,22 +526,4 @@ begin
 		end if;
 	end process;
 
-	-- set nba
-	process(pon, source_handshake_state_buffer, internal_host_to_gpib_data_byte_latched) begin
-		if to_bit(pon) = '1' then
-			nba <= '0';
-		else
-			-- nba may only become true in SIDS, SGNS, etc.  may only become false in other states.
-			if source_handshake_state_buffer = SIDS or
-				source_handshake_state_buffer = SGNS then
-				if to_bit(internal_host_to_gpib_data_byte_latched) = '1' then
-					nba <= '1';
-				end if;
-			else
-				if to_bit(internal_host_to_gpib_data_byte_latched) = '0' then
-					nba <= '0';
-				end if;
-			end if;
-		end if;
-	end process;
 end integrated_interface_functions_arch;

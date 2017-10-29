@@ -42,6 +42,7 @@ architecture behav of integrated_interface_functions_testbench is
 	signal host_to_gpib_data_byte : std_logic_vector(7 downto 0);
 	signal host_to_gpib_data_byte_end : std_logic;
 	signal host_to_gpib_data_byte_write : std_logic;
+	signal host_to_gpib_data_byte_latched : std_logic;
 	
 	signal ist : std_logic;
 	signal lon : std_logic;	
@@ -109,7 +110,8 @@ architecture behav of integrated_interface_functions_testbench is
 			rdy => rdy,
 			host_to_gpib_data_byte => host_to_gpib_data_byte,
 			host_to_gpib_data_byte_end => host_to_gpib_data_byte_end,
-			host_to_gpib_data_byte_write => host_to_gpib_data_byte_write
+			host_to_gpib_data_byte_write => host_to_gpib_data_byte_write,
+			host_to_gpib_data_byte_latched => host_to_gpib_data_byte_latched
 		);
 	
 	process
@@ -124,7 +126,7 @@ architecture behav of integrated_interface_functions_testbench is
 		wait for clock_half_period;
 	end process;
 
-	process		
+	process
 		-- wait wait for a condition with a hard coded timeout to avoid infinite test loops on failure
 		procedure wait_for_ticks (num_clock_cycles : in integer) is
 			begin
@@ -296,10 +298,13 @@ architecture behav of integrated_interface_functions_testbench is
 		host_to_gpib_data_byte_write <= '1';
 		wait until rising_edge(clock);	
 		host_to_gpib_data_byte_write <= '0';
+		wait until rising_edge(clock);	
+		assert host_to_gpib_data_byte_latched = '1';
 		
 		gpib_read(gpib_read_result, gpib_read_eoi);
 		assert gpib_read_result = 16#c4#;
 		assert gpib_read_eoi = true;
+		assert host_to_gpib_data_byte_latched = '0';
 
 		wait until rising_edge(clock);	
 		assert false report "end of test" severity note;
