@@ -29,8 +29,8 @@ entity remote_message_decoder is
 		DAC : out std_logic;
 		DAV : out std_logic;
 		DCL : out std_logic;
-		END_msg: out std_logic;
-		EOS: out std_logic;
+		END_msg : out std_logic;
+		EOS : out std_logic;
 		GET : out std_logic;
 		GTL : out std_logic;
 		IDY : out std_logic;
@@ -95,7 +95,7 @@ begin
 	EOS <= '1' when  
 		to_bitvector(bus_DIO(6 downto 0)) = to_bitvector(configured_eos_character(6 downto 0)) and
 		(to_bit(ignore_eos_bit_7) = '1' or to_bit(bus_DIO(7)) = to_bit(configured_eos_character(7))) and
-		bus_ATN = '0' else
+		to_bit(bus_ATN) = '0' else
 		'0';
 	GET <= '1' when ACG_buffer <= '1' and to_bitvector(bus_DIO(3 downto 0)) = "1000" and to_bit(bus_ATN) = '1' else
 		'0';

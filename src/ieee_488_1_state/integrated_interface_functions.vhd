@@ -87,6 +87,8 @@ entity integrated_interface_functions is
 		talker_state_p3 : out TE_state_p3;
 		no_listeners : out std_logic;
 		gpib_to_host_byte : out std_logic_vector(7 downto 0);
+		gpib_to_host_byte_eos : out std_logic;
+		gpib_to_host_byte_end : out std_logic;
 		rdy : out std_logic
 	);
  
@@ -459,6 +461,8 @@ begin
 		if to_bit(pon) = '1' then
 			rdy <= '1';
 			gpib_to_host_byte <= "LLLLLLLL";
+			gpib_to_host_byte_end <= 'L';
+			gpib_to_host_byte_eos <= 'L';
 		elsif rising_edge(clock) then
 		
 			-- latch byte written to us over gpib bus
@@ -466,6 +470,8 @@ begin
 				if to_bit(ATN) = '0' then
 					rdy <= '0';
 					gpib_to_host_byte <= bus_DIO_in;
+					gpib_to_host_byte_end <= END_msg;
+					gpib_to_host_byte_eos <= EOS;
 				end if;
 			end if;
 			

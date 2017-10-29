@@ -37,6 +37,8 @@ architecture behav of integrated_interface_functions_testbench is
 	signal T1_terminal_count : std_logic_vector(15 downto 0);
 	signal gpib_to_host_byte : std_logic_vector(7 downto 0);
 	signal gpib_to_host_byte_read : std_logic;
+	signal gpib_to_host_byte_end : std_logic;
+	signal gpib_to_host_byte_eos : std_logic;
 	
 	signal ist : std_logic;
 	signal lon : std_logic;	
@@ -99,6 +101,8 @@ architecture behav of integrated_interface_functions_testbench is
 			T1_terminal_count => T1_terminal_count,
 			no_listeners => no_listeners,
 			gpib_to_host_byte => gpib_to_host_byte,
+			gpib_to_host_byte_end => gpib_to_host_byte_end,
+			gpib_to_host_byte_eos => gpib_to_host_byte_eos,
 			rdy => rdy
 		);
 	
@@ -196,8 +200,39 @@ architecture behav of integrated_interface_functions_testbench is
 		gpib_write("00100001", false);
 
 		bus_ATN <= 'L';
-		gpib_write("00000001", false);
+		gpib_write(X"01", false);
 
+		wait until rising_edge(clock);	
+		assert rdy = '0';
+		assert gpib_to_host_byte = X"01";
+		assert gpib_to_host_byte_end = '0';
+		assert gpib_to_host_byte_eos = '0';
+		gpib_to_host_byte_read <= '1';
+		wait until rising_edge(clock);	
+		gpib_to_host_byte_read <= '0';
+		wait until rising_edge(clock);	
+		assert rdy = '1';
+
+		gpib_write(X"00", false);
+		wait until rising_edge(clock);	
+		assert gpib_to_host_byte = X"00";
+		assert gpib_to_host_byte_end = '0';
+		assert gpib_to_host_byte_eos = '1';
+		gpib_to_host_byte_read <= '1';
+		wait until rising_edge(clock);	
+		gpib_to_host_byte_read <= '0';
+		wait until rising_edge(clock);	
+		
+		gpib_write(X"a8", true);
+		wait until rising_edge(clock);	
+		assert gpib_to_host_byte = X"a8";
+		assert gpib_to_host_byte_end = '1';
+		assert gpib_to_host_byte_eos = '0';
+		gpib_to_host_byte_read <= '1';
+		wait until rising_edge(clock);	
+		gpib_to_host_byte_read <= '0';
+		wait until rising_edge(clock);	
+		
 		wait until rising_edge(clock);	
 		assert false report "end of test" severity note;
 		test_finished := true;
