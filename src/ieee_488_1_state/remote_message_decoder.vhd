@@ -82,7 +82,7 @@ architecture remote_message_decoder_arch of remote_message_decoder is
 
 begin
 
-	ACG_buffer <= '1' when to_bitvector(bus_DIO(7 downto 5)) = "000" and to_bit(bus_ATN) = '1'else
+	ACG_buffer <= '1' when to_bitvector(bus_DIO(6 downto 4)) = "000" and to_bit(bus_ATN) = '1'else
 		'0';
 	ACG <= ACG_buffer;
 	
@@ -97,9 +97,9 @@ begin
 		(to_bit(ignore_eos_bit_7) = '1' or to_bit(bus_DIO(7)) = to_bit(configured_eos_character(7))) and
 		to_bit(bus_ATN) = '0' else
 		'0';
-	GET <= '1' when ACG_buffer <= '1' and to_bitvector(bus_DIO(3 downto 0)) = "1000" and to_bit(bus_ATN) = '1' else
+	GET <= '1' when ACG_buffer = '1' and to_bitvector(bus_DIO(3 downto 0)) = "1000" and to_bit(bus_ATN) = '1' else
 		'0';
-	GTL <= '1' when ACG_buffer <= '1' and to_bitvector(bus_DIO(3 downto 0)) = "0001" and to_bit(bus_ATN) = '1' else
+	GTL <= '1' when ACG_buffer = '1' and to_bitvector(bus_DIO(3 downto 0)) = "0001" and to_bit(bus_ATN) = '1' else
 		'0';
 	IDY <= bus_EOI;
 	IFC <= bus_IFC;
@@ -133,7 +133,7 @@ begin
 	OSA <= SCG_buffer and not MSA_buffer;
 	OTA <= TAG_buffer and not MTA_buffer;
 	PCG <= ACG_buffer or UCG_buffer or LAG_buffer or TAG_buffer;
-	PPC <= '1' when ACG_buffer <= '1' and to_bitvector(bus_DIO(3 downto 0)) = "0101" and to_bit(bus_ATN) = '1' else
+	PPC <= '1' when ACG_buffer = '1' and to_bitvector(bus_DIO(3 downto 0)) = "0101" and to_bit(bus_ATN) = '1' else
 		'0';
 
 	PPE_buffer <= '1' when to_bitvector(bus_DIO(6 downto 4)) = "110" and to_bit(bus_ATN) = '1' else
@@ -156,14 +156,14 @@ begin
 		'0';
 	SCG <= SCG_buffer;
 
-	SDC <= '1' when ACG_buffer <= '1' and to_bitvector(bus_DIO(3 downto 0)) = "0100" and to_bit(bus_ATN) = '1' else
+	SDC <= '1' when ACG_buffer = '1' and to_bitvector(bus_DIO(3 downto 0)) = "0100" and to_bit(bus_ATN) = '1' else
 		'0';
 	SPD <= '1' when UCG_buffer = '1' and to_bitvector(bus_DIO(3 downto 0)) = "1001" and to_bit(bus_ATN) = '1' else
 		'0';
 	SPE <= '1' when UCG_buffer = '1' and to_bitvector(bus_DIO(3 downto 0)) = "1000" and to_bit(bus_ATN) = '1' else
 		'0';
 	SRQ <= bus_SRQ;
-	TCT <= '1' when ACG_buffer <= '1' and to_bitvector(bus_DIO(3 downto 0)) = "1001" and to_bit(bus_ATN) = '1' else
+	TCT <= '1' when ACG_buffer = '1' and to_bitvector(bus_DIO(3 downto 0)) = "1001" and to_bit(bus_ATN) = '1' else
 		'0';
 	
 	TAG_buffer <= '1' when to_bitvector(bus_DIO(6 downto 5)) = "10" and to_bit(bus_ATN) = '1' else

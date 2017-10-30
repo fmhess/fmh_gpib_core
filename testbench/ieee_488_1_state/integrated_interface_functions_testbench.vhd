@@ -44,6 +44,8 @@ architecture behav of integrated_interface_functions_testbench is
 	signal host_to_gpib_data_byte_write : std_logic;
 	signal host_to_gpib_data_byte_latched : std_logic;
 	
+	signal device_clear_state : DC_state;
+
 	signal ist : std_logic;
 	signal lon : std_logic;	
 	signal lpe : std_logic;
@@ -56,6 +58,9 @@ architecture behav of integrated_interface_functions_testbench is
 	signal ton : std_logic;
 	signal tcs : std_logic;
 
+	signal device_clear_seen : boolean;
+	signal reset_device_clear_seen : boolean;
+	
 	constant clock_half_period : time := 50 ns;
 
 	shared variable test_finished : boolean := false;
@@ -111,7 +116,8 @@ architecture behav of integrated_interface_functions_testbench is
 			host_to_gpib_data_byte => host_to_gpib_data_byte,
 			host_to_gpib_data_byte_end => host_to_gpib_data_byte_end,
 			host_to_gpib_data_byte_write => host_to_gpib_data_byte_write,
-			host_to_gpib_data_byte_latched => host_to_gpib_data_byte_latched
+			host_to_gpib_data_byte_latched => host_to_gpib_data_byte_latched,
+			device_clear_state => device_clear_state
 		);
 	
 	process
@@ -126,6 +132,18 @@ architecture behav of integrated_interface_functions_testbench is
 		wait for clock_half_period;
 	end process;
 
+	process(clock)
+	begin
+		if rising_edge(clock) then
+		
+			if device_clear_state = DCAS then
+				device_clear_seen <= true;
+			elsif reset_device_clear_seen then
+				device_clear_seen <= false;
+			end if;
+		end if;
+	end process;
+	
 	process
 		-- wait wait for a condition with a hard coded timeout to avoid infinite test loops on failure
 		procedure wait_for_ticks (num_clock_cycles : in integer) is
@@ -139,6 +157,8 @@ architecture behav of integrated_interface_functions_testbench is
 		procedure gpib_write (data_byte : in std_logic_vector(7 downto 0);
 			assert_eoi : in boolean) is
 			begin
+					bus_NRFD <= 'Z';
+					bus_NDAC <= 'Z';
 					if (to_bit(bus_NRFD) /= '0' or to_bit(bus_NDAC) /= '1') then
 							wait until (to_bit(bus_NRFD) = '0' and to_bit(bus_NDAC) = '1');
 					end if;
@@ -167,6 +187,7 @@ architecture behav of integrated_interface_functions_testbench is
 			procedure gpib_read (data_byte : out integer;
 					eoi : out boolean) is
 			begin
+					bus_DAV <= 'Z';
 					bus_NDAC <= '1';
 					wait for 99ns;
 					bus_NRFD <= 'L';
@@ -183,7 +204,7 @@ architecture behav of integrated_interface_functions_testbench is
 							wait until (to_bit(bus_DAV) = '0');
 					end if;
 					wait for 99ns;
-					bus_NDAC <= '0';
+					bus_NDAC <= 'L';
 					wait for 99ns;
 			end procedure gpib_read;
 
@@ -234,7 +255,7 @@ architecture behav of integrated_interface_functions_testbench is
 		-- address device as listener
 		configured_primary_address <= "00001";
 		bus_ATN <= '1';
-		gpib_write("00100001", false);
+		gpib_write("00100001", false); -- MLA
 
 		-- try sending some data bytes gpib to host
 		
@@ -274,7 +295,7 @@ architecture behav of integrated_interface_functions_testbench is
 		
 		-- address device as talker
 		bus_ATN <= '1';
-		gpib_write("01000001", false);
+		gpib_write("01000001", false); -- MTA
 
 		-- try sending some data bytes host to gpib
 
@@ -291,7 +312,7 @@ architecture behav of integrated_interface_functions_testbench is
 		assert gpib_read_result = 16#b3#;
 		assert gpib_read_eoi = false;
 		
-		-- no try a sending a byte with end asserted
+		-- now try a sending a byte with end asserted
 		wait until rising_edge(clock);	
 		host_to_gpib_data_byte <= X"c4";
 		host_to_gpib_data_byte_end <= '1';
@@ -305,6 +326,28 @@ architecture behav of integrated_interface_functions_testbench is
 		assert gpib_read_result = 16#c4#;
 		assert gpib_read_eoi = true;
 		assert host_to_gpib_data_byte_latched = '0';
+
+		-- do a selected device clear
+		bus_ATN <= '1';
+		gpib_write("01001111", false); -- UNT
+		gpib_write("00100001", false); -- MLA
+		reset_device_clear_seen <= true;
+		wait_for_ticks(2);
+		reset_device_clear_seen <= false;
+		assert device_clear_seen = false;
+		gpib_write("00000100", false); -- SDC
+		wait until rising_edge(clock);
+		assert device_clear_seen = true;
+		
+		-- do a DCL
+		gpib_write("00101111", false); -- UNL
+		reset_device_clear_seen <= true;
+		wait_for_ticks(2);
+		reset_device_clear_seen <= false;
+		assert device_clear_seen = false;
+		gpib_write("00010100", false); -- DCL
+		wait until rising_edge(clock);
+		assert device_clear_seen = true;
 
 		wait until rising_edge(clock);	
 		assert false report "end of test" severity note;
