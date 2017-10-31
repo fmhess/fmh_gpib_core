@@ -105,8 +105,6 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal ton : std_logic;
 	signal tcs : std_logic;
 	
-	signal reset_or_pon : std_logic;
-
 	begin
 	my_integrated_interface_functions: entity work.integrated_interface_functions 
 		port map (
@@ -134,7 +132,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			lpe => lpe,
 			lun => lun,
 			ltn => ltn,
-			pon => reset_or_pon,
+			pon => pon,
 			rsv => rsv,
 			rtl => rtl,
 			tcs => tcs,
@@ -172,18 +170,34 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	gpib_SRQ_inverted_out <= not bus_SRQ_out;
 	gpib_DIO_inverted_out <= not bus_DIO_out;
 	
-	bus_ATN_in <= not gpib_ATN_inverted_in;
-	bus_DAV_in <= not gpib_DAV_inverted_in;
-	bus_EOI_in <= not gpib_EOI_inverted_in;
-	bus_IFC_in <= not gpib_IFC_inverted_in;
-	bus_NDAC_in <= not gpib_NDAC_inverted_in;
-	bus_NRFD_in <= not gpib_NRFD_inverted_in;
-	bus_REN_in <= not gpib_REN_inverted_in;
-	bus_SRQ_in <= not gpib_SRQ_inverted_in;
-	bus_DIO_in <= not gpib_DIO_inverted_in;
-
-	reset_or_pon <= reset or pon;
--- 	process
--- 	begin
--- 	end process;
+	-- latch external gpib signals on falling clock edge
+	process (clock)
+	begin
+		if falling_edge(clock) then
+			bus_ATN_in <= not gpib_ATN_inverted_in;
+			bus_DAV_in <= not gpib_DAV_inverted_in;
+			bus_EOI_in <= not gpib_EOI_inverted_in;
+			bus_IFC_in <= not gpib_IFC_inverted_in;
+			bus_NDAC_in <= not gpib_NDAC_inverted_in;
+			bus_NRFD_in <= not gpib_NRFD_inverted_in;
+			bus_REN_in <= not gpib_REN_inverted_in;
+			bus_SRQ_in <= not gpib_SRQ_inverted_in;
+			bus_DIO_in <= not gpib_DIO_inverted_in;
+		end if;
+	end process;
+	
+	-- generate pon which is asserted async but de-asserted synchronously on 
+	-- falling clock edge, to avoid any potential metastability problems caused
+	-- by pon deasserting near rising clock edge.
+	process (reset, clock)
+	begin
+		if to_bit(reset) = '1' then
+			pon <= '1';
+		end if;
+		if falling_edge(clock) then
+			if to_bit(reset) = '0' then
+				pon <= '0';
+			end if;
+		end if;
+	end process;
 end frontend_cb7210p2_arch;
