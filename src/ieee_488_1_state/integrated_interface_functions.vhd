@@ -468,8 +468,8 @@ begin
 	bus_NRFD_out <= '1' when to_bit(not local_RFD) = '1' else 'L';
 	bus_REN_out <= '1' when to_bit(local_REN) = '1' else 'L';
 	bus_SRQ_out <= '1' when to_bit(local_SRQ) = '1' else 'L';
-	bus_DIO_out(6) <= '1' when to_bit(local_RQS) = '1' else '0';
-	bus_DIO_out <= X"00" when to_bit(local_NUL) = '1' else 
+	bus_DIO_out(6) <= local_RQS;
+	bus_DIO_out <= "LLLLLLLL" when local_NUL = '1' else 
 		"00001001" when to_bit(local_TCT) = '1' else
 		local_PPR when to_bitvector(local_PPR) /= X"00" else 
 		internal_host_to_gpib_data_byte when 
