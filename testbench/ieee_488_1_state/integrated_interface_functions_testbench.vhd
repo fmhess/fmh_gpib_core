@@ -43,7 +43,7 @@ architecture behav of integrated_interface_functions_testbench is
 	signal host_to_gpib_data_byte_end : std_logic;
 	signal host_to_gpib_data_byte_write : std_logic;
 	signal host_to_gpib_data_byte_latched : std_logic;
-	
+	signal local_STB : std_logic_vector(7 downto 0);
 	signal device_clear_state : DC_state;
 
 	signal ist : std_logic;
@@ -117,7 +117,8 @@ architecture behav of integrated_interface_functions_testbench is
 			host_to_gpib_data_byte_end => host_to_gpib_data_byte_end,
 			host_to_gpib_data_byte_write => host_to_gpib_data_byte_write,
 			host_to_gpib_data_byte_latched => host_to_gpib_data_byte_latched,
-			device_clear_state => device_clear_state
+			device_clear_state => device_clear_state,
+			local_STB => local_STB
 		);
 	
 	process
@@ -245,7 +246,8 @@ architecture behav of integrated_interface_functions_testbench is
 		rtl <= '0';
 		ton <= '0';
 		tcs <= '0';
-				
+		local_STB <= (others => '0');
+		
 		wait until rising_edge(clock);	
 		pon <= '1';
 		wait until rising_edge(clock);	

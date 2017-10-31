@@ -60,6 +60,7 @@ entity integrated_interface_functions is
 		host_to_gpib_data_byte : in std_logic_vector(7 downto 0);
 		host_to_gpib_data_byte_end : in std_logic;
 		host_to_gpib_data_byte_write : in std_logic;
+		local_STB : in std_logic_vector(7 downto 0);
 		
 		bus_DIO_out : out std_logic_vector(7 downto 0);
 		bus_REN_out : out std_logic;
@@ -442,7 +443,7 @@ begin
 		'0';
 	
 	host_to_gpib_data_byte_latched <= internal_host_to_gpib_data_byte_latched;
-	
+
 	-- let resolution function sort out multiple drivers
 	bus_ATN_out <= local_ATN;
 	bus_ATN_out <= local_TCT;
@@ -450,19 +451,21 @@ begin
 	bus_EOI_out <= local_END;
 	bus_EOI_out <= local_IDY;
 	bus_IFC_out <= local_IFC;
-	bus_NDAC_out <= not local_DAC;
-	bus_NRFD_out <= not local_RFD;
+	bus_NDAC_out <= '1' when to_bit(local_DAC) = '0' else 'L';
+	bus_NRFD_out <= '1' when to_bit(local_RFD) = '0' else 'L';
 	bus_REN_out <= local_REN;
 	bus_SRQ_out <= local_SRQ;
-	bus_DIO_out(6) <= local_RQS;
+	bus_DIO_out(7) <= local_STB(7) when talker_state_p1_buffer = SPAS else 'Z'; 
+	bus_DIO_out(6) <= local_RQS when talker_state_p1_buffer = SPAS else 'Z'; 
+	bus_DIO_out(5 downto 0) <= local_STB(5 downto 0) when talker_state_p1_buffer = SPAS else (others => 'Z');
 	bus_DIO_out <=  
 		internal_host_to_gpib_data_byte when 
 			(source_handshake_state_buffer = SDYS or source_handshake_state_buffer = STRS) and
 			to_bit(ATN) = '0' else 
 		"00001001" when to_bit(local_TCT) = '1' else
 		local_PPR when parallel_poll_state_p1_buffer = PPAS else 
-		"LLLLLLLL" when to_bit(local_NUL) = '1' else
-		"ZZZZZZZZ";
+		(others => 'L') when to_bit(local_NUL) = '1' else
+		(others => 'Z');
 
 	-- deal with byte read by host from gpib bus
 	process(pon, clock, acceptor_handshake_state_buffer) begin

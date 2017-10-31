@@ -45,7 +45,14 @@ entity frontend_cb7210p2 is
 		gpib_NRFD_inverted_out : out std_logic; 
 		gpib_REN_inverted_out : out std_logic; 
 		gpib_SRQ_inverted_out : out std_logic; 
-		gpib_DIO_inverted_out : out std_logic_vector(7 downto 0)
+		gpib_DIO_inverted_out : out std_logic_vector(7 downto 0);
+
+		--rather than relying on the driver to properly configure the modes
+		-- of the tr2 and tr3 outputs, these outputs can be used instead
+		EOI_output_enable : out std_logic;
+		is_CIC : out std_logic;
+		pullup_enable : out std_logic;
+		trigger : out std_logic
 	);
 end frontend_cb7210p2;
      
@@ -104,6 +111,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal rtl : std_logic;
 	signal ton : std_logic;
 	signal tcs : std_logic;
+	signal local_STB : std_logic_vector(7 downto 0);
 	
 	begin
 	my_integrated_interface_functions: entity work.integrated_interface_functions 
@@ -157,7 +165,8 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			host_to_gpib_data_byte_end => host_to_gpib_data_byte_end,
 			host_to_gpib_data_byte_write => host_to_gpib_data_byte_write,
 			host_to_gpib_data_byte_latched => host_to_gpib_data_byte_latched,
-			device_clear_state => device_clear_state
+			device_clear_state => device_clear_state,
+			local_STB => local_STB
 		);
 
 	gpib_ATN_inverted_out <= not bus_ATN_out;

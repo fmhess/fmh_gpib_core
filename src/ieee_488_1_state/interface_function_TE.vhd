@@ -154,7 +154,7 @@ begin
 					END_msg <= host_to_gpib_data_byte_end;
 				end if;
 				RQS <= 'L';
-				NUL <= '0';
+				NUL <= 'L';
 			when SPAS =>
 				END_msg <= '0';
 				if service_request_state = APRS then
@@ -162,7 +162,7 @@ begin
 				else
 					RQS <= '0';
 				end if;
-				NUL <= '0';
+				NUL <= 'L';
 		end case;
 	end process;
 
