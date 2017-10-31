@@ -437,44 +437,31 @@ begin
 		else
 			'0';
 	
-	parallel_poll_sense <= local_parallel_poll_sense when
-			to_bit(local_parallel_poll_config) = '1'
-		else
-			PPE_sense;
-			
-	parallel_poll_response_line <= local_parallel_poll_response_line when
-			to_bit(local_parallel_poll_config) = '1'
-		else
-			PPE_response_line;
-
 	nba <= '1' when source_handshake_state_buffer = SGNS and
 			to_bit(internal_host_to_gpib_data_byte_latched) = '1' else
 		'0';
 	
 	host_to_gpib_data_byte_latched <= internal_host_to_gpib_data_byte_latched;
 	
-	bus_ATN_out <= '1' when 
-			to_bit(local_ATN or local_TCT) = '1' or
-			to_bitvector(local_PPR) /= X"00" else 
-		'L';
-	bus_DAV_out <= '1' when to_bit(local_DAV) = '1' else 
-		'L';
-	bus_EOI_out <= '1' when 
-			to_bit(local_END or local_IDY) = '1' or
-			to_bitvector(local_PPR) /= X"00" else 
-		'L';
-	bus_IFC_out <= '1' when to_bit(local_IFC) = '1' else 'L';
-	bus_NDAC_out <= '1' when to_bit(not local_DAC) = '1' else 'L';
-	bus_NRFD_out <= '1' when to_bit(not local_RFD) = '1' else 'L';
-	bus_REN_out <= '1' when to_bit(local_REN) = '1' else 'L';
-	bus_SRQ_out <= '1' when to_bit(local_SRQ) = '1' else 'L';
+	-- let resolution function sort out multiple drivers
+	bus_ATN_out <= local_ATN;
+	bus_ATN_out <= local_TCT;
+	bus_DAV_out <= local_DAV;
+	bus_EOI_out <= local_END;
+	bus_EOI_out <= local_IDY;
+	bus_IFC_out <= local_IFC;
+	bus_NDAC_out <= not local_DAC;
+	bus_NRFD_out <= not local_RFD;
+	bus_REN_out <= local_REN;
+	bus_SRQ_out <= local_SRQ;
 	bus_DIO_out(6) <= local_RQS;
-	bus_DIO_out <= "LLLLLLLL" when local_NUL = '1' else 
-		"00001001" when to_bit(local_TCT) = '1' else
-		local_PPR when to_bitvector(local_PPR) /= X"00" else 
+	bus_DIO_out <=  
 		internal_host_to_gpib_data_byte when 
 			(source_handshake_state_buffer = SDYS or source_handshake_state_buffer = STRS) and
 			to_bit(ATN) = '0' else 
+		"00001001" when to_bit(local_TCT) = '1' else
+		local_PPR when parallel_poll_state_p1_buffer = PPAS else 
+		"LLLLLLLL" when to_bit(local_NUL) = '1' else
 		"ZZZZZZZZ";
 
 	-- deal with byte read by host from gpib bus
@@ -526,4 +513,22 @@ begin
 		end if;
 	end process;
 
+	-- update parallel poll sense and line
+	process(pon, clock) begin
+		if to_bit(pon) = '1' then
+			parallel_poll_sense <= 'H';
+			parallel_poll_response_line <= "LLL";
+		elsif rising_edge(clock) then
+			if to_bit(local_parallel_poll_config) = '1' then
+				parallel_poll_sense <= local_parallel_poll_sense;
+				parallel_poll_response_line <= local_parallel_poll_response_line;
+			else
+				if to_bit(PPE) = '1' then
+					parallel_poll_sense <= PPE_sense;
+					parallel_poll_response_line <= PPE_response_line;
+				end if;
+			end if;
+		end if;
+	end process;
+	
 end integrated_interface_functions_arch;
