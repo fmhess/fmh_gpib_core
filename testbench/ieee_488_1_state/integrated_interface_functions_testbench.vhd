@@ -299,7 +299,7 @@ architecture behav of integrated_interface_functions_testbench is
 
 		-- try sending some data bytes host to gpib
 
-		bus_ATN <= '0';
+		bus_ATN <= 'L';
 
 		wait until rising_edge(clock);	
 		host_to_gpib_data_byte <= X"b3";
