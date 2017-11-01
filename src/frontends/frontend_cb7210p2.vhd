@@ -1,5 +1,5 @@
 -- frontend with cb7210.2 style register layout
--- It has been extended with the addition or a isr0/imr0 register.
+-- It has been extended with the addition or a isr0/imr0 register at page 1, offset 6.
 -- Author: Frank Mori Hess fmh6jj@gmail.com
 -- Copyright 2017 Frank Mori Hess
 --
@@ -11,13 +11,16 @@ use work.interface_function_common.all;
 use work.integrated_interface_functions.all;
 
 entity frontend_cb7210p2 is
+	generic(num_address_lines : integer := 3);
+	-- read, write_inverted, chip_select_inverted, address, and host_data_bus_in are assumed
+	-- to by synched to clock
 	port(
 		clock : in std_logic;
 		chip_select_inverted : in std_logic;
 		dma_ack_inverted : in std_logic;
 		read_inverted : in std_logic;
 		reset : in std_logic;
-		address : in std_logic_vector(2 downto 0); 
+		address : in std_logic_vector(num_address_lines - 1 downto 0); 
 		write_inverted : in std_logic;
 		host_data_bus_in : in std_logic_vector(7 downto 0);
 		gpib_ATN_inverted_in : in std_logic; 
@@ -94,9 +97,8 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal gpib_to_host_byte_eos : std_logic;
 	signal host_to_gpib_data_byte : std_logic_vector(7 downto 0);
 	signal host_to_gpib_data_byte_end : std_logic;
-	signal host_to_gpib_data_byte_write : std_logic;
+	signal host_to_gpib_data_byte_write_pulse : std_logic;
 	signal host_to_gpib_data_byte_latched : std_logic;
-	
 	signal device_clear_state : DC_state;
 	signal device_trigger_state : DT_state;
 
@@ -112,6 +114,24 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal ton : std_logic;
 	signal tcs : std_logic;
 	signal local_STB : std_logic_vector(7 downto 0);
+	
+	signal safe_reset : std_logic;
+	signal latched_host_data_byte_in : std_logic_vector(7 downto 0);
+	signal latched_address : std_logic_vector(num_address_lines - 1 downto 0);
+	signal host_write_selected : std_logic;
+	signal register_page : std_logic_vector(3 downto 0);
+	
+	signal transmit_receive_mode : std_logic_vector(1 downto 0);
+	signal address_mode : std_logic_vector(1 downto 0);
+	signal gpib_address_0 : std_logic_vector(4 downto 0);
+	signal enable_talker_gpib_address_0 : std_logic;
+	signal enable_listener_gpib_address_0 : std_logic;
+	signal gpib_address_1 : std_logic_vector(4 downto 0);
+	signal enable_talker_gpib_address_1 : std_logic;
+	signal enable_listener_gpib_address_1 : std_logic;
+	signal enable_address_register_1 : std_logic;
+	signal ultra_fast_T1_delay : std_logic;
+	signal pon_pulse : std_logic;
 	
 	begin
 	my_integrated_interface_functions: entity work.integrated_interface_functions 
@@ -163,7 +183,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			rdy => rdy,
 			host_to_gpib_data_byte => host_to_gpib_data_byte,
 			host_to_gpib_data_byte_end => host_to_gpib_data_byte_end,
-			host_to_gpib_data_byte_write => host_to_gpib_data_byte_write,
+			host_to_gpib_data_byte_write => host_to_gpib_data_byte_write_pulse,
 			host_to_gpib_data_byte_latched => host_to_gpib_data_byte_latched,
 			device_clear_state => device_clear_state,
 			local_STB => local_STB
@@ -195,18 +215,232 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 		end if;
 	end process;
 	
-	-- generate pon which is asserted async but de-asserted synchronously on 
+	-- generate reset which is asserted async but de-asserted synchronously on 
 	-- falling clock edge, to avoid any potential metastability problems caused
 	-- by pon deasserting near rising clock edge.
-	process (reset, clock)
+	process (reset, pon, clock)
 	begin
-		if to_bit(reset) = '1' then
+		if to_bit(reset) = '1' or pon_pulse = '1' then
 			pon <= '1';
-		end if;
-		if falling_edge(clock) then
-			if to_bit(reset) = '0' then
-				pon <= '0';
+			if to_bit(reset) = '1' then
+				safe_reset <= '1';
 			end if;
+		elsif falling_edge(clock) then
+			if to_bit(reset) = '0' then
+				safe_reset <= '0';
+				if pon_pulse = '0' then
+					pon <= '0';
+				end if;
+			end if;
+		end if;
+	end process;
+	
+	host_write_selected <= not write_inverted and not chip_select_inverted;
+
+	-- accept reads and writes from host
+	process (safe_reset, pon, clock)
+		function flat_address (page : in std_logic_vector(3 downto 0);
+			raw_address : in std_logic_vector(num_address_lines - 1 downto 0)) 
+			return integer is
+			variable page_integer : integer range 0 to 15;
+			variable raw_address_integer : integer range 0 to 127;
+			variable flat_address_integer : integer range 0 to 127;
+		begin
+			raw_address_integer := to_integer(unsigned(raw_address));
+			page_integer := to_integer(unsigned(page));
+			if raw_address_integer < 8 then
+				return page_integer * 8 + raw_address_integer;
+			else
+				return raw_address_integer;
+			end if;
+		end flat_address;
+		
+		procedure execute_auxiliary_command(command : in std_logic_vector(4 downto 0)) is
+		begin
+			case command is
+				when "00000" => -- immediate execute pon
+					pon_pulse <= '1';
+				when "00010" => -- chip reset
+					-- TODO
+				when "00011" => -- release RFD holdoff 
+					-- TODO
+				when "00100" => -- trigger
+					-- TODO
+				when "00101" | "01101" => -- rtl 
+				when "00110" => -- send EOI on next byte 
+					-- TODO
+				when "00111" => -- non-valid pass through secondary address 
+					-- TODO
+				when "01111" => -- valid pass through secondary address 
+					-- TODO
+				when "00001" => -- clear parallel poll flag 
+					-- TODO
+				when "01001" => -- set parallel poll flag 
+					-- TODO
+				when "10000" => -- go to standby 
+					-- TODO
+				when "10001" => -- take control asynchronously
+					-- TODO
+				when "10010" => -- take control synchronously
+					-- TODO
+				when "11010" => -- take control synchronously on end
+					-- TODO
+				when "10011" => -- listen (pulse)
+					-- TODO
+				when "11000" => -- request rsv true
+					rsv <= '1';
+				when "11001" => -- request rsv false
+					rsv <= '0';
+				when "11011" => -- listen with continuous mode
+					-- TODO
+				when "11100" => -- local unlisten (pulse)
+				when "11101" => -- execute parallel poll
+					-- TODO
+				when "10110" => -- clear IFC 
+					-- TODO
+				when "11110" => -- set IFC 
+					-- TODO
+				when "10111" => -- clear REN 
+					-- TODO
+				when "11111" => -- set REN
+					-- TODO
+				when "10100" => -- disable system control (wrong in cb7210 user manual)
+					-- TODO
+				when others =>
+			end case;
+		end execute_auxiliary_command;
+		
+		-- process a write from the host
+		procedure host_write_register (page : in std_logic_vector(3 downto 0);
+			write_address : in std_logic_vector(num_address_lines - 1 downto 0);
+			write_data : in std_logic_vector(7 downto 0)) is
+
+		begin
+			case flat_address(page, write_address) is
+				when 0 => -- byte out register
+					host_to_gpib_data_byte <= write_data;
+					host_to_gpib_data_byte_write_pulse <= '1';
+				when 1 => -- interrupt mask register 1
+					-- TODO
+				when 2 => -- interrupt mask register 2
+					-- TODO
+				when 3 => -- serial poll mode
+					local_STB <= write_data;
+					rsv <= write_data(6);
+				when 4 => -- address mode
+					address_mode <= write_data(1 downto 0);
+					transmit_receive_mode <= write_data(5 downto 4);
+					lon <= write_data(6);
+					ton <= write_data(7);
+				when 5 => -- auxiliary mode register
+					case write_data(7 downto 5) is
+						when "000" => -- auxiliary command
+							execute_auxiliary_command(write_data(4 downto 0));
+						when "001" => -- reference clock frequency
+							-- TODO
+						when "011" => -- parallel poll register
+							-- TODO
+						when "100" => -- aux A register
+							-- TODO
+						when "101" => -- aux B register
+							-- TODO
+						when "110" => -- aux E register
+							-- TODO
+						when "010" => 
+							if write_data(4) = '1' then
+								register_page <= write_data(3 downto 0);
+							else
+								ultra_fast_T1_delay <= write_data(0);
+							end if;
+						when others =>
+					end case;
+				when 6 => -- address 0/1
+					if to_bit(write_data(7)) = '1' then
+						gpib_address_1 <= write_data(4 downto 0);
+						enable_listener_gpib_address_1 <= not write_data(5);
+						enable_talker_gpib_address_1 <= not write_data(6);
+					else
+						gpib_address_0 <= write_data(4 downto 0);
+						enable_listener_gpib_address_0 <= not write_data(5);
+						enable_talker_gpib_address_0 <= not write_data(6);
+					end if;
+				when 7 => -- end of string
+				when 14 => -- interrupt mask register 0
+				when others =>
+			end case;
+		end host_write_register;
+		
+		variable prev_host_write_selected : std_logic;
+	begin
+		if pon = '1' then
+			if safe_reset = '1' then
+				prev_host_write_selected := '0';
+				register_page <= (others => '0');
+				latched_address <= (others => '0');
+				latched_host_data_byte_in <= (others => '0');
+			end if;
+			local_STB <= (others => '0');
+			rsv <= '0';
+			lon <= '0';
+			ton <= '0';
+			transmit_receive_mode <= "00";
+			address_mode <= "00";
+			ultra_fast_T1_delay <= '0';
+			gpib_address_0 <= (others => '0');
+			enable_talker_gpib_address_0 <= '0';
+			enable_listener_gpib_address_0 <= '0';
+			gpib_address_1 <= (others => '0');
+			enable_talker_gpib_address_1 <= '0';
+			enable_listener_gpib_address_1 <= '0';
+			
+			-- we have to clear the pon pulse in the "if pon" section
+			-- otherwise we will get stuck in pon. We still want to
+			-- wait for a clock though.
+			if rising_edge(clock) then 
+				pon_pulse <= '0';
+			end if;
+		elsif rising_edge(clock) then
+			-- by default, clear any pulsed signals which may be set by this process later
+			host_to_gpib_data_byte_write_pulse <= '0';
+
+			if host_write_selected = '1' then
+				latched_address <= address;
+				latched_host_data_byte_in <= host_data_bus_in;
+			end if;
+
+			-- process write
+			if prev_host_write_selected = '1' and host_write_selected = '0' then
+				host_write_register(register_page, latched_address, latched_host_data_byte_in);
+				register_page <= (others => '0');
+			end if;
+			prev_host_write_selected := host_write_selected;
+		end if;
+	end process;
+
+	-- figure out configured primary/secondary addresses based on settings written
+	-- to chip registers
+	process (pon, clock)
+	begin
+		if pon = '1' then
+			configured_primary_address <= to_stdlogicvector(NO_ADDRESS_CONFIGURED);
+			configured_secondary_address <= to_stdlogicvector(NO_ADDRESS_CONFIGURED);
+		elsif rising_edge(clock) then
+			case address_mode is
+				when "00" =>
+					configured_primary_address <= to_stdlogicvector(NO_ADDRESS_CONFIGURED);
+					configured_secondary_address <= to_stdlogicvector(NO_ADDRESS_CONFIGURED);
+				when "01" =>
+					configured_primary_address <= gpib_address_0;
+					configured_secondary_address <= to_stdlogicvector(NO_ADDRESS_CONFIGURED);
+					-- TODO minor address
+				when "10" =>
+					configured_primary_address <= gpib_address_0;
+					configured_secondary_address <= gpib_address_1;
+				when "11" =>
+					-- TODO addresses are major/minor primary addresses and secondaries are
+					-- done via software using command pass through reg
+				when others =>
+			end case;
 		end if;
 	end process;
 end frontend_cb7210p2_arch;

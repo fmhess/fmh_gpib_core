@@ -153,6 +153,23 @@ architecture behav of frontend_cb7210p2_testbench is
 					wait for 99ns;
 			end procedure gpib_read;
 
+		-- write a byte from host to device register
+		procedure host_write (addr: in std_logic_vector(2 downto 0);
+			byte : in std_logic_vector(7 downto 0)) is
+			begin
+				wait until rising_edge(clock);
+				write_inverted <= '0';
+				chip_select_inverted <= '0';
+				address <= addr;
+				host_data_bus <= byte;
+				wait until rising_edge(clock);
+				write_inverted <= '1';
+				chip_select_inverted <= '1';
+				address <= (others => '0');
+				host_data_bus <= (others => '0');
+				wait until rising_edge(clock);
+			end procedure host_write;
+
 		variable gpib_read_result : integer;
 		variable gpib_read_eoi : boolean;
 	
@@ -167,14 +184,21 @@ architecture behav of frontend_cb7210p2_testbench is
 		gpib_NRFD_inverted <= 'H';
 		gpib_DAV_inverted <= 'H';
 		reset <= '0';
-
+		chip_select_inverted <= '1';
+		dma_ack_inverted <= '1';
+		host_data_bus <= (others => '0');
+		read_inverted <= '1';
+		address <= ( others => '0' );
+		
 		wait until rising_edge(clock);	
 		reset <= '1';
 		wait until rising_edge(clock);	
 		reset <= '0';
 		wait until rising_edge(clock);	
 		
-
+		-- write pon to aux command reg
+		host_write("101", X"00");
+		
 		wait until rising_edge(clock);	
 		assert false report "end of test" severity note;
 		test_finished := true;

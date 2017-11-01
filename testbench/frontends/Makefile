@@ -20,7 +20,7 @@ FRONTEND_CB7210P2_TEST_SRC = \
 frontend_cb7210p2_testbench.fst: $(FRONTEND_CB7210P2_TEST_SRC)
 	nvc -a $(FRONTEND_CB7210P2_TEST_SRC)
 	nvc -e frontend_cb7210p2_testbench
-	nvc -r frontend_cb7210p2_testbench --wave
+	nvc -r frontend_cb7210p2_testbench --wave 
 
 .PHONY: clean
 clean:
