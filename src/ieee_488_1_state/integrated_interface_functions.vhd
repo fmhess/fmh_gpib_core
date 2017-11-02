@@ -444,17 +444,14 @@ begin
 	
 	host_to_gpib_data_byte_latched <= internal_host_to_gpib_data_byte_latched;
 
-	-- let resolution function sort out multiple drivers
-	bus_ATN_out <= local_ATN;
-	bus_ATN_out <= local_TCT;
-	bus_DAV_out <= local_DAV;
-	bus_EOI_out <= local_END;
-	bus_EOI_out <= local_IDY;
-	bus_IFC_out <= local_IFC;
-	bus_NDAC_out <= '1' when to_bit(local_DAC) = '0' else 'L';
-	bus_NRFD_out <= '1' when to_bit(local_RFD) = '0' else 'L';
-	bus_REN_out <= local_REN;
-	bus_SRQ_out <= local_SRQ;
+	bus_ATN_out <= '1' when to_bit(local_ATN or local_TCT) = '1' else 'Z';
+	bus_DAV_out <= '1' when to_bit(local_DAV) = '1' else 'Z';
+	bus_EOI_out <= '1' when to_bit(local_END or local_IDY) = '1' else 'Z';
+	bus_IFC_out <= '1' when to_bit(local_IFC) = '1' else 'Z';
+	bus_NDAC_out <= '1' when to_bit(local_DAC) = '0' else 'Z';
+	bus_NRFD_out <= '1' when to_bit(local_RFD) = '0' else 'Z';
+	bus_REN_out <= '1' when to_bit(local_REN) = '1' else 'Z';
+	bus_SRQ_out <= '1' when to_bit(local_SRQ) = '1' else 'Z';
 	bus_DIO_out(7) <= local_STB(7) when talker_state_p1_buffer = SPAS else 'Z'; 
 	bus_DIO_out(6) <= local_RQS when talker_state_p1_buffer = SPAS else 'Z'; 
 	bus_DIO_out(5 downto 0) <= local_STB(5 downto 0) when talker_state_p1_buffer = SPAS else (others => 'Z');
@@ -464,7 +461,8 @@ begin
 			to_bit(ATN) = '0' else 
 		"00001001" when to_bit(local_TCT) = '1' else
 		local_PPR when parallel_poll_state_p1_buffer = PPAS else 
-		(others => 'L') when to_bit(local_NUL) = '1' else
+		(others => '0') when to_bit(local_NUL) = '1' and  
+			(talker_state_p1_buffer = TACS or talker_state_p1_buffer = SPAS or controller_state_p1_buffer = CACS) else
 		(others => 'Z');
 
 	-- deal with byte read by host from gpib bus
