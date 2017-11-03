@@ -37,95 +37,135 @@ entity gpib_transceiver is
 end gpib_transceiver;
  
 architecture gpib_transceiver_arch of gpib_transceiver is
- 	
-begin
-	process (bus_DIO, device_DIO, talk_enable, pullup_disable)
+
+	signal eoi_transmit : boolean;
+	
+	function weak_value (mysignal : in std_logic) return std_logic is
+	begin
+		case mysignal is
+			when '1' => return 'H';
+			when '0' => return 'L';
+			when 'H' => return 'H';
+			when 'L' => return 'L';
+			when others => return 'Z';
+		end case;
+	end weak_value;
+	
+	function weak_value_vector (myvector : in std_logic_vector(7 downto 0)) return std_logic_vector is
+		variable result : std_logic_vector(7 downto 0);
 	begin
 		for i in 0 to 7 loop
-			if to_bit(talk_enable) = '1' then
-				if to_bit(device_DIO(i)) = '1' then
-					if to_bit(pullup_disable) = '1' then
-						bus_DIO(i) <= '1'; 
-					else
-						bus_DIO(i) <= 'Z';
-					end if;
-				else
-					bus_DIO(i) <= '0';
-				end if;
-				device_DIO(i) <= 'Z';
-			else -- device is receiving DIO
-				bus_DIO(i) <= 'Z';
-				device_DIO(i) <= to_stdulogic(to_bit(bus_DIO(i)));
-			end if;
+			result(i) := weak_value(myvector(i));
 		end loop;
-	end process;
+		return result;
+	end weak_value_vector;
+
+	function strong_value (mysignal : in std_logic) return std_logic is
+	begin
+		case mysignal is
+			when '1' => return '1';
+			when '0' => return '0';
+			when 'H' => return '1';
+			when 'L' => return '0';
+			when others => return 'Z';
+		end case;
+	end strong_value;
+
+	function strong_value_vector (myvector : in std_logic_vector(7 downto 0)) return std_logic_vector is
+		variable result : std_logic_vector(7 downto 0);
+	begin
+		for i in 0 to 7 loop
+			result(i) := strong_value(myvector(i));
+		end loop;
+		return result;
+	end strong_value_vector;
+
+	function open_collector_device_to_bus_value (mysignal : in std_logic) return std_logic is
+	begin
+		case mysignal is
+			when '1' => return 'Z';
+			when '0' => return '0';
+			-- we don't assert bus side if there is a weak value on the device side, since we might just be seeing a
+			-- reflection of the current bus state
+			when 'H' => return 'Z';
+			when 'L' => return 'Z';
+			when others => return 'Z';
+		end case;
+	end open_collector_device_to_bus_value;
+
+	function open_collector_device_to_bus_value_vector (myvector : in std_logic_vector(7 downto 0)) return std_logic_vector is
+		variable result : std_logic_vector(7 downto 0);
+	begin
+		for i in 0 to 7 loop
+			result(i) := open_collector_device_to_bus_value(myvector(i));
+		end loop;
+		return result;
+	end open_collector_device_to_bus_value_vector;
+
+	function strong_device_to_bus_value (mysignal : in std_logic) return std_logic is
+	begin
+		case mysignal is
+			when '1' => return '1';
+			when '0' => return '0';
+			-- we don't assert bus side if there is a weak value on the device side, since we might just be seeing a
+			-- reflection of the current bus state
+			when 'H' => return 'Z';
+			when 'L' => return 'Z'; 
+			when others => return 'Z';
+		end case;
+	end strong_device_to_bus_value;
+
+	function strong_device_to_bus_value_vector (myvector : in std_logic_vector(7 downto 0)) return std_logic_vector is
+		variable result : std_logic_vector(7 downto 0);
+	begin
+		for i in 0 to 7 loop
+			result(i) := strong_device_to_bus_value(myvector(i));
+		end loop;
+		return result;
+	end strong_device_to_bus_value_vector;
+begin
+
+	device_DIO <= strong_value_vector(bus_DIO) when to_bit(talk_enable) = '0' else
+		weak_value_vector(device_DIO);
+	bus_DIO <= strong_device_to_bus_value_vector(device_DIO) when to_bit(talk_enable and pullup_disable) = '1' else
+		open_collector_device_to_bus_value_vector(device_DIO) when to_bit(talk_enable and not pullup_disable) = '1' else
+		(others => 'Z');
 	
-	process (not_controller_in_charge, bus_ATN, bus_SRQ, device_ATN, device_SRQ)
-	begin
-		if to_bit(not_controller_in_charge) = '1' then
-			device_ATN <= to_stdulogic(to_bit(bus_ATN));
-			device_SRQ <= 'Z';
-
-			bus_ATN <= 'Z';
-			bus_SRQ <= to_stdulogic(to_bit(device_SRQ));
-		else
-			device_ATN <= 'Z';
-			device_SRQ <= to_stdulogic(to_bit(bus_SRQ));
-
-			bus_ATN <= to_stdulogic(to_bit(device_ATN));
-			bus_SRQ <= 'Z';
-		end if;
-	end process;
-
-	process (system_controller, bus_IFC, bus_REN, device_IFC, device_REN)
-	begin
-		if to_bit(system_controller) = '1' then
-			device_IFC <= 'Z';
-			device_REN <= 'Z';
-
-			bus_IFC <= to_stdulogic(to_bit(device_IFC));
-			bus_REN <= to_stdulogic(to_bit(device_REN));
-		else
-			device_IFC <= to_stdulogic(to_bit(bus_IFC));
-			device_REN <= to_stdulogic(to_bit(bus_REN));
-
-			bus_IFC <= 'Z';
-			bus_REN <= 'Z';
-		end if;
-	end process;
-
-	process (talk_enable, bus_DAV, bus_NDAC, bus_NRFD, device_DAV, device_NDAC, device_NRFD)
-	begin
-		if to_bit(talk_enable) = '1' then
-			device_DAV <= 'Z';
-			device_NDAC <= to_stdulogic(to_bit(bus_NDAC));
-			device_NRFD <= to_stdulogic(to_bit(bus_NRFD));
-
-			bus_DAV <= to_stdulogic(to_bit(device_DAV));
-			bus_NDAC <= 'Z';
-			bus_NRFD <= 'Z';
-		else
-			device_DAV <= to_stdulogic(to_bit(bus_DAV));
-			device_NDAC <= 'Z';
-			device_NRFD <= 'Z';
-
-			bus_DAV <= 'Z';
-			bus_NDAC <= to_stdulogic(to_bit(device_NDAC));
-			bus_NRFD <= to_stdulogic(to_bit(device_NRFD));
-		end if;
-	end process;
+	device_ATN <= strong_value(bus_ATN) when to_bit(not_controller_in_charge) = '1' else
+		weak_value(bus_ATN);
+	device_SRQ <= strong_value(bus_SRQ) when to_bit(not_controller_in_charge) = '0' else 
+		weak_value(bus_SRQ);
+	bus_ATN <= strong_device_to_bus_value(device_ATN) when to_bit(not_controller_in_charge) = '0' else 'Z';
+	bus_SRQ <= open_collector_device_to_bus_value(device_SRQ) when to_bit(not_controller_in_charge) = '1' else 'Z';
 	
-	process (talk_enable, not_controller_in_charge, bus_ATN, bus_EOI, device_EOI)
-	begin
-		if (to_bit(talk_enable) = '1' and to_bit(not_controller_in_charge) = '0') or
-			(to_bit(talk_enable) = to_bit(not_controller_in_charge) and to_bit(talk_enable) = to_bit(bus_ATN)) then
-			device_EOI <= 'Z';
-			bus_EOI <= to_stdulogic(to_bit(device_EOI));
-		elsif (to_bit(talk_enable) = '0' and to_bit(not_controller_in_charge) = '1') or
-			(to_bit(talk_enable) = to_bit(not_controller_in_charge) and to_bit(talk_enable) /= to_bit(bus_ATN)) then
-			device_EOI <= to_stdulogic(to_bit(bus_EOI));
-			bus_EOI <= 'Z';
-		end if;
-	end process;
+	device_IFC <= strong_value(bus_IFC) when to_bit(system_controller) = '0' else
+		weak_value(bus_IFC);
+	device_REN <= strong_value(bus_REN) when to_bit(system_controller) = '0' else
+		weak_value(bus_REN);
+	bus_IFC <= strong_device_to_bus_value(device_IFC) when to_bit(system_controller) = '1' else
+		'Z';
+	bus_REN <= strong_device_to_bus_value(device_REN) when to_bit(system_controller) = '1' else
+		'Z';
+
+	device_DAV <= strong_value(bus_DAV) when to_bit(talk_enable) = '0' else
+		weak_value(bus_DAV);
+	device_NDAC <= strong_value(bus_NDAC) when to_bit(talk_enable) = '1' else
+		weak_value(bus_NDAC);
+	device_NRFD <= strong_value(bus_NRFD) when to_bit(talk_enable) = '1' else
+		weak_value(bus_NRFD);
+	bus_DAV <= strong_device_to_bus_value(device_DAV) when to_bit(talk_enable) = '1' else
+		'Z';
+	bus_NDAC <= strong_device_to_bus_value(device_NDAC) when to_bit(talk_enable) = '0' else
+		'Z';
+	bus_NRFD <= strong_device_to_bus_value(device_NRFD) when to_bit(talk_enable) = '0' else
+		'Z';
 	
+
+	eoi_transmit <= (to_bit(talk_enable) = '1' and to_bit(not_controller_in_charge) = '0') or
+			(to_bit(talk_enable) = to_bit(not_controller_in_charge) and to_bit(talk_enable) = to_bit(bus_ATN));
+	device_EOI <= strong_value(bus_EOI) when not eoi_transmit else
+		weak_value(bus_EOI);
+	bus_EOI <= strong_device_to_bus_value(device_EOI) when eoi_transmit else
+		'Z';
+
 end gpib_transceiver_arch;

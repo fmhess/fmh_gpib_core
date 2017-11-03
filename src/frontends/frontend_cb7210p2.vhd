@@ -60,25 +60,15 @@ entity frontend_cb7210p2 is
 end frontend_cb7210p2;
      
 architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
-	signal bus_ATN_in : std_logic; 
-	signal bus_DAV_in :  std_logic; 
-	signal bus_EOI_in :  std_logic; 
-	signal bus_IFC_in :  std_logic; 
-	signal bus_NDAC_in :  std_logic; 
-	signal bus_NRFD_in :  std_logic; 
-	signal bus_REN_in :  std_logic; 
-	signal bus_SRQ_in :  std_logic; 
-	signal bus_DIO_in :  std_logic_vector(7 downto 0);
-
-	signal bus_ATN_out : std_logic; 
-	signal bus_DAV_out :  std_logic; 
-	signal bus_EOI_out :  std_logic; 
-	signal bus_IFC_out :  std_logic; 
-	signal bus_NDAC_out :  std_logic; 
-	signal bus_NRFD_out :  std_logic; 
-	signal bus_REN_out :  std_logic; 
-	signal bus_SRQ_out :  std_logic; 
-	signal bus_DIO_out :  std_logic_vector(7 downto 0);
+	signal bus_ATN_inverted_in : std_logic; 
+	signal bus_DAV_inverted_in :  std_logic; 
+	signal bus_EOI_inverted_in :  std_logic; 
+	signal bus_IFC_inverted_in :  std_logic; 
+	signal bus_NDAC_inverted_in :  std_logic; 
+	signal bus_NRFD_inverted_in :  std_logic; 
+	signal bus_REN_inverted_in :  std_logic; 
+	signal bus_SRQ_inverted_in :  std_logic; 
+	signal bus_DIO_inverted_in :  std_logic_vector(7 downto 0);
 
 	signal configured_eos_character : std_logic_vector(7 downto 0);
 	signal ignore_eos_bit_7 : std_logic;
@@ -137,24 +127,24 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	my_integrated_interface_functions: entity work.integrated_interface_functions 
 		port map (
 			clock => clock,
-			bus_DIO_in => bus_DIO_in,
-			bus_REN_in => bus_REN_in,
-			bus_IFC_in => bus_IFC_in,
-			bus_SRQ_in => bus_SRQ_in,
-			bus_EOI_in => bus_EOI_in,
-			bus_ATN_in => bus_ATN_in,
-			bus_NDAC_in => bus_NDAC_in,
-			bus_NRFD_in => bus_NRFD_in,
-			bus_DAV_in => bus_DAV_in,
-			bus_DIO_out => bus_DIO_out,
-			bus_REN_out => bus_REN_out,
-			bus_IFC_out => bus_IFC_out,
-			bus_SRQ_out => bus_SRQ_out,
-			bus_EOI_out => bus_EOI_out,
-			bus_ATN_out => bus_ATN_out,
-			bus_NDAC_out => bus_NDAC_out,
-			bus_NRFD_out => bus_NRFD_out,
-			bus_DAV_out => bus_DAV_out,
+			bus_DIO_inverted_in => bus_DIO_inverted_in,
+			bus_REN_inverted_in => bus_REN_inverted_in,
+			bus_IFC_inverted_in => bus_IFC_inverted_in,
+			bus_SRQ_inverted_in => bus_SRQ_inverted_in,
+			bus_EOI_inverted_in => bus_EOI_inverted_in,
+			bus_ATN_inverted_in => bus_ATN_inverted_in,
+			bus_NDAC_inverted_in => bus_NDAC_inverted_in,
+			bus_NRFD_inverted_in => bus_NRFD_inverted_in,
+			bus_DAV_inverted_in => bus_DAV_inverted_in,
+			bus_DIO_inverted_out => gpib_DIO_inverted_out,
+			bus_REN_inverted_out => gpib_REN_inverted_out,
+			bus_IFC_inverted_out => gpib_IFC_inverted_out,
+			bus_SRQ_inverted_out => gpib_SRQ_inverted_out,
+			bus_EOI_inverted_out => gpib_EOI_inverted_out,
+			bus_ATN_inverted_out => gpib_ATN_inverted_out,
+			bus_NDAC_inverted_out => gpib_NDAC_inverted_out,
+			bus_NRFD_inverted_out => gpib_NRFD_inverted_out,
+			bus_DAV_inverted_out => gpib_DAV_inverted_out,
 			ist => ist,
 			lon => lon,
 			lpe => lpe,
@@ -189,29 +179,19 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			local_STB => local_STB
 		);
 
-	gpib_ATN_inverted_out <= not bus_ATN_out;
-	gpib_DAV_inverted_out <= not bus_DAV_out;
-	gpib_EOI_inverted_out <= not bus_EOI_out;
-	gpib_IFC_inverted_out <= not bus_IFC_out;
-	gpib_NDAC_inverted_out <= not bus_NDAC_out;
-	gpib_NRFD_inverted_out <= not bus_NRFD_out;
-	gpib_REN_inverted_out <= not bus_REN_out;
-	gpib_SRQ_inverted_out <= not bus_SRQ_out;
-	gpib_DIO_inverted_out <= not bus_DIO_out;
-	
 	-- latch external gpib signals on falling clock edge
 	process (clock)
 	begin
 		if falling_edge(clock) then
-			bus_ATN_in <= not gpib_ATN_inverted_in;
-			bus_DAV_in <= not gpib_DAV_inverted_in;
-			bus_EOI_in <= not gpib_EOI_inverted_in;
-			bus_IFC_in <= not gpib_IFC_inverted_in;
-			bus_NDAC_in <= not gpib_NDAC_inverted_in;
-			bus_NRFD_in <= not gpib_NRFD_inverted_in;
-			bus_REN_in <= not gpib_REN_inverted_in;
-			bus_SRQ_in <= not gpib_SRQ_inverted_in;
-			bus_DIO_in <= not gpib_DIO_inverted_in;
+			bus_ATN_inverted_in <= gpib_ATN_inverted_in;
+			bus_DAV_inverted_in <= gpib_DAV_inverted_in;
+			bus_EOI_inverted_in <= gpib_EOI_inverted_in;
+			bus_IFC_inverted_in <= gpib_IFC_inverted_in;
+			bus_NDAC_inverted_in <= gpib_NDAC_inverted_in;
+			bus_NRFD_inverted_in <= gpib_NRFD_inverted_in;
+			bus_REN_inverted_in <= gpib_REN_inverted_in;
+			bus_SRQ_inverted_in <= gpib_SRQ_inverted_in;
+			bus_DIO_inverted_in <= gpib_DIO_inverted_in;
 		end if;
 	end process;
 	

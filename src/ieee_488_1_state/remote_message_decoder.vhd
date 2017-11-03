@@ -10,15 +10,15 @@ use work.interface_function_common.all;
 
 entity remote_message_decoder is
 	port(
-		bus_DIO : in std_logic_vector(7 downto 0);
-		bus_REN : in std_logic;
-		bus_IFC : in std_logic;
-		bus_SRQ : in std_logic;
-		bus_EOI : in std_logic;
-		bus_ATN : in std_logic;
-		bus_NDAC : in std_logic;
-		bus_NRFD : in std_logic;
-		bus_DAV : in std_logic;
+		bus_DIO_inverted : in std_logic_vector(7 downto 0);
+		bus_REN_inverted : in std_logic;
+		bus_IFC_inverted : in std_logic;
+		bus_SRQ_inverted : in std_logic;
+		bus_EOI_inverted : in std_logic;
+		bus_ATN_inverted : in std_logic;
+		bus_NDAC_inverted : in std_logic;
+		bus_NRFD_inverted : in std_logic;
+		bus_DAV_inverted : in std_logic;
 		configured_eos_character : in std_logic_vector(7 downto 0);
 		ignore_eos_bit_7 : in std_logic;
 		configured_primary_address : in std_logic_vector(4 downto 0);
@@ -82,105 +82,105 @@ architecture remote_message_decoder_arch of remote_message_decoder is
 
 begin
 
-	ACG_buffer <= '1' when to_bitvector(bus_DIO(6 downto 4)) = "000" and to_bit(bus_ATN) = '1'else
+	ACG_buffer <= '1' when not bus_DIO_inverted(6 downto 4) = "000" and not bus_ATN_inverted = '1' else
 		'0';
 	ACG <= ACG_buffer;
 	
-	ATN <= bus_ATN;
-	DAC <= not bus_NDAC;
-	DAV <= bus_DAV;
-	DCL <= '1' when UCG_buffer = '1' and to_bitvector(bus_DIO(3 downto 0)) = "0100" and to_bit(bus_ATN) = '1' else
+	ATN <= not bus_ATN_inverted;
+	DAC <= bus_NDAC_inverted;
+	DAV <= not bus_DAV_inverted;
+	DCL <= '1' when UCG_buffer = '1' and not bus_DIO_inverted(3 downto 0) = "0100" and not bus_ATN_inverted = '1' else
 		'0';
-	END_msg <= not bus_ATN and bus_EOI;
+	END_msg <= bus_ATN_inverted and not bus_EOI_inverted;
 	EOS <= '1' when  
-		to_bitvector(bus_DIO(6 downto 0)) = to_bitvector(configured_eos_character(6 downto 0)) and
-		(to_bit(ignore_eos_bit_7) = '1' or to_bit(bus_DIO(7)) = to_bit(configured_eos_character(7))) and
-		to_bit(bus_ATN) = '0' else
+		to_bitvector(not bus_DIO_inverted(6 downto 0)) = to_bitvector(configured_eos_character(6 downto 0)) and
+		(to_bit(ignore_eos_bit_7) = '1' or to_bit(not bus_DIO_inverted(7)) = to_bit(configured_eos_character(7))) and
+		not bus_ATN_inverted = '0' else
 		'0';
-	GET <= '1' when ACG_buffer = '1' and to_bitvector(bus_DIO(3 downto 0)) = "1000" and to_bit(bus_ATN) = '1' else
+	GET <= '1' when ACG_buffer = '1' and not bus_DIO_inverted(3 downto 0) = "1000" and not bus_ATN_inverted = '1' else
 		'0';
-	GTL <= '1' when ACG_buffer = '1' and to_bitvector(bus_DIO(3 downto 0)) = "0001" and to_bit(bus_ATN) = '1' else
+	GTL <= '1' when ACG_buffer = '1' and not bus_DIO_inverted(3 downto 0) = "0001" and not bus_ATN_inverted = '1' else
 		'0';
-	IDY <= bus_EOI;
-	IFC <= bus_IFC;
+	IDY <= not bus_EOI_inverted;
+	IFC <= not bus_IFC_inverted;
 
-	LAG_buffer <= '1' when to_bitvector(bus_DIO(6 downto 5)) = "01" and to_bit(bus_ATN) = '1' else
+	LAG_buffer <= '1' when not bus_DIO_inverted(6 downto 5) = "01" and not bus_ATN_inverted = '1' else
 		'0';
 	LAG <= LAG_buffer;
 	
-	LLO <= '1' when UCG_buffer = '1' and to_bitvector(bus_DIO(3 downto 0)) = "0001" and to_bit(bus_ATN) = '1' else
+	LLO <= '1' when UCG_buffer = '1' and not bus_DIO_inverted(3 downto 0) = "0001" and not bus_ATN_inverted = '1' else
 		'0';
 	MLA <= '1' when LAG_buffer = '1' and 
-		to_bitvector(bus_DIO(4 downto 0)) = to_bitvector(configured_primary_address) and
+		to_bitvector(not bus_DIO_inverted(4 downto 0)) = to_bitvector(configured_primary_address) and
 		to_bitvector(configured_primary_address) /= NO_ADDRESS_CONFIGURED and
-		to_bit(bus_ATN) = '1' else
+		not bus_ATN_inverted = '1' else
 		'0';
 
 	MTA_buffer <= '1' when TAG_buffer = '1' and 
-		to_bitvector(bus_DIO(4 downto 0)) = to_bitvector(configured_primary_address) and
+		to_bitvector(not bus_DIO_inverted(4 downto 0)) = to_bitvector(configured_primary_address) and
 		to_bitvector(configured_primary_address) /= NO_ADDRESS_CONFIGURED and
-		to_bit(bus_ATN) = '1' else
+		not bus_ATN_inverted = '1' else
 		'0';
 	MTA <= MTA_buffer;
 
 	MSA_buffer <= '1' when SCG_buffer = '1' and 
-		to_bitvector(bus_DIO(4 downto 0)) = to_bitvector(configured_secondary_address) and
+		to_bitvector(not bus_DIO_inverted(4 downto 0)) = to_bitvector(configured_secondary_address) and
 		to_bitvector(configured_secondary_address) /= NO_ADDRESS_CONFIGURED and
-		to_bit(bus_ATN) = '1' else
+		not bus_ATN_inverted = '1' else
 		'0';
 	MSA <= MSA_buffer;
 
 	OSA <= SCG_buffer and not MSA_buffer;
 	OTA <= TAG_buffer and not MTA_buffer;
 	PCG <= ACG_buffer or UCG_buffer or LAG_buffer or TAG_buffer;
-	PPC <= '1' when ACG_buffer = '1' and to_bitvector(bus_DIO(3 downto 0)) = "0101" and to_bit(bus_ATN) = '1' else
+	PPC <= '1' when ACG_buffer = '1' and not bus_DIO_inverted(3 downto 0) = "0101" and not bus_ATN_inverted = '1' else
 		'0';
 
-	PPE_buffer <= '1' when to_bitvector(bus_DIO(6 downto 4)) = "110" and to_bit(bus_ATN) = '1' else
+	PPE_buffer <= '1' when not bus_DIO_inverted(6 downto 4) = "110" and not bus_ATN_inverted = '1' else
 		'0';
 	PPE <= PPE_buffer;
 	
-	PPE_sense <= bus_DIO(3) when PPE_buffer = '1' and to_bit(bus_ATN) = '1' else
+	PPE_sense <= not bus_DIO_inverted(3) when PPE_buffer = '1' and not bus_ATN_inverted = '1' else
 		'Z';
-	PPE_response_line <= bus_DIO(2 downto 0) when PPE_buffer = '1' and to_bit(bus_ATN) = '1' else
+	PPE_response_line <= not bus_DIO_inverted(2 downto 0) when PPE_buffer = '1' and not bus_ATN_inverted = '1' else
 		"ZZZ";
-	PPD <= '1' when to_bitvector(bus_DIO(6 downto 4)) = "111" and to_bit(bus_ATN) = '1' else
+	PPD <= '1' when not bus_DIO_inverted(6 downto 4) = "111" and not bus_ATN_inverted = '1' else
 		'0';
-	PPU <= '1' when UCG_buffer = '1' and to_bitvector(bus_DIO(3 downto 0)) = "0101" and to_bit(bus_ATN) = '1' else
+	PPU <= '1' when UCG_buffer = '1' and not bus_DIO_inverted(3 downto 0) = "0101" and not bus_ATN_inverted = '1' else
 		'0';
-	REN <= bus_REN;
-	RFD <= not bus_NRFD;
-	RQS <= bus_DIO(6) and not bus_ATN;
+	REN <= not bus_REN_inverted;
+	RFD <= bus_NRFD_inverted;
+	RQS <= not bus_DIO_inverted(6) and bus_ATN_inverted;
 	
-	SCG_buffer <= '1' when to_bitvector(bus_DIO(6 downto 5)) = "11" and to_bit(bus_ATN) = '1' else
+	SCG_buffer <= '1' when not bus_DIO_inverted(6 downto 5) = "11" and not bus_ATN_inverted = '1' else
 		'0';
 	SCG <= SCG_buffer;
 
-	SDC <= '1' when ACG_buffer = '1' and to_bitvector(bus_DIO(3 downto 0)) = "0100" and to_bit(bus_ATN) = '1' else
+	SDC <= '1' when ACG_buffer = '1' and not bus_DIO_inverted(3 downto 0) = "0100" and not bus_ATN_inverted = '1' else
 		'0';
-	SPD <= '1' when UCG_buffer = '1' and to_bitvector(bus_DIO(3 downto 0)) = "1001" and to_bit(bus_ATN) = '1' else
+	SPD <= '1' when UCG_buffer = '1' and not bus_DIO_inverted(3 downto 0) = "1001" and not bus_ATN_inverted = '1' else
 		'0';
-	SPE <= '1' when UCG_buffer = '1' and to_bitvector(bus_DIO(3 downto 0)) = "1000" and to_bit(bus_ATN) = '1' else
+	SPE <= '1' when UCG_buffer = '1' and not bus_DIO_inverted(3 downto 0) = "1000" and not bus_ATN_inverted = '1' else
 		'0';
-	SRQ <= bus_SRQ;
-	TCT <= '1' when ACG_buffer = '1' and to_bitvector(bus_DIO(3 downto 0)) = "1001" and to_bit(bus_ATN) = '1' else
+	SRQ <= not bus_SRQ_inverted;
+	TCT <= '1' when ACG_buffer = '1' and not bus_DIO_inverted(3 downto 0) = "1001" and not bus_ATN_inverted = '1' else
 		'0';
 	
-	TAG_buffer <= '1' when to_bitvector(bus_DIO(6 downto 5)) = "10" and to_bit(bus_ATN) = '1' else
+	TAG_buffer <= '1' when not bus_DIO_inverted(6 downto 5) = "10" and not bus_ATN_inverted = '1' else
 		'0';
 	TAG <= TAG_buffer;
 		
-	UCG_buffer <= '1' when to_bitvector(bus_DIO(6 downto 4)) = "001" and to_bit(bus_ATN) = '1' else
+	UCG_buffer <= '1' when not bus_DIO_inverted(6 downto 4) = "001" and not bus_ATN_inverted = '1' else
 		'0';
 	UCG <= UCG_buffer;
 		
-	UNL <= '1' when LAG_buffer = '1' and to_bitvector(bus_DIO(4 downto 0)) = "11111" and to_bit(bus_ATN) = '1' else
+	UNL <= '1' when LAG_buffer = '1' and not bus_DIO_inverted(4 downto 0) = "11111" and not bus_ATN_inverted = '1' else
 		'0';
-	UNT <= '1' when TAG_buffer = '1' and to_bitvector(bus_DIO(4 downto 0)) = "11111" and to_bit(bus_ATN) = '1' else
+	UNT <= '1' when TAG_buffer = '1' and not bus_DIO_inverted(4 downto 0) = "11111" and not bus_ATN_inverted = '1' else
 		'0';
-	NIC <= bus_NRFD;
-	CFE <= '1' when UCG_buffer = '1' and to_bitvector(bus_DIO(3 downto 0)) = "1111" and to_bit(bus_ATN) = '1' else
+	NIC <= not bus_NRFD_inverted;
+	CFE <= '1' when UCG_buffer = '1' and not bus_DIO_inverted(3 downto 0) = "1111" and not bus_ATN_inverted = '1' else
 		'0';
-	NUL <= '1' when to_bitvector(bus_DIO) = X"00" else '0';
+	NUL <= '1' when not bus_DIO_inverted = X"00" else '0';
 	
 end remote_message_decoder_arch;

@@ -125,7 +125,7 @@ architecture behav of gpib_transceiver_testbench is
 		device_SRQ <= '1';
 		wait until rising_edge(clock);
 		assert device_ATN = '1';
-		assert bus_SRQ = '1';
+		assert bus_SRQ = 'H';
 		
 		not_controller_in_charge <= '0';
 		device_ATN <= '0';
@@ -180,18 +180,24 @@ architecture behav of gpib_transceiver_testbench is
 		-- test transmit EOI
 		
 		not_controller_in_charge <= '1';
-		talk_enable <= '1';
 		bus_ATN <= '1';
 		device_ATN <= 'Z';
+		talk_enable <= '1';
+		device_NRFD <= 'Z';
+		device_NDAC <= 'Z';
+		wait until rising_edge(clock);
+		
 		device_EOI <= '1';
 		bus_EOI <= 'Z';
 		wait until rising_edge(clock);
 		assert bus_EOI = '1';
 		
 		not_controller_in_charge <= '0';
+		bus_ATN <= 'Z';
+		wait until rising_edge(clock);
 		talk_enable <= '0';
-		bus_ATN <= '0';
-		device_ATN <= 'Z';
+		wait until rising_edge(clock);
+		device_ATN <= '0';
 		device_EOI <= '0';
 		bus_EOI <= 'Z';
 		wait until rising_edge(clock);
@@ -235,4 +241,14 @@ architecture behav of gpib_transceiver_testbench is
 		test_finished := true;
 		wait;
 	end process;
+
+	-- simulate weak pullup resistors on bus
+	bus_ATN <= 'H';
+	bus_DAV <= 'H';
+	bus_EOI <= 'H';
+	bus_IFC <= 'H';
+	bus_NDAC <= 'H';
+	bus_NRFD <= 'H';
+	bus_REN <= 'H';
+	bus_SRQ <= 'H';
 end behav;

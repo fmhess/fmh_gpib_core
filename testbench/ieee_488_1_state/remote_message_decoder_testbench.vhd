@@ -12,15 +12,15 @@ entity remote_message_decoder_testbench is
 end remote_message_decoder_testbench;
      
 architecture behav of remote_message_decoder_testbench is
-	signal bus_DIO : std_logic_vector(7 downto 0);
-	signal bus_REN : std_logic;
-	signal bus_IFC : std_logic;
-	signal bus_SRQ : std_logic;
-	signal bus_EOI : std_logic;
-	signal bus_ATN : std_logic;
-	signal bus_NDAC : std_logic;
-	signal bus_NRFD : std_logic;
-	signal bus_DAV : std_logic;
+	signal bus_DIO_inverted : std_logic_vector(7 downto 0);
+	signal bus_REN_inverted : std_logic;
+	signal bus_IFC_inverted : std_logic;
+	signal bus_SRQ_inverted : std_logic;
+	signal bus_EOI_inverted : std_logic;
+	signal bus_ATN_inverted : std_logic;
+	signal bus_NDAC_inverted : std_logic;
+	signal bus_NRFD_inverted : std_logic;
+	signal bus_DAV_inverted : std_logic;
 	signal configured_eos_character : std_logic_vector(7 downto 0);
 	signal ignore_eos_bit_7 : std_logic;
 	signal configured_primary_address : std_logic_vector(4 downto 0);
@@ -71,15 +71,15 @@ architecture behav of remote_message_decoder_testbench is
 	begin
 	my_decoder: entity work.remote_message_decoder 
 		port map (
-			bus_DIO => bus_DIO,
-			bus_REN => bus_REN,
-			bus_IFC => bus_IFC,
-			bus_SRQ => bus_SRQ,
-			bus_EOI => bus_EOI,
-			bus_ATN => bus_ATN,
-			bus_NDAC => bus_NDAC,
-			bus_NRFD => bus_NRFD,
-			bus_DAV => bus_DAV,
+			bus_DIO_inverted => bus_DIO_inverted,
+			bus_REN_inverted => bus_REN_inverted,
+			bus_IFC_inverted => bus_IFC_inverted,
+			bus_SRQ_inverted => bus_SRQ_inverted,
+			bus_EOI_inverted => bus_EOI_inverted,
+			bus_ATN_inverted => bus_ATN_inverted,
+			bus_NDAC_inverted => bus_NDAC_inverted,
+			bus_NRFD_inverted => bus_NRFD_inverted,
+			bus_DAV_inverted => bus_DAV_inverted,
 			configured_eos_character => configured_eos_character,
 			ignore_eos_bit_7 => ignore_eos_bit_7,
 			configured_primary_address => configured_primary_address,
@@ -128,15 +128,15 @@ architecture behav of remote_message_decoder_testbench is
 	
 	process		
 	begin
-		bus_DIO <= X"00";
-		bus_REN <= 'L';
-		bus_IFC <= 'L';
-		bus_SRQ <= 'L';
-		bus_EOI <= 'L';
-		bus_ATN <= 'L';
-		bus_NDAC <= 'L';
-		bus_NRFD <= 'L';
-		bus_DAV <= 'L';
+		bus_DIO_inverted <= X"ff";
+		bus_REN_inverted <= 'H';
+		bus_IFC_inverted <= 'H';
+		bus_SRQ_inverted <= 'H';
+		bus_EOI_inverted <= 'H';
+		bus_ATN_inverted <= 'H';
+		bus_NDAC_inverted <= 'H';
+		bus_NRFD_inverted <= 'H';
+		bus_DAV_inverted <= 'H';
 		configured_eos_character <= X"00";
 		ignore_eos_bit_7 <= '0';
 		configured_primary_address <= "11111";
@@ -144,21 +144,21 @@ architecture behav of remote_message_decoder_testbench is
 				
 		wait for 100ns;	
 
-		bus_DIO <= X"0f";		
-		bus_ATN <= '1';		
+		bus_DIO_inverted <= not X"0f";		
+		bus_ATN_inverted <= '0';		
 		wait for 100ns;	
 		assert ACG = '1';
 		assert ATN = '1';
 		
-		bus_DIO <= "10010100";		
+		bus_DIO_inverted <= not "10010100";		
 		wait for 100ns;	
 		assert ACG = '0';
 		assert DCL = '1';
 
 		configured_eos_character <= X"9b";
 		ignore_eos_bit_7 <= '1';
-		bus_DIO <= X"1b";		
-		bus_ATN <= '0';
+		bus_DIO_inverted <= not X"1b";		
+		bus_ATN_inverted <= '1';
 		wait for 100ns;	
 		assert EOS = '1';
 		
@@ -166,14 +166,14 @@ architecture behav of remote_message_decoder_testbench is
 		wait for 100ns;	
 		assert EOS = '0';
 		
-		bus_ATN <= '0';
-		bus_EOI <= '1';
+		bus_ATN_inverted <= '1';
+		bus_EOI_inverted <= '0';
 		wait for 100ns;	
 		assert END_msg = '1';
 
-		bus_EOI <= '0';
-		bus_ATN <= '1';
-		bus_DIO <= "11100101";
+		bus_EOI_inverted <= '1';
+		bus_ATN_inverted <= '0';
+		bus_DIO_inverted <= not "11100101";
 		wait for 100ns;	
 		assert PPE = '1';
 		assert PPE_sense = '0';

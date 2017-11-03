@@ -12,6 +12,7 @@ all: interface_function_LE_testbench.fst \
 	integrated_interface_functions_testbench.fst
 
 INTEGRATED_INTERFACE_FUNCTIONS_TEST_SRC = \
+	../../src/util/gpib_transceiver.vhd \
 	../../src/ieee_488_1_state/interface_function_common.vhd \
 	../../src/ieee_488_1_state/interface_function_AH.vhd \
 	../../src/ieee_488_1_state/interface_function_C.vhd \

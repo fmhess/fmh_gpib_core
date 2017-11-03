@@ -24,15 +24,15 @@ entity integrated_interface_functions is
 	port(
 		clock : in std_logic;
 		
-		bus_DIO_in : in std_logic_vector(7 downto 0);
-		bus_REN_in : in std_logic;
-		bus_IFC_in : in std_logic;
-		bus_SRQ_in : in std_logic;
-		bus_EOI_in : in std_logic;
-		bus_ATN_in : in std_logic;
-		bus_NDAC_in : in std_logic;
-		bus_NRFD_in : in std_logic;
-		bus_DAV_in : in std_logic;
+		bus_DIO_inverted_in : in std_logic_vector(7 downto 0);
+		bus_REN_inverted_in : in std_logic;
+		bus_IFC_inverted_in : in std_logic;
+		bus_SRQ_inverted_in : in std_logic;
+		bus_EOI_inverted_in : in std_logic;
+		bus_ATN_inverted_in : in std_logic;
+		bus_NDAC_inverted_in : in std_logic;
+		bus_NRFD_inverted_in : in std_logic;
+		bus_DAV_inverted_in : in std_logic;
 
 		ist : in std_logic;
 		lon : in std_logic;
@@ -62,15 +62,15 @@ entity integrated_interface_functions is
 		host_to_gpib_data_byte_write : in std_logic;
 		local_STB : in std_logic_vector(7 downto 0);
 		
-		bus_DIO_out : out std_logic_vector(7 downto 0);
-		bus_REN_out : out std_logic;
-		bus_IFC_out : out std_logic;
-		bus_SRQ_out : out std_logic;
-		bus_EOI_out : out std_logic;
-		bus_ATN_out : out std_logic;
-		bus_NDAC_out : out std_logic;
-		bus_NRFD_out : out std_logic;
-		bus_DAV_out : out std_logic;
+		bus_DIO_inverted_out : out std_logic_vector(7 downto 0);
+		bus_REN_inverted_out : out std_logic;
+		bus_IFC_inverted_out : out std_logic;
+		bus_SRQ_inverted_out : out std_logic;
+		bus_EOI_inverted_out : out std_logic;
+		bus_ATN_inverted_out : out std_logic;
+		bus_NDAC_inverted_out : out std_logic;
+		bus_NRFD_inverted_out : out std_logic;
+		bus_DAV_inverted_out : out std_logic;
 		acceptor_handshake_state : out AH_state;
 		controller_state_p1 : out C_state_p1;
 		controller_state_p2 : out C_state_p2;
@@ -184,19 +184,39 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	signal enable_secondary_addressing : std_logic;
 	signal parallel_poll_sense : std_logic;
 	signal parallel_poll_response_line : std_logic_vector(2 downto 0);
+
+	function not_passive_low (mysignal : in std_logic) return boolean is
+	begin
+		case mysignal is
+			when '1' => return true;
+			when '0' => return true;
+			when 'H' => return true;
+			when others => return false;
+		end case;
+	end not_passive_low;
+
+	function not_passive_high (mysignal : in std_logic) return boolean is
+	begin
+		case mysignal is
+			when '1' => return true;
+			when '0' => return true;
+			when 'L' => return true;
+			when others => return false;
+		end case;
+	end not_passive_high;
 	
-begin
+	begin
 	my_decoder: entity work.remote_message_decoder 
 		port map (
-			bus_DIO => bus_DIO_in,
-			bus_REN => bus_REN_in,
-			bus_IFC => bus_IFC_in,
-			bus_SRQ => bus_SRQ_in,
-			bus_EOI => bus_EOI_in,
-			bus_ATN => bus_ATN_in,
-			bus_NDAC => bus_NDAC_in,
-			bus_NRFD => bus_NRFD_in,
-			bus_DAV => bus_DAV_in,
+			bus_DIO_inverted => bus_DIO_inverted_in,
+			bus_REN_inverted => bus_REN_inverted_in,
+			bus_IFC_inverted => bus_IFC_inverted_in,
+			bus_SRQ_inverted => bus_SRQ_inverted_in,
+			bus_EOI_inverted => bus_EOI_inverted_in,
+			bus_ATN_inverted => bus_ATN_inverted_in,
+			bus_NDAC_inverted => bus_NDAC_inverted_in,
+			bus_NRFD_inverted => bus_NRFD_inverted_in,
+			bus_DAV_inverted => bus_DAV_inverted_in,
 			configured_eos_character => configured_eos_character,
 			ignore_eos_bit_7 => ignore_eos_bit_7,
 			configured_primary_address => configured_primary_address,
@@ -444,24 +464,32 @@ begin
 	
 	host_to_gpib_data_byte_latched <= internal_host_to_gpib_data_byte_latched;
 
-	bus_ATN_out <= '1' when to_bit(local_ATN or local_TCT) = '1' else 'Z';
-	bus_DAV_out <= '1' when to_bit(local_DAV) = '1' else 'Z';
-	bus_EOI_out <= '1' when to_bit(local_END or local_IDY) = '1' else 'Z';
-	bus_IFC_out <= '1' when to_bit(local_IFC) = '1' else 'Z';
-	bus_NDAC_out <= '1' when to_bit(local_DAC) = '0' else 'Z';
-	bus_NRFD_out <= '1' when to_bit(local_RFD) = '0' else 'Z';
-	bus_REN_out <= '1' when to_bit(local_REN) = '1' else 'Z';
-	bus_SRQ_out <= '1' when to_bit(local_SRQ) = '1' else 'Z';
-	bus_DIO_out(7) <= local_STB(7) when talker_state_p1_buffer = SPAS else 'Z'; 
-	bus_DIO_out(6) <= local_RQS when talker_state_p1_buffer = SPAS else 'Z'; 
-	bus_DIO_out(5 downto 0) <= local_STB(5 downto 0) when talker_state_p1_buffer = SPAS else (others => 'Z');
-	bus_DIO_out <=  
-		internal_host_to_gpib_data_byte when 
+	bus_ATN_inverted_out <= not local_ATN when
+		not_passive_low(local_ATN) else 'Z';
+	bus_DAV_inverted_out <= not local_DAV when
+		not_passive_low(local_DAV) else 'Z';
+	bus_EOI_inverted_out <= not (local_END or local_IDY) when
+		not_passive_low(local_END) or not_passive_low(local_IDY) else 'Z';
+	bus_IFC_inverted_out <= not local_IFC when
+		not_passive_low(local_IFC) else 'Z';
+	bus_NDAC_inverted_out <= to_stdulogic(to_bit(local_DAC)) when
+		not_passive_high(local_DAC) else 'Z';
+	bus_NRFD_inverted_out <= to_stdulogic(to_bit(local_RFD)) when 
+		not_passive_high(local_RFD) else 'Z';
+	bus_REN_inverted_out <= not local_REN when
+		not_passive_low(local_REN) else 'Z';
+	bus_SRQ_inverted_out <= not local_SRQ when
+		not_passive_low(local_SRQ) else 'Z';
+	bus_DIO_inverted_out(7) <= not local_STB(7) when talker_state_p1_buffer = SPAS else 'Z'; 
+	bus_DIO_inverted_out(6) <= not local_RQS when talker_state_p1_buffer = SPAS else 'Z'; 
+	bus_DIO_inverted_out(5 downto 0) <= not local_STB(5 downto 0) when talker_state_p1_buffer = SPAS else (others => 'Z');
+	bus_DIO_inverted_out <=  
+		not internal_host_to_gpib_data_byte when 
 			(source_handshake_state_buffer = SDYS or source_handshake_state_buffer = STRS) and
 			to_bit(ATN) = '0' else 
-		"00001001" when to_bit(local_TCT) = '1' else
-		local_PPR when parallel_poll_state_p1_buffer = PPAS else 
-		(others => '0') when to_bit(local_NUL) = '1' and  
+		not "00001001" when not_passive_low(local_TCT) else
+		perfect_invert_vector(local_PPR) when parallel_poll_state_p1_buffer = PPAS else 
+		(others => '1') when not_passive_low(local_NUL) and  
 			(talker_state_p1_buffer = TACS or talker_state_p1_buffer = SPAS or controller_state_p1_buffer = CACS) else
 		(others => 'Z');
 
@@ -477,7 +505,7 @@ begin
 				acceptor_handshake_state_buffer = ACDS and
 				to_bit(ATN) = '0' then
 					rdy <= '0';
-					gpib_to_host_byte <= bus_DIO_in;
+					gpib_to_host_byte <= not bus_DIO_inverted_in;
 					gpib_to_host_byte_end <= END_msg;
 					gpib_to_host_byte_eos <= EOS;
 			end if;
