@@ -163,7 +163,7 @@ architecture behav of gpib_transceiver_testbench is
 		wait until rising_edge(clock);
 		assert bus_DAV = '0';
 		assert device_NDAC = '0';
-		assert device_NRFD = '1';
+		assert to_X01(device_NRFD) = '1';
 
 		talk_enable <= '0';
 		device_DAV <= 'Z'; 
@@ -174,7 +174,7 @@ architecture behav of gpib_transceiver_testbench is
 		bus_NRFD <= 'Z';
 		wait until rising_edge(clock);
 		assert device_DAV = '1';
-		assert bus_NDAC = '1';
+		assert to_X01(bus_NDAC) = '1';
 		assert bus_NRFD = '0';
 
 		-- test transmit EOI
@@ -242,13 +242,4 @@ architecture behav of gpib_transceiver_testbench is
 		wait;
 	end process;
 
-	-- simulate weak pullup resistors on bus
-	bus_ATN <= 'H';
-	bus_DAV <= 'H';
-	bus_EOI <= 'H';
-	bus_IFC <= 'H';
-	bus_NDAC <= 'H';
-	bus_NRFD <= 'H';
-	bus_REN <= 'H';
-	bus_SRQ <= 'H';
 end behav;

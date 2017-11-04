@@ -38,134 +38,106 @@ end gpib_transceiver;
  
 architecture gpib_transceiver_arch of gpib_transceiver is
 
-	signal eoi_transmit : boolean;
+	signal eoi_transmit : std_logic;
 	
-	function weak_value (mysignal : in std_logic) return std_logic is
+	signal device_is_asserting_DIO : std_logic_vector(7 downto 0);
+	signal device_is_asserting_NDAC : std_logic;
+	signal device_is_asserting_NRFD : std_logic;
+	signal device_is_asserting_SRQ : std_logic;
+
+	function sync_output(source : in std_logic; 
+		transmit : in std_logic) return std_logic is
 	begin
-		case mysignal is
-			when '1' => return 'H';
-			when '0' => return 'L';
-			when 'H' => return 'H';
-			when 'L' => return 'L';
-			when others => return 'Z';
-		end case;
-	end weak_value;
-	
-	function weak_value_vector (myvector : in std_logic_vector(7 downto 0)) return std_logic_vector is
-		variable result : std_logic_vector(7 downto 0);
+		if to_X01(transmit) = '1' then
+			return source;
+		else
+			return 'Z';
+		end if;
+	end sync_output;
+
+	function sync_dio_output(source : in std_logic; transmit : in std_logic; 
+		pullup_disable : in std_logic; source_is_asserting : in std_logic) return std_logic is
 	begin
-		for i in 0 to 7 loop
-			result(i) := weak_value(myvector(i));
+		return sync_output(source, (pullup_disable and transmit) or (not pullup_disable and source_is_asserting));
+	end sync_dio_output;
+
+	function sync_dio_output(source : in std_logic_vector; transmit : in std_logic; 
+		pullup_disable : in std_logic; source_is_asserting : in std_logic_vector) return std_logic_vector is
+		variable result : std_logic_vector(source'RANGE);
+	begin
+		for i in source'LOW to source'HIGH loop
+			result(i) := 
+				sync_dio_output(source(i), transmit, pullup_disable, 
+				source_is_asserting(source_is_asserting'LOW + i));
 		end loop;
 		return result;
-	end weak_value_vector;
+	end sync_dio_output;
 
-	function strong_value (mysignal : in std_logic) return std_logic is
+	function device_is_asserting(
+		device_value : in std_logic; bus_value : in std_logic;
+		old_result : in std_logic) return std_logic is
 	begin
-		case mysignal is
-			when '1' => return '1';
-			when '0' => return '0';
-			when 'H' => return '1';
-			when 'L' => return '0';
-			when others => return 'Z';
-		end case;
-	end strong_value;
+		if to_X01(device_value) = '0' and to_X01(bus_value) = '1' then
+			return '1';
+		elsif to_X01(device_value) = '1' and to_X01(bus_value) = '0' then
+			return '0';
+		else
+			return old_result;
+		end if;
+	end device_is_asserting;
 
-	function strong_value_vector (myvector : in std_logic_vector(7 downto 0)) return std_logic_vector is
-		variable result : std_logic_vector(7 downto 0);
+	function device_is_asserting(
+		device_value : in std_logic_vector; bus_value : in std_logic_vector;
+		old_result : in std_logic_vector) return std_logic_vector is
+		variable result : std_logic_vector(device_value'RANGE);
 	begin
-		for i in 0 to 7 loop
-			result(i) := strong_value(myvector(i));
+		for i in device_value'LOW to device_value'HIGH loop
+			result(i) := device_is_asserting(device_value(i), bus_value(i), old_result(i));
 		end loop;
 		return result;
-	end strong_value_vector;
-
-	function open_collector_device_to_bus_value (mysignal : in std_logic) return std_logic is
-	begin
-		case mysignal is
-			when '1' => return 'Z';
-			when '0' => return '0';
-			-- we don't assert bus side if there is a weak value on the device side, since we might just be seeing a
-			-- reflection of the current bus state
-			when 'H' => return 'Z';
-			when 'L' => return 'Z';
-			when others => return 'Z';
-		end case;
-	end open_collector_device_to_bus_value;
-
-	function open_collector_device_to_bus_value_vector (myvector : in std_logic_vector(7 downto 0)) return std_logic_vector is
-		variable result : std_logic_vector(7 downto 0);
-	begin
-		for i in 0 to 7 loop
-			result(i) := open_collector_device_to_bus_value(myvector(i));
-		end loop;
-		return result;
-	end open_collector_device_to_bus_value_vector;
-
-	function strong_device_to_bus_value (mysignal : in std_logic) return std_logic is
-	begin
-		case mysignal is
-			when '1' => return '1';
-			when '0' => return '0';
-			-- we don't assert bus side if there is a weak value on the device side, since we might just be seeing a
-			-- reflection of the current bus state
-			when 'H' => return 'Z';
-			when 'L' => return 'Z'; 
-			when others => return 'Z';
-		end case;
-	end strong_device_to_bus_value;
-
-	function strong_device_to_bus_value_vector (myvector : in std_logic_vector(7 downto 0)) return std_logic_vector is
-		variable result : std_logic_vector(7 downto 0);
-	begin
-		for i in 0 to 7 loop
-			result(i) := strong_device_to_bus_value(myvector(i));
-		end loop;
-		return result;
-	end strong_device_to_bus_value_vector;
+	end device_is_asserting;
 begin
-
-	device_DIO <= strong_value_vector(bus_DIO) when to_bit(talk_enable) = '0' else
-		weak_value_vector(device_DIO);
-	bus_DIO <= strong_device_to_bus_value_vector(device_DIO) when to_bit(talk_enable and pullup_disable) = '1' else
-		open_collector_device_to_bus_value_vector(device_DIO) when to_bit(talk_enable and not pullup_disable) = '1' else
-		(others => 'Z');
+	device_is_asserting_DIO <= device_is_asserting(device_DIO, bus_DIO, device_is_asserting_DIO);
+	device_is_asserting_SRQ <= device_is_asserting(device_SRQ, bus_SRQ, device_is_asserting_SRQ);
+	device_is_asserting_NDAC <= device_is_asserting(device_NDAC, bus_NDAC, device_is_asserting_NDAC);
+	device_is_asserting_NRFD <= device_is_asserting(device_NRFD, bus_NRFD, device_is_asserting_NRFD);
 	
-	device_ATN <= strong_value(bus_ATN) when to_bit(not_controller_in_charge) = '1' else
-		weak_value(bus_ATN);
-	device_SRQ <= strong_value(bus_SRQ) when to_bit(not_controller_in_charge) = '0' else 
-		weak_value(bus_SRQ);
-	bus_ATN <= strong_device_to_bus_value(device_ATN) when to_bit(not_controller_in_charge) = '0' else 'Z';
-	bus_SRQ <= open_collector_device_to_bus_value(device_SRQ) when to_bit(not_controller_in_charge) = '1' else 'Z';
-	
-	device_IFC <= strong_value(bus_IFC) when to_bit(system_controller) = '0' else
-		weak_value(bus_IFC);
-	device_REN <= strong_value(bus_REN) when to_bit(system_controller) = '0' else
-		weak_value(bus_REN);
-	bus_IFC <= strong_device_to_bus_value(device_IFC) when to_bit(system_controller) = '1' else
-		'Z';
-	bus_REN <= strong_device_to_bus_value(device_REN) when to_bit(system_controller) = '1' else
-		'Z';
+	device_DIO <= sync_dio_output(bus_DIO, not talk_enable, pullup_disable, not device_is_asserting_DIO);
+	bus_DIO <= sync_dio_output(device_DIO, talk_enable, pullup_disable, device_is_asserting_DIO);
 
-	device_DAV <= strong_value(bus_DAV) when to_bit(talk_enable) = '0' else
-		weak_value(bus_DAV);
-	device_NDAC <= strong_value(bus_NDAC) when to_bit(talk_enable) = '1' else
-		weak_value(bus_NDAC);
-	device_NRFD <= strong_value(bus_NRFD) when to_bit(talk_enable) = '1' else
-		weak_value(bus_NRFD);
-	bus_DAV <= strong_device_to_bus_value(device_DAV) when to_bit(talk_enable) = '1' else
-		'Z';
-	bus_NDAC <= strong_device_to_bus_value(device_NDAC) when to_bit(talk_enable) = '0' else
-		'Z';
-	bus_NRFD <= strong_device_to_bus_value(device_NRFD) when to_bit(talk_enable) = '0' else
-		'Z';
+	device_ATN <= sync_output(bus_ATN, not_controller_in_charge);
+	bus_ATN <= sync_output(device_ATN, not not_controller_in_charge);
+
+	device_SRQ <= sync_output(bus_SRQ, not device_is_asserting_SRQ);
+	bus_SRQ <= sync_output(device_SRQ, device_is_asserting_SRQ);
+
+	device_IFC <= sync_output(bus_IFC, not system_controller);
+	device_REN <= sync_output(bus_REN, not system_controller);
+	bus_IFC <= sync_output(device_IFC, system_controller);
+	bus_REN <= sync_output(device_REN, system_controller);
 	
 
-	eoi_transmit <= (to_bit(talk_enable) = '1' and to_bit(not_controller_in_charge) = '0') or
-			(to_bit(talk_enable) = to_bit(not_controller_in_charge) and to_bit(talk_enable) = to_bit(bus_ATN));
-	device_EOI <= strong_value(bus_EOI) when not eoi_transmit else
-		weak_value(bus_EOI);
-	bus_EOI <= strong_device_to_bus_value(device_EOI) when eoi_transmit else
-		'Z';
+	device_DAV <= sync_output(bus_DAV, not talk_enable);
+	device_NDAC <= sync_output(bus_NDAC, not device_is_asserting_NDAC);
+	device_NRFD <= sync_output(bus_NRFD, not device_is_asserting_NRFD);
+	bus_DAV <= sync_output(device_DAV, talk_enable);
+	bus_NDAC <= sync_output(device_NDAC, device_is_asserting_NDAC);
+	bus_NRFD <= sync_output(device_NRFD, device_is_asserting_NRFD);
+	
 
+	eoi_transmit <= '1' when (to_bit(talk_enable) = '1' and to_bit(not_controller_in_charge) = '0') or
+			(to_bit(talk_enable) = to_bit(not_controller_in_charge) and to_bit(talk_enable) = to_bit(bus_ATN)) else
+		'0';
+	device_EOI <= sync_output(bus_EOI, not eoi_transmit);
+	bus_EOI <= sync_output(device_EOI, eoi_transmit);
+	
+	-- pullup resistors
+	bus_DIO <= "HHHHHHHH";
+	bus_SRQ <= 'H';
+	bus_NDAC <= 'H';
+	bus_NRFD <= 'H';
+	device_DIO <= "HHHHHHHH";
+	device_SRQ <= 'H';
+	device_NDAC <= 'H';
+	device_NRFD <= 'H';
 end gpib_transceiver_arch;

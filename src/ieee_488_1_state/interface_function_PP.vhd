@@ -105,12 +105,12 @@ begin
 	process(parallel_poll_state_p1_buffer) begin
 		case parallel_poll_state_p1_buffer is
 			when PPAS =>
-				PPR <= "LLLLLLLL";
+				PPR <= "00000000";
 				if to_bit(sense) = to_bit(ist) then
 					PPR(to_integer(unsigned(PPR_line))) <= '1';
 				end if;
 			when others =>
-				PPR <= "LLLLLLLL";
+				PPR <= "00000000";
 		end case;
 	end process;
 	

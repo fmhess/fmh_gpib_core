@@ -30,29 +30,27 @@ package interface_function_common is
 
 	constant NO_ADDRESS_CONFIGURED : bit_vector := "11111";
 
-	function perfect_invert (mysig : std_logic) return std_logic;
-	function perfect_invert_vector (myvector : std_logic_vector(7 downto 0)) return std_logic_vector;
+	function to_0Z (mysig : std_logic) return std_logic;
+	function to_0Z (myvector : std_logic_vector) return std_logic_vector;
 
 end interface_function_common;
 
 package body interface_function_common is
-	function perfect_invert (mysig : std_logic) return std_logic is
+	function to_0Z (mysig : std_logic) return std_logic is
 	begin
 		case mysig is
-			when '1' => return '0';
-			when '0' => return '1';
-			when 'H' => return 'L';
-			when 'L' => return 'H';
-			when others => return mysig;
+			when '0' => return '0';
+			when 'L' => return '0';
+			when others => return 'Z';
 		end case;
-	end perfect_invert;
+	end to_0Z;
 	
-	function perfect_invert_vector (myvector : std_logic_vector(7 downto 0)) return std_logic_vector is
-		variable result : std_logic_vector(7 downto 0);
+	function to_0Z (myvector : std_logic_vector) return std_logic_vector is
+		variable result : std_logic_vector(myvector'RANGE);
 	begin
-		for i in 0 to 7 loop
-			result(i) := perfect_invert(myvector(i));
+		for i in myvector'LOW to myvector'HIGH loop
+			result(i) := to_0Z(myvector(i));
 		end loop;
 		return result;
-	end perfect_invert_vector;
+	end to_0Z;
 end package body interface_function_common;

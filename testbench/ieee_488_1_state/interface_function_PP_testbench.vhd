@@ -129,7 +129,7 @@ architecture behav of interface_function_PP_testbench is
 		IDY <= '1';
 		wait_for_ticks(3);
 		assert parallel_poll_state_p1 = PPAS;
-		assert PPR = "LLLLLL1L";
+		assert PPR = "00000010";
 		
 		ATN <= 'L';
 		IDY <= '0';

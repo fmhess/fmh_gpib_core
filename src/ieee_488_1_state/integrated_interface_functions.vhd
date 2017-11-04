@@ -181,6 +181,8 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	signal talker_state_p2_buffer : TE_state_p2;
 	signal talker_state_p3_buffer : TE_state_p3;
 	
+	signal status_byte_buffer : std_logic_vector(7 downto 0);
+	
 	signal enable_secondary_addressing : std_logic;
 	signal parallel_poll_sense : std_logic;
 	signal parallel_poll_response_line : std_logic_vector(2 downto 0);
@@ -464,6 +466,10 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	
 	host_to_gpib_data_byte_latched <= internal_host_to_gpib_data_byte_latched;
 
+	status_byte_buffer(7) <= not local_STB(7); 
+	status_byte_buffer(6) <= not local_RQS; 
+	status_byte_buffer(5 downto 0) <= not local_STB(5 downto 0);
+
 	bus_ATN_inverted_out <= not local_ATN when
 		not_passive_low(local_ATN) else 'Z';
 	bus_DAV_inverted_out <= not local_DAV when
@@ -480,15 +486,13 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 		not_passive_low(local_REN) else 'Z';
 	bus_SRQ_inverted_out <= not local_SRQ when
 		not_passive_low(local_SRQ) else 'Z';
-	bus_DIO_inverted_out(7) <= not local_STB(7) when talker_state_p1_buffer = SPAS else 'Z'; 
-	bus_DIO_inverted_out(6) <= not local_RQS when talker_state_p1_buffer = SPAS else 'Z'; 
-	bus_DIO_inverted_out(5 downto 0) <= not local_STB(5 downto 0) when talker_state_p1_buffer = SPAS else (others => 'Z');
 	bus_DIO_inverted_out <=  
 		not internal_host_to_gpib_data_byte when 
 			(source_handshake_state_buffer = SDYS or source_handshake_state_buffer = STRS) and
-			to_bit(ATN) = '0' else 
+			to_bit(ATN) = '0' else
+		not status_byte_buffer when talker_state_p1_buffer = SPAS else
 		not "00001001" when not_passive_low(local_TCT) else
-		perfect_invert_vector(local_PPR) when parallel_poll_state_p1_buffer = PPAS else 
+		to_0Z(not local_PPR) when parallel_poll_state_p1_buffer = PPAS else 
 		(others => '1') when not_passive_low(local_NUL) and  
 			(talker_state_p1_buffer = TACS or talker_state_p1_buffer = SPAS or controller_state_p1_buffer = CACS) else
 		(others => 'Z');
@@ -497,9 +501,9 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	process(pon, clock, acceptor_handshake_state_buffer) begin
 		if to_bit(pon) = '1' then
 			rdy <= '1';
-			gpib_to_host_byte <= "LLLLLLLL";
-			gpib_to_host_byte_end <= 'L';
-			gpib_to_host_byte_eos <= 'L';
+			gpib_to_host_byte <= X"00";
+			gpib_to_host_byte_end <= '0';
+			gpib_to_host_byte_eos <= '0';
 		else
 			if acceptor_handshake_state_buffer'EVENT and 
 				acceptor_handshake_state_buffer = ACDS and
@@ -522,8 +526,8 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	process(pon, clock, source_handshake_state_buffer) begin
 		if to_bit(pon) = '1' then
 			internal_host_to_gpib_data_byte_latched <= '0';
-			internal_host_to_gpib_data_byte <= "LLLLLLLL";
-			internal_host_to_gpib_data_byte_end <= 'L';
+			internal_host_to_gpib_data_byte <= X"00";
+			internal_host_to_gpib_data_byte_end <= '0';
 		else
 			if source_handshake_state_buffer'EVENT and 
 				source_handshake_state_buffer = STRS and
@@ -545,8 +549,8 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	-- update parallel poll sense and line
 	process(pon, clock) begin
 		if to_bit(pon) = '1' then
-			parallel_poll_sense <= 'H';
-			parallel_poll_response_line <= "LLL";
+			parallel_poll_sense <= '1';
+			parallel_poll_response_line <= "000";
 		elsif rising_edge(clock) then
 			if to_bit(local_parallel_poll_config) = '1' then
 				parallel_poll_sense <= local_parallel_poll_sense;

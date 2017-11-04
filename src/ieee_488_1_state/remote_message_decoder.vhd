@@ -87,7 +87,7 @@ begin
 	ACG <= ACG_buffer;
 	
 	ATN <= not bus_ATN_inverted;
-	DAC <= bus_NDAC_inverted;
+	DAC <= to_X01(bus_NDAC_inverted);
 	DAV <= not bus_DAV_inverted;
 	DCL <= '1' when UCG_buffer = '1' and not bus_DIO_inverted(3 downto 0) = "0100" and not bus_ATN_inverted = '1' else
 		'0';
@@ -149,7 +149,7 @@ begin
 	PPU <= '1' when UCG_buffer = '1' and not bus_DIO_inverted(3 downto 0) = "0101" and not bus_ATN_inverted = '1' else
 		'0';
 	REN <= not bus_REN_inverted;
-	RFD <= bus_NRFD_inverted;
+	RFD <= to_X01(bus_NRFD_inverted);
 	RQS <= not bus_DIO_inverted(6) and bus_ATN_inverted;
 	
 	SCG_buffer <= '1' when not bus_DIO_inverted(6 downto 5) = "11" and not bus_ATN_inverted = '1' else
