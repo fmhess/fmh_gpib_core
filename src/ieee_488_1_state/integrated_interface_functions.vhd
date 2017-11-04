@@ -180,6 +180,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	signal talker_state_p1_buffer : TE_state_p1;
 	signal talker_state_p2_buffer : TE_state_p2;
 	signal talker_state_p3_buffer : TE_state_p3;
+	signal bus_dio_inverted_out_buffer : std_logic_vector(7 downto 0);
 	
 	signal status_byte_buffer : std_logic_vector(7 downto 0);
 	
@@ -475,27 +476,30 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	bus_DAV_inverted_out <= not local_DAV when
 		not_passive_low(local_DAV) else 'Z';
 	bus_EOI_inverted_out <= not (local_END or local_IDY) when
-		not_passive_low(local_END) or not_passive_low(local_IDY) else 'Z';
+		talker_state_p1_buffer = TACS or not_passive_low(local_IDY) else 'Z';
 	bus_IFC_inverted_out <= not local_IFC when
 		not_passive_low(local_IFC) else 'Z';
-	bus_NDAC_inverted_out <= to_stdulogic(to_bit(local_DAC)) when
+	bus_NDAC_inverted_out <= to_X0Z(local_DAC) when
 		not_passive_high(local_DAC) else 'Z';
-	bus_NRFD_inverted_out <= to_stdulogic(to_bit(local_RFD)) when 
+	bus_NRFD_inverted_out <= to_X0Z(local_RFD) when 
 		not_passive_high(local_RFD) else 'Z';
 	bus_REN_inverted_out <= not local_REN when
 		not_passive_low(local_REN) else 'Z';
-	bus_SRQ_inverted_out <= not local_SRQ when
+	bus_SRQ_inverted_out <= to_X0Z(not local_SRQ) when
 		not_passive_low(local_SRQ) else 'Z';
-	bus_DIO_inverted_out <=  
+	bus_DIO_inverted_out_buffer <=  
 		not internal_host_to_gpib_data_byte when 
 			(source_handshake_state_buffer = SDYS or source_handshake_state_buffer = STRS) and
 			to_bit(ATN) = '0' else
 		not status_byte_buffer when talker_state_p1_buffer = SPAS else
-		not "00001001" when not_passive_low(local_TCT) else
-		to_0Z(not local_PPR) when parallel_poll_state_p1_buffer = PPAS else 
-		(others => '1') when not_passive_low(local_NUL) and  
-			(talker_state_p1_buffer = TACS or talker_state_p1_buffer = SPAS or controller_state_p1_buffer = CACS) else
+		not "00001001" when to_X01(local_TCT) = '1' else
+		to_X0Z(not local_PPR) when parallel_poll_state_p1_buffer = PPAS else 
+		(others => '1') when to_X01(local_NUL) = '1' and  
+			(talker_state_p1_buffer = TACS or controller_state_p1_buffer = CACS) else
+		bus_DIO_inverted_out_buffer when  
+			(talker_state_p1_buffer = TACS or controller_state_p1_buffer = CACS) else
 		(others => 'Z');
+	bus_DIO_inverted_out <= bus_DIO_inverted_out_buffer;
 
 	-- deal with byte read by host from gpib bus
 	process(pon, clock, acceptor_handshake_state_buffer) begin

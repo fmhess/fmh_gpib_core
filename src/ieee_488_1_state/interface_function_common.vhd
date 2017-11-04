@@ -30,27 +30,30 @@ package interface_function_common is
 
 	constant NO_ADDRESS_CONFIGURED : bit_vector := "11111";
 
-	function to_0Z (mysig : std_logic) return std_logic;
-	function to_0Z (myvector : std_logic_vector) return std_logic_vector;
+	function to_X0Z (mysig : std_logic) return std_logic;
+	function to_X0Z (myvector : std_logic_vector) return std_logic_vector;
 
 end interface_function_common;
 
 package body interface_function_common is
-	function to_0Z (mysig : std_logic) return std_logic is
+	function to_X0Z (mysig : std_logic) return std_logic is
 	begin
 		case mysig is
 			when '0' => return '0';
 			when 'L' => return '0';
-			when others => return 'Z';
+			when '1' => return 'Z';
+			when 'H' => return 'Z';
+			when 'Z' => return 'Z';
+			when others => return 'X';
 		end case;
-	end to_0Z;
+	end to_X0Z;
 	
-	function to_0Z (myvector : std_logic_vector) return std_logic_vector is
+	function to_X0Z (myvector : std_logic_vector) return std_logic_vector is
 		variable result : std_logic_vector(myvector'RANGE);
 	begin
 		for i in myvector'LOW to myvector'HIGH loop
-			result(i) := to_0Z(myvector(i));
+			result(i) := to_X0Z(myvector(i));
 		end loop;
 		return result;
-	end to_0Z;
+	end to_X0Z;
 end package body interface_function_common;

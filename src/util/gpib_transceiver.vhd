@@ -45,99 +45,135 @@ architecture gpib_transceiver_arch of gpib_transceiver is
 	signal device_is_asserting_NRFD : std_logic;
 	signal device_is_asserting_SRQ : std_logic;
 
-	function sync_output(source : in std_logic; 
+	function open_collector_sync_to_bus(device_value : in std_logic; 
 		transmit : in std_logic) return std_logic is
 	begin
 		if to_X01(transmit) = '1' then
-			return source;
+			case device_value is
+				when '0' => return '0';
+				when '1' => return 'Z';
+				when 'L' => return 'Z';
+				when 'H' => return 'Z';
+				when others => return 'Z';
+			end case;
 		else
 			return 'Z';
 		end if;
-	end sync_output;
+	end open_collector_sync_to_bus;
 
-	function sync_dio_output(source : in std_logic; transmit : in std_logic; 
-		pullup_disable : in std_logic; source_is_asserting : in std_logic) return std_logic is
+	function tristate_sync(source_value : in std_logic; 
+		transmit : in std_logic) return std_logic is
 	begin
-		return sync_output(source, (pullup_disable and transmit) or (not pullup_disable and source_is_asserting));
-	end sync_dio_output;
+		if to_X01(transmit) = '1' then
+			case source_value is
+				when '0' => return '0';
+				when '1' => return '1';
+				when 'L' => return '0';
+				when 'H' => return '1';
+				when others => return 'Z';
+			end case;
+		else
+			return 'Z';
+		end if;
+	end tristate_sync;
 
-	function sync_dio_output(source : in std_logic_vector; transmit : in std_logic; 
-		pullup_disable : in std_logic; source_is_asserting : in std_logic_vector) return std_logic_vector is
+	function open_collector_sync_to_device(bus_value : in std_logic; 
+		transmit : in std_logic) return std_logic is
+	begin
+		if to_X01(transmit) = '1' then
+			case bus_value is
+				when '0' => return '0';
+				when '1' => return 'H';
+				when 'L' => return '0';
+				when 'H' => return 'H';
+				when others => return 'Z';
+			end case;
+		else
+			case bus_value is
+				when '0' => return 'L';
+				when '1' => return 'H';
+				when 'L' => return 'L';
+				when 'H' => return 'H';
+				when others => return 'Z';
+			end case;
+		end if;
+	end open_collector_sync_to_device;
+
+	function sync_dio_to_bus(source : in std_logic; transmit : in std_logic; 
+		pullup_disable : in std_logic) return std_logic is
+	begin
+		if to_X01(pullup_disable) = '1' then
+			return tristate_sync(source, transmit);
+		else
+			return open_collector_sync_to_bus(source, transmit);
+		end if;
+	end sync_dio_to_bus;
+
+	function sync_dio_to_bus(source : in std_logic_vector; transmit : in std_logic; 
+		pullup_disable : in std_logic) return std_logic_vector is
 		variable result : std_logic_vector(source'RANGE);
 	begin
-		for i in source'LOW to source'HIGH loop
+		for i in source'RANGE loop
 			result(i) := 
-				sync_dio_output(source(i), transmit, pullup_disable, 
-				source_is_asserting(source_is_asserting'LOW + i));
+				sync_dio_to_bus(source(i), transmit, pullup_disable);
 		end loop;
 		return result;
-	end sync_dio_output;
+	end sync_dio_to_bus;
 
-	function device_is_asserting(
-		device_value : in std_logic; bus_value : in std_logic;
-		old_result : in std_logic) return std_logic is
+	function sync_dio_to_device(source : in std_logic; transmit : in std_logic; 
+		pullup_disable : in std_logic) return std_logic is
 	begin
-		if to_X01(device_value) = '0' and to_X01(bus_value) = '1' then
-			return '1';
-		elsif to_X01(device_value) = '1' and to_X01(bus_value) = '0' then
-			return '0';
+		if to_X01(pullup_disable) = '1' then
+			return tristate_sync(source, transmit);
 		else
-			return old_result;
+			return open_collector_sync_to_device(source, transmit);
 		end if;
-	end device_is_asserting;
+	end sync_dio_to_device;
 
-	function device_is_asserting(
-		device_value : in std_logic_vector; bus_value : in std_logic_vector;
-		old_result : in std_logic_vector) return std_logic_vector is
-		variable result : std_logic_vector(device_value'RANGE);
+	function sync_dio_to_device(source : in std_logic_vector; transmit : in std_logic; 
+		pullup_disable : in std_logic) return std_logic_vector is
+		variable result : std_logic_vector(source'RANGE);
 	begin
-		for i in device_value'LOW to device_value'HIGH loop
-			result(i) := device_is_asserting(device_value(i), bus_value(i), old_result(i));
+		for i in source'RANGE loop
+			result(i) := 
+				sync_dio_to_device(source(i), transmit, pullup_disable);
 		end loop;
 		return result;
-	end device_is_asserting;
+	end sync_dio_to_device;
 begin
-	device_is_asserting_DIO <= device_is_asserting(device_DIO, bus_DIO, device_is_asserting_DIO);
-	device_is_asserting_SRQ <= device_is_asserting(device_SRQ, bus_SRQ, device_is_asserting_SRQ);
-	device_is_asserting_NDAC <= device_is_asserting(device_NDAC, bus_NDAC, device_is_asserting_NDAC);
-	device_is_asserting_NRFD <= device_is_asserting(device_NRFD, bus_NRFD, device_is_asserting_NRFD);
 	
-	device_DIO <= sync_dio_output(bus_DIO, not talk_enable, pullup_disable, not device_is_asserting_DIO);
-	bus_DIO <= sync_dio_output(device_DIO, talk_enable, pullup_disable, device_is_asserting_DIO);
+	device_DIO <= sync_dio_to_device(bus_DIO, not talk_enable, pullup_disable);
+	bus_DIO <= sync_dio_to_bus(device_DIO, talk_enable, pullup_disable);
 
-	device_ATN <= sync_output(bus_ATN, not_controller_in_charge);
-	bus_ATN <= sync_output(device_ATN, not not_controller_in_charge);
+	device_ATN <= tristate_sync(bus_ATN, not_controller_in_charge);
+	bus_ATN <= tristate_sync(device_ATN, not not_controller_in_charge);
 
-	device_SRQ <= sync_output(bus_SRQ, not device_is_asserting_SRQ);
-	bus_SRQ <= sync_output(device_SRQ, device_is_asserting_SRQ);
+	device_SRQ <= open_collector_sync_to_device(bus_SRQ, not not_controller_in_charge);
+	bus_SRQ <= open_collector_sync_to_bus(device_SRQ, not_controller_in_charge);
 
-	device_IFC <= sync_output(bus_IFC, not system_controller);
-	device_REN <= sync_output(bus_REN, not system_controller);
-	bus_IFC <= sync_output(device_IFC, system_controller);
-	bus_REN <= sync_output(device_REN, system_controller);
+	device_IFC <= tristate_sync(bus_IFC, not system_controller);
+	device_REN <= tristate_sync(bus_REN, not system_controller);
+	bus_IFC <= tristate_sync(device_IFC, system_controller);
+	bus_REN <= tristate_sync(device_REN, system_controller);
 	
 
-	device_DAV <= sync_output(bus_DAV, not talk_enable);
-	device_NDAC <= sync_output(bus_NDAC, not device_is_asserting_NDAC);
-	device_NRFD <= sync_output(bus_NRFD, not device_is_asserting_NRFD);
-	bus_DAV <= sync_output(device_DAV, talk_enable);
-	bus_NDAC <= sync_output(device_NDAC, device_is_asserting_NDAC);
-	bus_NRFD <= sync_output(device_NRFD, device_is_asserting_NRFD);
+	device_DAV <= tristate_sync(bus_DAV, not talk_enable);
+	device_NDAC <= open_collector_sync_to_device(bus_NDAC, talk_enable);
+	device_NRFD <= open_collector_sync_to_device(bus_NRFD, talk_enable);
+	bus_DAV <= tristate_sync(device_DAV, talk_enable);
+	bus_NDAC <= open_collector_sync_to_bus(device_NDAC, not talk_enable);
+	bus_NRFD <= open_collector_sync_to_bus(device_NRFD, not talk_enable);
 	
 
 	eoi_transmit <= '1' when (to_bit(talk_enable) = '1' and to_bit(not_controller_in_charge) = '0') or
 			(to_bit(talk_enable) = to_bit(not_controller_in_charge) and to_bit(talk_enable) = to_bit(bus_ATN)) else
 		'0';
-	device_EOI <= sync_output(bus_EOI, not eoi_transmit);
-	bus_EOI <= sync_output(device_EOI, eoi_transmit);
+	device_EOI <= tristate_sync(bus_EOI, not eoi_transmit);
+	bus_EOI <= tristate_sync(device_EOI, eoi_transmit);
 	
-	-- pullup resistors
+	--pullup resistors
 	bus_DIO <= "HHHHHHHH";
-	bus_SRQ <= 'H';
 	bus_NDAC <= 'H';
 	bus_NRFD <= 'H';
-	device_DIO <= "HHHHHHHH";
-	device_SRQ <= 'H';
-	device_NDAC <= 'H';
-	device_NRFD <= 'H';
+	bus_SRQ <= 'H';
 end gpib_transceiver_arch;
