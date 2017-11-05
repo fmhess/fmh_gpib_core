@@ -135,89 +135,109 @@ architecture behav of frontend_cb7210p2_testbench is
 	process
 		-- wait wait for a condition with a hard coded timeout to avoid infinite test loops on failure
 		procedure wait_for_ticks (num_clock_cycles : in integer) is
-			begin
-				for i in 1 to num_clock_cycles loop
-					wait until rising_edge(clock);
-				end loop;
-			end procedure wait_for_ticks;
+		begin
+			for i in 1 to num_clock_cycles loop
+				wait until rising_edge(clock);
+			end loop;
+		end procedure wait_for_ticks;
 
 		-- write a byte from gpib bus to device
 		procedure gpib_write (data_byte : in std_logic_vector(7 downto 0);
 			assert_eoi : in boolean) is
-			begin
-					bus_NRFD_inverted <= 'Z';
-					bus_NDAC_inverted <= 'Z';
-					if (to_bit(bus_NRFD_inverted) /= '1' or to_bit(bus_NDAC_inverted) /= '0') then
-							wait until (to_bit(bus_NRFD_inverted) = '1' and to_bit(bus_NDAC_inverted) = '0');
-					end if;
-					wait for 99ns;
-					bus_DIO_inverted <= not data_byte;
-					if assert_eoi then
-							bus_EOI_inverted <= '0';
-					else 
-						bus_EOI_inverted <= 'H';
-					end if;
-					wait for 499ns;
-					bus_DAV_inverted <='0';
-					if (to_bit(bus_NRFD_inverted) /= '0' or to_bit(bus_NDAC_inverted) /= '1') then
-							wait until (to_bit(bus_NRFD_inverted) = '0' and to_bit(bus_NDAC_inverted) = '1');
-					end if;
-					wait for 99ns;
-					bus_DAV_inverted <='H';
-					bus_EOI_inverted <= 'H';
-					bus_DIO_inverted <= "HHHHHHHH";
-					if (to_bit(bus_NDAC_inverted) /= '1') then
-							wait until (to_bit(bus_NDAC_inverted) = '1');
-					end if;
-					wait for 99ns;
-			end procedure gpib_write;
+		begin
+			bus_NRFD_inverted <= 'Z';
+			bus_NDAC_inverted <= 'Z';
+			if (to_bit(bus_NRFD_inverted) /= '1' or to_bit(bus_NDAC_inverted) /= '0') then
+					wait until (to_bit(bus_NRFD_inverted) = '1' and to_bit(bus_NDAC_inverted) = '0');
+			end if;
+			wait for 99ns;
+			bus_DIO_inverted <= not data_byte;
+			if assert_eoi then
+					bus_EOI_inverted <= '0';
+			else 
+				bus_EOI_inverted <= 'H';
+			end if;
+			wait for 499ns;
+			bus_DAV_inverted <='0';
+			if (to_bit(bus_NRFD_inverted) /= '0' or to_bit(bus_NDAC_inverted) /= '1') then
+					wait until (to_bit(bus_NRFD_inverted) = '0' and to_bit(bus_NDAC_inverted) = '1');
+			end if;
+			wait for 99ns;
+			bus_DAV_inverted <='H';
+			bus_EOI_inverted <= 'H';
+			bus_DIO_inverted <= "HHHHHHHH";
+			if (to_bit(bus_NDAC_inverted) /= '1') then
+					wait until (to_bit(bus_NDAC_inverted) = '1');
+			end if;
+			wait for 99ns;
+		end procedure gpib_write;
 
-			procedure gpib_read (data_byte : out std_logic_vector(7 downto 0);
-					eoi : out std_logic) is
-			begin
-					bus_DAV_inverted <= 'Z';
-					bus_NDAC_inverted <= '0';
-					wait for 99ns;
-					bus_NRFD_inverted <= 'H';
-					if (to_bit(bus_DAV_inverted) /= '0') then
-							wait until (to_bit(bus_DAV_inverted) = '0');
-					end if;
-					wait for 99ns;
-					bus_NRFD_inverted <= '0';
-					data_byte := not bus_DIO_inverted;
-					eoi := not bus_EOI_inverted;
-					wait for 99ns;
-					bus_NDAC_inverted <= 'H';
-					if (to_bit(bus_DAV_inverted) /= '1') then
-							wait until (to_bit(bus_DAV_inverted) = '1');
-					end if;
-					wait for 99ns;
-					bus_NDAC_inverted <= 'H';
-					wait for 99ns;
-			end procedure gpib_read;
+		procedure gpib_read (data_byte : out std_logic_vector(7 downto 0);
+			eoi : out std_logic) is
+		begin
+			bus_DAV_inverted <= 'Z';
+			bus_NDAC_inverted <= '0';
+			wait for 99ns;
+			bus_NRFD_inverted <= 'H';
+			if (to_bit(bus_DAV_inverted) /= '0') then
+					wait until (to_bit(bus_DAV_inverted) = '0');
+			end if;
+			wait for 99ns;
+			bus_NRFD_inverted <= '0';
+			data_byte := not bus_DIO_inverted;
+			eoi := not bus_EOI_inverted;
+			wait for 99ns;
+			bus_NDAC_inverted <= 'H';
+			if (to_bit(bus_DAV_inverted) /= '1') then
+					wait until (to_bit(bus_DAV_inverted) = '1');
+			end if;
+			wait for 99ns;
+			bus_NDAC_inverted <= 'H';
+			wait for 99ns;
+		end procedure gpib_read;
 
 		-- write a byte from host to device register
 		procedure host_write (addr: in std_logic_vector(2 downto 0);
 			byte : in std_logic_vector(7 downto 0)) is
-			begin
-				wait until rising_edge(clock);
-				write_inverted <= '0';
-				chip_select_inverted <= '0';
-				address <= addr;
-				host_data_bus <= byte;
-				wait until rising_edge(clock);
-				write_inverted <= '1';
-				chip_select_inverted <= '1';
-				address <= (others => '0');
-				host_data_bus <= (others => '0');
-				wait until rising_edge(clock);
-			end procedure host_write;
+		begin
+			wait until rising_edge(clock);
+			write_inverted <= '0';
+			chip_select_inverted <= '0';
+			address <= addr;
+			host_data_bus <= byte;
+			wait until rising_edge(clock);
+			write_inverted <= '1';
+			chip_select_inverted <= '1';
+			address <= (others => '0');
+			host_data_bus <= (others => 'Z');
+			wait until rising_edge(clock);
+		end procedure host_write;
+
+		-- read a byte from device register
+		procedure host_read (addr: in std_logic_vector(2 downto 0);
+			result: out std_logic_vector(7 downto 0)) is
+		begin
+			wait until rising_edge(clock);
+			read_inverted <= '0';
+			chip_select_inverted <= '0';
+			address <= addr;
+			host_data_bus <= (others => 'Z');
+			wait_for_ticks(2);
+			read_inverted <= '1';
+			chip_select_inverted <= '1';
+			address <= (others => '0');
+			result := host_data_bus;
+			wait until rising_edge(clock);
+		end procedure host_read;
 
 		variable gpib_read_result : std_logic_vector(7 downto 0);
 		variable gpib_read_eoi : std_logic;
-		variable temp_byte : std_logic_vector(7 downto 0);
+		variable gpib_write_byte : std_logic_vector(7 downto 0);
+		variable host_read_result : std_logic_vector(7 downto 0);
+		variable host_write_byte : std_logic_vector(7 downto 0);
 	
 		variable primary_address : integer;
+		variable secondary_address : integer;
 	begin
 		bus_DIO_inverted <= "HHHHHHHH";
 		bus_REN_inverted <= 'H';
@@ -247,18 +267,18 @@ architecture behav of frontend_cb7210p2_testbench is
 
 		-- set primary address
 		primary_address := 5;
-		temp_byte(7 downto 5) := "000";
-		temp_byte(4 downto 0) := std_logic_vector(to_unsigned(primary_address, 5));
-		host_write("110", temp_byte); --address register 0/1
+		host_write_byte(7 downto 5) := "000";
+		host_write_byte(4 downto 0) := std_logic_vector(to_unsigned(primary_address, 5));
+		host_write("110", host_write_byte); --address register 0/1
 		wait until rising_edge(clock);	
 
 		--address chip as talker
 		bus_ATN_inverted <= '0';
-		temp_byte(7 downto 5) := "010";
-		temp_byte(4 downto 0) := std_logic_vector(to_unsigned(primary_address, 5));
-		gpib_write(temp_byte, false); -- MTA
+		gpib_write_byte(7 downto 5) := "010";
+		gpib_write_byte(4 downto 0) := std_logic_vector(to_unsigned(primary_address, 5));
+		gpib_write(gpib_write_byte, false); -- MTA
 
-		--send a data byte
+		--send a data byte host to gpib
 		host_write("000", X"01");
 		wait until rising_edge(clock);	
 		bus_ATN_inverted <= 'H';
@@ -268,17 +288,51 @@ architecture behav of frontend_cb7210p2_testbench is
 		assert gpib_read_result = X"01";
 		assert gpib_read_eoi = '0';
 		
-		--send a data byte with EOI
+		--send a data byte host to gpib with EOI
 		host_write("101", "00000110"); -- send eoi aux command
 		host_write("000", X"02");
-		wait until rising_edge(clock);	
-		bus_ATN_inverted <= 'H';
 		wait until rising_edge(clock);	
 		gpib_read(gpib_read_result, gpib_read_eoi);
 		wait until rising_edge(clock);	
 		assert gpib_read_result = X"02";
 		assert gpib_read_eoi = '1';
 
+		--send another data byte to make sure "send eoi" message clears
+		host_write("000", X"03");
+		wait until rising_edge(clock);	
+		gpib_read(gpib_read_result, gpib_read_eoi);
+		wait until rising_edge(clock);	
+		assert gpib_read_result = X"03";
+		assert gpib_read_eoi = '0';
+
+		-- turn on secondary addressing
+		secondary_address := 10;
+		host_write_byte(7 downto 5) := "100";
+		host_write_byte(4 downto 0) := std_logic_vector(to_unsigned(secondary_address, 5));
+		host_write("110", host_write_byte); --address register 0/1
+		host_write("100", X"32"); -- address mode register, transmit/receive mode 0x3 address mode 2
+
+		--address chip as listener
+		bus_ATN_inverted <= '0';
+		wait until rising_edge(clock);	
+		gpib_write_byte(7 downto 5) := "001";
+		gpib_write_byte(4 downto 0) := std_logic_vector(to_unsigned(primary_address, 5));
+		gpib_write(gpib_write_byte, false); -- MLA
+		-- TODO assert we are not be listener yet
+		gpib_write_byte(7 downto 5) := "011";
+		gpib_write_byte(4 downto 0) := std_logic_vector(to_unsigned(secondary_address, 5));
+		gpib_write(gpib_write_byte, false); -- MSA
+
+		wait until rising_edge(clock);	
+		bus_ATN_inverted <= 'H';
+
+		-- write some bytes from gpib to host
+		gpib_write_byte(7 downto 0) := X"10";
+		gpib_write(gpib_write_byte, false);
+		host_read("000", host_read_result);
+		wait until rising_edge(clock);	
+		assert host_read_result = X"10";
+		
 		-- write pon to aux command reg
 		host_write("101", X"00");
 		

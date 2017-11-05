@@ -114,7 +114,9 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal latched_host_data_byte_in : std_logic_vector(7 downto 0);
 	signal latched_address : std_logic_vector(num_address_lines - 1 downto 0);
 	signal host_write_selected : std_logic;
+	signal host_read_selected : std_logic;
 	signal register_page : std_logic_vector(3 downto 0);
+	signal host_data_bus_out_buffer : std_logic_vector(7 downto 0);
 	
 	signal transmit_receive_mode : std_logic_vector(1 downto 0);
 	signal address_mode : std_logic_vector(1 downto 0);
@@ -248,11 +250,15 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	end process;
 	
 	host_write_selected <= not write_inverted and not chip_select_inverted;
-
+	host_read_selected <= not read_inverted and not chip_select_inverted;
+	host_data_bus_out <= host_data_bus_out_buffer when to_X01(read_inverted) = '0' else (others => 'Z');
+	
 	-- accept reads and writes from host
 	process (safe_reset, pon, clock)
 		variable prev_host_write_selected : std_logic;
 		variable do_pulse_host_to_gpib_data_byte_write : boolean;
+		variable prev_host_read_selected : std_logic;
+		variable do_pulse_gpib_to_host_byte_read : boolean;
 		variable send_eoi : std_logic;
 		
 		function flat_address (page : in std_logic_vector(3 downto 0);
@@ -384,11 +390,23 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 						enable_talker_gpib_address_0 <= not write_data(6);
 					end if;
 				when 7 => -- end of string
-				when 14 => -- interrupt mask register 0
+				when 16#e# => -- interrupt mask register 0
 				when others =>
 			end case;
 		end host_write_register;
 		
+		-- process a write from the host
+		procedure host_read_register (page : in std_logic_vector(3 downto 0);
+			read_address : in std_logic_vector(num_address_lines - 1 downto 0)) is
+
+		begin
+			case flat_address(page, read_address) is
+				when 0 => -- data in
+					host_data_bus_out_buffer <= gpib_to_host_byte;
+					do_pulse_gpib_to_host_byte_read := true;
+				when others =>
+			end case;
+		end host_read_register;
 	begin
 		if pon = '1' then
 			if safe_reset = '1' then
@@ -396,6 +414,8 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 				register_page <= (others => '0');
 				latched_address <= (others => '0');
 				latched_host_data_byte_in <= (others => '0');
+				prev_host_read_selected := '0';
+				host_data_bus_out_buffer <= (others => 'Z');
 			end if;
 			local_STB <= (others => '0');
 			rsv <= '0';
@@ -413,6 +433,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			enable_listener_gpib_address_1 <= '0';
 			host_to_gpib_data_byte_write <= '0';
 			do_pulse_host_to_gpib_data_byte_write := false;
+			do_pulse_gpib_to_host_byte_read := false;
 			send_eoi := '0';
 			-- we have to clear the pon pulse in the "if pon" section
 			-- otherwise we will get stuck in pon. We still want to
@@ -433,12 +454,26 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			end if;
 			prev_host_write_selected := host_write_selected;
 
+			-- process read
+			if prev_host_read_selected = '0' and host_read_selected = '1' then
+				host_read_register(register_page, address);
+			elsif prev_host_read_selected = '1' and host_read_selected = '0' then -- read has completed	
+				register_page <= (others => '0');
+			end if;
+			prev_host_read_selected := host_read_selected;
+
 			-- handle pulses
 			if do_pulse_host_to_gpib_data_byte_write then
 				host_to_gpib_data_byte_write <= '1';
 				do_pulse_host_to_gpib_data_byte_write := false;
 			else
 				host_to_gpib_data_byte_write <= '0';
+			end if;
+			if do_pulse_gpib_to_host_byte_read then
+				gpib_to_host_byte_read <= '1';
+				do_pulse_gpib_to_host_byte_read := false;
+			else
+				gpib_to_host_byte_read <= '0';
 			end if;				
 		end if;
 	end process;
