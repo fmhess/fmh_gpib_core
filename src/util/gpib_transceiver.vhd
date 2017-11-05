@@ -171,9 +171,4 @@ begin
 	device_EOI <= tristate_sync(bus_EOI, not eoi_transmit);
 	bus_EOI <= tristate_sync(device_EOI, eoi_transmit);
 	
-	--pullup resistors
-	bus_DIO <= "HHHHHHHH";
-	bus_NDAC <= 'H';
-	bus_NRFD <= 'H';
-	bus_SRQ <= 'H';
 end gpib_transceiver_arch;

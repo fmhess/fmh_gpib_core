@@ -242,4 +242,10 @@ architecture behav of gpib_transceiver_testbench is
 		wait;
 	end process;
 
+	--pullup resistors
+	bus_DIO <= "HHHHHHHH";
+	bus_NDAC <= 'H';
+	bus_NRFD <= 'H';
+	bus_SRQ <= 'H';
+
 end behav;

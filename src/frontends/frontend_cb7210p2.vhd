@@ -11,7 +11,8 @@ use work.interface_function_common.all;
 use work.integrated_interface_functions.all;
 
 entity frontend_cb7210p2 is
-	generic(num_address_lines : integer := 3);
+	generic(num_address_lines : integer := 3;
+		clock_frequency_KHz : integer := 20000);
 	-- read, write_inverted, chip_select_inverted, address, and host_data_bus_in are assumed
 	-- to by synched to clock
 	port(
@@ -53,9 +54,10 @@ entity frontend_cb7210p2 is
 		--rather than relying on the driver to properly configure the modes
 		-- of the tr2 and tr3 outputs, these outputs can be used instead
 		EOI_output_enable : out std_logic;
-		is_CIC : out std_logic;
-		pullup_enable : out std_logic;
-		trigger : out std_logic
+		not_controller_in_charge : out std_logic; -- transceiver DC
+		pullup_disable : out std_logic; -- transceiver PE
+		talk_enable : out std_logic; -- transceiver TE
+		trigger : out std_logic 
 	);
 end frontend_cb7210p2;
      
@@ -87,11 +89,14 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal gpib_to_host_byte_eos : std_logic;
 	signal host_to_gpib_data_byte : std_logic_vector(7 downto 0);
 	signal host_to_gpib_data_byte_end : std_logic;
-	signal host_to_gpib_data_byte_write_pulse : std_logic;
+	signal host_to_gpib_data_byte_write : std_logic;
 	signal host_to_gpib_data_byte_latched : std_logic;
+	signal controller_state_p1 : C_state_p1;
 	signal device_clear_state : DC_state;
 	signal device_trigger_state : DT_state;
-
+	signal parallel_poll_state_p1 : PP_state_p1;
+	signal talker_state_p1 : TE_state_p1;
+	
 	signal ist : std_logic;
 	signal lon : std_logic;	
 	signal lpe : std_logic;
@@ -121,7 +126,23 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal enable_listener_gpib_address_1 : std_logic;
 	signal enable_address_register_1 : std_logic;
 	signal ultra_fast_T1_delay : std_logic;
+	signal high_speed_T1_delay : std_logic;
 	signal pon_pulse : std_logic;
+	
+	signal talk_enable_buffer : std_logic;
+	signal not_controller_in_charge_buffer : std_logic;
+	signal pullup_disable_buffer : std_logic;
+	signal EOI_output_enable_buffer : std_logic;
+	signal trigger_buffer : std_logic;
+
+	function to_clock_ticks (nanoseconds : in integer) return std_logic_vector is
+		constant nanos_per_milli : integer := 1000000;
+	begin
+		return std_logic_vector(to_unsigned((nanoseconds * clock_frequency_KHz + nanos_per_milli - 1) / nanos_per_milli, T1_terminal_count'LENGTH));
+	end to_clock_ticks;
+	constant clock_ticks_2us : std_logic_vector(T1_terminal_count'RANGE) := to_clock_ticks(2000);
+	constant clock_ticks_500ns : std_logic_vector(T1_terminal_count'RANGE) := to_clock_ticks(500);
+	constant clock_ticks_350ns : std_logic_vector(T1_terminal_count'RANGE) := to_clock_ticks(350);
 	
 	begin
 	my_integrated_interface_functions: entity work.integrated_interface_functions 
@@ -173,9 +194,13 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			rdy => rdy,
 			host_to_gpib_data_byte => host_to_gpib_data_byte,
 			host_to_gpib_data_byte_end => host_to_gpib_data_byte_end,
-			host_to_gpib_data_byte_write => host_to_gpib_data_byte_write_pulse,
+			host_to_gpib_data_byte_write => host_to_gpib_data_byte_write,
 			host_to_gpib_data_byte_latched => host_to_gpib_data_byte_latched,
+			controller_state_p1 => controller_state_p1,
 			device_clear_state => device_clear_state,
+			device_trigger_state => device_trigger_state,
+			parallel_poll_state_p1 => parallel_poll_state_p1,
+			talker_state_p1 => talker_state_p1,
 			local_STB => local_STB
 		);
 
@@ -219,6 +244,9 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 
 	-- accept reads and writes from host
 	process (safe_reset, pon, clock)
+		variable prev_host_write_selected : std_logic;
+		variable do_pulse_host_to_gpib_data_byte_write : boolean;
+
 		function flat_address (page : in std_logic_vector(3 downto 0);
 			raw_address : in std_logic_vector(num_address_lines - 1 downto 0)) 
 			return integer is
@@ -299,7 +327,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			case flat_address(page, write_address) is
 				when 0 => -- byte out register
 					host_to_gpib_data_byte <= write_data;
-					host_to_gpib_data_byte_write_pulse <= '1';
+					do_pulse_host_to_gpib_data_byte_write := true;
 				when 1 => -- interrupt mask register 1
 					-- TODO
 				when 2 => -- interrupt mask register 2
@@ -323,6 +351,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 						when "100" => -- aux A register
 							-- TODO
 						when "101" => -- aux B register
+							high_speed_T1_delay <= write_data(2);
 							-- TODO
 						when "110" => -- aux E register
 							-- TODO
@@ -350,7 +379,6 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			end case;
 		end host_write_register;
 		
-		variable prev_host_write_selected : std_logic;
 	begin
 		if pon = '1' then
 			if safe_reset = '1' then
@@ -366,12 +394,15 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			transmit_receive_mode <= "00";
 			address_mode <= "00";
 			ultra_fast_T1_delay <= '0';
+			high_speed_T1_delay <= '0';
 			gpib_address_0 <= (others => '0');
 			enable_talker_gpib_address_0 <= '0';
 			enable_listener_gpib_address_0 <= '0';
 			gpib_address_1 <= (others => '0');
 			enable_talker_gpib_address_1 <= '0';
 			enable_listener_gpib_address_1 <= '0';
+			host_to_gpib_data_byte_write <= '0';
+			do_pulse_host_to_gpib_data_byte_write := false;
 			
 			-- we have to clear the pon pulse in the "if pon" section
 			-- otherwise we will get stuck in pon. We still want to
@@ -380,9 +411,6 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 				pon_pulse <= '0';
 			end if;
 		elsif rising_edge(clock) then
-			-- by default, clear any pulsed signals which may be set by this process later
-			host_to_gpib_data_byte_write_pulse <= '0';
-
 			if host_write_selected = '1' then
 				latched_address <= address;
 				latched_host_data_byte_in <= host_data_bus_in;
@@ -394,9 +422,23 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 				register_page <= (others => '0');
 			end if;
 			prev_host_write_selected := host_write_selected;
+
+			-- handle pulses
+			if do_pulse_host_to_gpib_data_byte_write then
+				host_to_gpib_data_byte_write <= '1';
+				do_pulse_host_to_gpib_data_byte_write := false;
+			else
+				host_to_gpib_data_byte_write <= '0';
+			end if;				
 		end if;
 	end process;
 
+	-- set timing counters
+	first_T1_terminal_count <= clock_ticks_2us;
+	T1_terminal_count <= clock_ticks_350ns when ultra_fast_T1_delay = '1' else
+		clock_ticks_500ns when high_speed_T1_delay = '1' else
+		clock_ticks_2us;
+	
 	-- figure out configured primary/secondary addresses based on settings written
 	-- to chip registers
 	process (pon, clock)
@@ -420,6 +462,55 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 					-- TODO addresses are major/minor primary addresses and secondaries are
 					-- done via software using command pass through reg
 				when others =>
+			end case;
+		end if;
+	end process;
+	
+	talk_enable_buffer <= '1' when talker_state_p1 = TACS or talker_state_p1 = SPAS or 
+			controller_state_p1 = CACS else
+		'0';
+	talk_enable <= talk_enable_buffer;
+	
+	not_controller_in_charge_buffer <= '1' when controller_state_p1 = CIDS or controller_state_p1 = CADS else '0';
+	not_controller_in_charge <= not_controller_in_charge_buffer;
+
+	pullup_disable_buffer <= '1' when to_X01(not_controller_in_charge_buffer) = '1' or 
+		parallel_poll_state_p1 /= PPAS else '0';
+	pullup_disable <= pullup_disable_buffer;
+	
+	EOI_output_enable_buffer <= '1' when
+			talk_enable_buffer = '1' or 
+			(controller_state_p1 /= CIDS and controller_state_p1 /= CADS and 
+				controller_state_p1 /= CSBS and controller_state_p1 /= CSHS) else
+		'0';
+	EOI_output_enable <= EOI_output_enable_buffer;
+
+	trigger_buffer <= '1' when device_trigger_state = DTAS else '0';
+	trigger <= trigger_buffer;
+	
+	tr1 <= talk_enable_buffer;
+	process (pon, clock)
+	begin
+		if pon = '1' then
+			tr2 <= '0';
+			tr3 <= '0';
+		elsif rising_edge(clock) then
+			case transmit_receive_mode is
+				when "00" =>
+					tr2 <= EOI_output_enable_buffer;
+					tr3 <= trigger_buffer;
+				when "01" =>
+					tr2 <= not not_controller_in_charge_buffer;
+					tr3 <= trigger_buffer;
+				when "10" =>
+					tr2 <= not not_controller_in_charge_buffer;
+					tr3 <= EOI_output_enable_buffer;
+				when "11" =>
+					tr2 <= not not_controller_in_charge_buffer;
+					tr3 <= pullup_disable_buffer;
+				when others =>
+					tr2 <= 'X';
+					tr3 <= 'X';
 			end case;
 		end if;
 	end process;

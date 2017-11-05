@@ -15,6 +15,7 @@ FRONTEND_CB7210P2_TEST_SRC = \
 	../../src/ieee_488_1_state/interface_function_TE.vhd \
 	../../src/ieee_488_1_state/remote_message_decoder.vhd \
 	../../src/ieee_488_1_state/integrated_interface_functions.vhd \
+	../../src/util/gpib_transceiver.vhd \
 	../../src/frontends/frontend_cb7210p2.vhd \
 	frontend_cb7210p2_testbench.vhd
 frontend_cb7210p2_testbench.fst: $(FRONTEND_CB7210P2_TEST_SRC)
