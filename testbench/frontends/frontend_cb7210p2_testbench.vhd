@@ -55,7 +55,10 @@ architecture behav of frontend_cb7210p2_testbench is
 	shared variable test_finished : boolean := false;
 
 	begin
-	my_frontend_cb7210p2: entity work.frontend_cb7210p2 
+	my_frontend_cb7210p2: entity work.frontend_cb7210p2
+		generic map (
+			clock_frequency_KHz => 10000
+		)
 		port map (
 			clock => clock,
 			chip_select_inverted => chip_select_inverted, 
@@ -169,8 +172,8 @@ architecture behav of frontend_cb7210p2_testbench is
 					wait for 99ns;
 			end procedure gpib_write;
 
-			procedure gpib_read (data_byte : out integer;
-					eoi : out boolean) is
+			procedure gpib_read (data_byte : out std_logic_vector(7 downto 0);
+					eoi : out std_logic) is
 			begin
 					bus_DAV_inverted <= 'Z';
 					bus_NDAC_inverted <= '0';
@@ -181,8 +184,8 @@ architecture behav of frontend_cb7210p2_testbench is
 					end if;
 					wait for 99ns;
 					bus_NRFD_inverted <= '0';
-					data_byte := to_integer(unsigned(not bus_DIO_inverted));
-					eoi := to_bit(bus_EOI_inverted) = '0';
+					data_byte := not bus_DIO_inverted;
+					eoi := not bus_EOI_inverted;
 					wait for 99ns;
 					bus_NDAC_inverted <= 'H';
 					if (to_bit(bus_DAV_inverted) /= '1') then
@@ -210,8 +213,8 @@ architecture behav of frontend_cb7210p2_testbench is
 				wait until rising_edge(clock);
 			end procedure host_write;
 
-		variable gpib_read_result : integer;
-		variable gpib_read_eoi : boolean;
+		variable gpib_read_result : std_logic_vector(7 downto 0);
+		variable gpib_read_eoi : std_logic;
 		variable temp_byte : std_logic_vector(7 downto 0);
 	
 		variable primary_address : integer;
@@ -262,9 +265,20 @@ architecture behav of frontend_cb7210p2_testbench is
 		wait until rising_edge(clock);	
 		gpib_read(gpib_read_result, gpib_read_eoi);
 		wait until rising_edge(clock);	
-		assert gpib_read_result = 16#1# report "read result is " & integer'IMAGE(gpib_read_result);
-		assert gpib_read_eoi = false;
+		assert gpib_read_result = X"01";
+		assert gpib_read_eoi = '0';
 		
+		--send a data byte with EOI
+		host_write("101", "00000110"); -- send eoi aux command
+		host_write("000", X"02");
+		wait until rising_edge(clock);	
+		bus_ATN_inverted <= 'H';
+		wait until rising_edge(clock);	
+		gpib_read(gpib_read_result, gpib_read_eoi);
+		wait until rising_edge(clock);	
+		assert gpib_read_result = X"02";
+		assert gpib_read_eoi = '1';
+
 		-- write pon to aux command reg
 		host_write("101", X"00");
 		

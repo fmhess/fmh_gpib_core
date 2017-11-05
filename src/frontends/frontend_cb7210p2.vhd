@@ -135,14 +135,21 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal EOI_output_enable_buffer : std_logic;
 	signal trigger_buffer : std_logic;
 
-	function to_clock_ticks (nanoseconds : in integer) return std_logic_vector is
+	-- overhead is fixed number of clock ticks of overhead even when using a timing delay of zero
+	function to_clock_ticks (nanoseconds : in integer; overhead : in integer) return std_logic_vector is
 		constant nanos_per_milli : integer := 1000000;
+		variable ticks : integer;
 	begin
-		return std_logic_vector(to_unsigned((nanoseconds * clock_frequency_KHz + nanos_per_milli - 1) / nanos_per_milli, T1_terminal_count'LENGTH));
+		ticks := (nanoseconds * clock_frequency_KHz + nanos_per_milli - 1) / nanos_per_milli - overhead;
+		if ticks < 0 then
+			ticks := 0;
+		end if;
+		return std_logic_vector(to_unsigned(ticks, T1_terminal_count'LENGTH));
 	end to_clock_ticks;
-	constant clock_ticks_2us : std_logic_vector(T1_terminal_count'RANGE) := to_clock_ticks(2000);
-	constant clock_ticks_500ns : std_logic_vector(T1_terminal_count'RANGE) := to_clock_ticks(500);
-	constant clock_ticks_350ns : std_logic_vector(T1_terminal_count'RANGE) := to_clock_ticks(350);
+	constant T1_clock_ticks_2us : std_logic_vector(T1_terminal_count'RANGE) := to_clock_ticks(2000, 2);
+	constant T1_clock_ticks_1100ns : std_logic_vector(T1_terminal_count'RANGE) := to_clock_ticks(1100, 2);
+	constant T1_clock_ticks_500ns : std_logic_vector(T1_terminal_count'RANGE) := to_clock_ticks(500, 2);
+	constant T1_clock_ticks_350ns : std_logic_vector(T1_terminal_count'RANGE) := to_clock_ticks(350, 2);
 	
 	begin
 	my_integrated_interface_functions: entity work.integrated_interface_functions 
@@ -246,7 +253,8 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	process (safe_reset, pon, clock)
 		variable prev_host_write_selected : std_logic;
 		variable do_pulse_host_to_gpib_data_byte_write : boolean;
-
+		variable send_eoi : std_logic;
+		
 		function flat_address (page : in std_logic_vector(3 downto 0);
 			raw_address : in std_logic_vector(num_address_lines - 1 downto 0)) 
 			return integer is
@@ -276,7 +284,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 					-- TODO
 				when "00101" | "01101" => -- rtl 
 				when "00110" => -- send EOI on next byte 
-					-- TODO
+					send_eoi := '1';
 				when "00111" => -- non-valid pass through secondary address 
 					-- TODO
 				when "01111" => -- valid pass through secondary address 
@@ -327,6 +335,8 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			case flat_address(page, write_address) is
 				when 0 => -- byte out register
 					host_to_gpib_data_byte <= write_data;
+					host_to_gpib_data_byte_end <= send_eoi;
+					send_eoi := '0';
 					do_pulse_host_to_gpib_data_byte_write := true;
 				when 1 => -- interrupt mask register 1
 					-- TODO
@@ -403,7 +413,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			enable_listener_gpib_address_1 <= '0';
 			host_to_gpib_data_byte_write <= '0';
 			do_pulse_host_to_gpib_data_byte_write := false;
-			
+			send_eoi := '0';
 			-- we have to clear the pon pulse in the "if pon" section
 			-- otherwise we will get stuck in pon. We still want to
 			-- wait for a clock though.
@@ -434,10 +444,11 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	end process;
 
 	-- set timing counters
-	first_T1_terminal_count <= clock_ticks_2us;
-	T1_terminal_count <= clock_ticks_350ns when ultra_fast_T1_delay = '1' else
-		clock_ticks_500ns when high_speed_T1_delay = '1' else
-		clock_ticks_2us;
+	first_T1_terminal_count <= T1_clock_ticks_1100ns when ultra_fast_T1_delay = '1' else
+		T1_clock_ticks_2us;
+	T1_terminal_count <= T1_clock_ticks_350ns when ultra_fast_T1_delay = '1' else
+		T1_clock_ticks_500ns when high_speed_T1_delay = '1' else
+		T1_clock_ticks_2us;
 	
 	-- figure out configured primary/secondary addresses based on settings written
 	-- to chip registers
