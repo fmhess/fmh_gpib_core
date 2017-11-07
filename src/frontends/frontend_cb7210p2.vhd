@@ -875,7 +875,9 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 		(REMC_interrupt and REMC_interrupt_enable) or
 		(LOKC_interrupt and LOKC_interrupt_enable) or
 		(CO_interrupt and CO_interrupt_enable) or
-		(SRQ_interrupt and SRQ_interrupt_enable);
+		(SRQ_interrupt and SRQ_interrupt_enable) or
+		(ATN_interrupt and ATN_interrupt_enable) or
+		(IFC_interrupt and IFC_interrupt_enable);
 	
 	in_remote_state <= '1' when remote_local_state = REMS or remote_local_state = RWLS else '0';
 	in_lockout_state <= '1' when remote_local_state = RWLS or remote_local_state = LWLS else '0';
