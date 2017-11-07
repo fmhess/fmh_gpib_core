@@ -518,8 +518,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 					gpib_to_host_byte_eos <= EOS;
 			end if;
 			if rising_edge(clock) then
-				if to_bit(gpib_to_host_byte_read) = '1' or
-					device_clear_state_buffer = DCAS then
+				if to_bit(gpib_to_host_byte_read) = '1' then
 					rdy <= '1';
 				end if;
 			end if;
