@@ -112,7 +112,6 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	
 	signal safe_reset : std_logic;
 	signal latched_host_data_byte_in : std_logic_vector(7 downto 0);
-	signal latched_address : std_logic_vector(num_address_lines - 1 downto 0);
 	signal host_write_selected : std_logic;
 	signal host_read_selected : std_logic;
 	signal register_page : std_logic_vector(3 downto 0);
@@ -137,7 +136,10 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal EOI_output_enable_buffer : std_logic;
 	signal trigger_buffer : std_logic;
 
-	-- overhead is fixed number of clock ticks of overhead even when using a timing delay of zero
+	signal host_write_cycle_counter : integer range 0 to 2;
+	signal host_read_cycle_counter : integer range 0 to 2;
+
+	-- overhead parameter is fixed number of clock ticks of overhead even when using a timing delay of zero
 	function to_clock_ticks (nanoseconds : in integer; overhead : in integer) return std_logic_vector is
 		constant nanos_per_milli : integer := 1000000;
 		variable ticks : integer;
@@ -153,6 +155,22 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	constant T1_clock_ticks_500ns : std_logic_vector(T1_terminal_count'RANGE) := to_clock_ticks(500, 2);
 	constant T1_clock_ticks_350ns : std_logic_vector(T1_terminal_count'RANGE) := to_clock_ticks(350, 2);
 	
+	function flat_address (page : in std_logic_vector(3 downto 0);
+		raw_address : in std_logic_vector(num_address_lines - 1 downto 0)) 
+		return integer is
+		variable raw_address_integer : integer range 0 to 127;
+		variable result : std_logic_vector(num_address_lines + page'LENGTH - 1 downto 0);
+	begin
+		raw_address_integer := to_integer(unsigned(raw_address));
+		if raw_address_integer < 8 then
+			result(2 downto 0) := raw_address(2 downto 0);
+			result(page'LENGTH + 2 downto 3) := page;
+			return to_integer(unsigned(result));
+		else
+			return raw_address_integer;
+		end if;
+	end flat_address;
+
 	begin
 	my_integrated_interface_functions: entity work.integrated_interface_functions 
 		port map (
@@ -253,29 +271,57 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	host_read_selected <= not read_inverted and not chip_select_inverted;
 	host_data_bus_out <= host_data_bus_out_buffer when to_X01(read_inverted) = '0' else (others => 'Z');
 	
-	-- accept reads and writes from host
+	-- accept reads from host
 	process (safe_reset, pon, clock)
-		variable prev_host_write_selected : std_logic;
-		variable do_pulse_host_to_gpib_data_byte_write : boolean;
-		variable prev_host_read_selected : std_logic;
 		variable do_pulse_gpib_to_host_byte_read : boolean;
-		variable send_eoi : std_logic;
 		
-		function flat_address (page : in std_logic_vector(3 downto 0);
-			raw_address : in std_logic_vector(num_address_lines - 1 downto 0)) 
-			return integer is
-			variable page_integer : integer range 0 to 15;
-			variable raw_address_integer : integer range 0 to 127;
-			variable flat_address_integer : integer range 0 to 127;
+		-- process a read from the host
+		procedure host_read_register (page : in std_logic_vector(3 downto 0);
+			read_address : in std_logic_vector(num_address_lines - 1 downto 0)) is
+
 		begin
-			raw_address_integer := to_integer(unsigned(raw_address));
-			page_integer := to_integer(unsigned(page));
-			if raw_address_integer < 8 then
-				return page_integer * 8 + raw_address_integer;
-			else
-				return raw_address_integer;
+			case flat_address(page, read_address) is
+				when 0 => -- data in
+					host_data_bus_out_buffer <= gpib_to_host_byte;
+					do_pulse_gpib_to_host_byte_read := true;
+				when others =>
+			end case;
+		end host_read_register;
+	begin
+		if pon = '1' then
+			if safe_reset = '1' then
+				host_read_cycle_counter <= 0;
+				host_data_bus_out_buffer <= (others => 'Z');
 			end if;
-		end flat_address;
+			do_pulse_gpib_to_host_byte_read := false;
+		elsif rising_edge(clock) then
+			if host_read_selected = '1' then
+				if host_read_cycle_counter < host_read_cycle_counter'HIGH then
+					host_read_cycle_counter <= host_read_cycle_counter + 1;
+				end if;
+			else
+				host_read_cycle_counter <= 0;
+			end if;
+
+			-- process read
+			if host_read_cycle_counter = 1 then
+				host_read_register(register_page, address);
+			end if;
+
+			-- handle pulses
+			if do_pulse_gpib_to_host_byte_read then
+				gpib_to_host_byte_read <= '1';
+				do_pulse_gpib_to_host_byte_read := false;
+			else
+				gpib_to_host_byte_read <= '0';
+			end if;
+		end if;
+	end process;
+
+	-- accept writes from host
+	process (safe_reset, pon, clock)
+		variable do_pulse_host_to_gpib_data_byte_write : boolean;
+		variable send_eoi : std_logic;
 		
 		procedure execute_auxiliary_command(command : in std_logic_vector(4 downto 0)) is
 		begin
@@ -395,27 +441,11 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			end case;
 		end host_write_register;
 		
-		-- process a write from the host
-		procedure host_read_register (page : in std_logic_vector(3 downto 0);
-			read_address : in std_logic_vector(num_address_lines - 1 downto 0)) is
-
-		begin
-			case flat_address(page, read_address) is
-				when 0 => -- data in
-					host_data_bus_out_buffer <= gpib_to_host_byte;
-					do_pulse_gpib_to_host_byte_read := true;
-				when others =>
-			end case;
-		end host_read_register;
 	begin
 		if pon = '1' then
 			if safe_reset = '1' then
-				prev_host_write_selected := '0';
+				host_write_cycle_counter <= 0;
 				register_page <= (others => '0');
-				latched_address <= (others => '0');
-				latched_host_data_byte_in <= (others => '0');
-				prev_host_read_selected := '0';
-				host_data_bus_out_buffer <= (others => 'Z');
 			end if;
 			local_STB <= (others => '0');
 			rsv <= '0';
@@ -433,7 +463,6 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			enable_listener_gpib_address_1 <= '0';
 			host_to_gpib_data_byte_write <= '0';
 			do_pulse_host_to_gpib_data_byte_write := false;
-			do_pulse_gpib_to_host_byte_read := false;
 			send_eoi := '0';
 			-- we have to clear the pon pulse in the "if pon" section
 			-- otherwise we will get stuck in pon. We still want to
@@ -443,24 +472,17 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			end if;
 		elsif rising_edge(clock) then
 			if host_write_selected = '1' then
-				latched_address <= address;
-				latched_host_data_byte_in <= host_data_bus_in;
+				if host_write_cycle_counter < host_write_cycle_counter'HIGH then
+					host_write_cycle_counter <= host_write_cycle_counter + 1;
+				end if;
+			else
+				host_write_cycle_counter <= 0;
 			end if;
 
 			-- process write
-			if prev_host_write_selected = '1' and host_write_selected = '0' then
-				host_write_register(register_page, latched_address, latched_host_data_byte_in);
-				register_page <= (others => '0');
+			if host_write_cycle_counter = 1 then
+				host_write_register(register_page, address, host_data_bus_in);
 			end if;
-			prev_host_write_selected := host_write_selected;
-
-			-- process read
-			if prev_host_read_selected = '0' and host_read_selected = '1' then
-				host_read_register(register_page, address);
-			elsif prev_host_read_selected = '1' and host_read_selected = '0' then -- read has completed	
-				register_page <= (others => '0');
-			end if;
-			prev_host_read_selected := host_read_selected;
 
 			-- handle pulses
 			if do_pulse_host_to_gpib_data_byte_write then
@@ -469,14 +491,13 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			else
 				host_to_gpib_data_byte_write <= '0';
 			end if;
-			if do_pulse_gpib_to_host_byte_read then
-				gpib_to_host_byte_read <= '1';
-				do_pulse_gpib_to_host_byte_read := false;
-			else
-				gpib_to_host_byte_read <= '0';
-			end if;				
+
+			-- clear register page after read or write
+			if host_write_cycle_counter = 1 or host_read_cycle_counter = 1 then
+				register_page <= (others => '0');
+			end if;
 		end if;
-	end process;
+	end process;	
 
 	-- set timing counters
 	first_T1_terminal_count <= T1_clock_ticks_1100ns when ultra_fast_T1_delay = '1' else
@@ -511,7 +532,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			end case;
 		end if;
 	end process;
-	
+
 	talk_enable_buffer <= '1' when talker_state_p1 = TACS or talker_state_p1 = SPAS or 
 			controller_state_p1 = CACS else
 		'0';

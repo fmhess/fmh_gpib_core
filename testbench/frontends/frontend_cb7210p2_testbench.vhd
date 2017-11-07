@@ -205,7 +205,8 @@ architecture behav of frontend_cb7210p2_testbench is
 			chip_select_inverted <= '0';
 			address <= addr;
 			host_data_bus <= byte;
-			wait until rising_edge(clock);
+			wait_for_ticks(3);
+
 			write_inverted <= '1';
 			chip_select_inverted <= '1';
 			address <= (others => '0');
@@ -222,7 +223,8 @@ architecture behav of frontend_cb7210p2_testbench is
 			chip_select_inverted <= '0';
 			address <= addr;
 			host_data_bus <= (others => 'Z');
-			wait_for_ticks(2);
+			wait_for_ticks(3);
+
 			read_inverted <= '1';
 			chip_select_inverted <= '1';
 			address <= (others => '0');
