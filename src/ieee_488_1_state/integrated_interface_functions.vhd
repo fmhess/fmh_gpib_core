@@ -159,6 +159,8 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	signal local_RQS : std_logic;
 	signal local_SRQ : std_logic;
 	signal local_IDY : std_logic;
+	signal talker_NUL_buffer : std_logic;
+	signal controller_NUL_buffer : std_logic;
 	signal local_NUL : std_logic;
 	signal local_TCT : std_logic;
 	
@@ -417,7 +419,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			talker_state_p3 => talker_state_p3_buffer,
 			END_msg => local_END,
 			RQS => local_RQS,
-			NUL => local_NUL
+			NUL => talker_NUL_buffer
 		);
 		
 	my_C: entity work.interface_function_C
@@ -428,7 +430,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			IDY => local_IDY,
 			IFC => local_IFC,
 			REN => local_REN,
-			NUL => local_NUL,
+			NUL => controller_NUL_buffer,
 			TCT => local_TCT,
 			controller_state_p1 => controller_state_p1_buffer,
 			controller_state_p2 => controller_state_p2_buffer,
@@ -467,6 +469,8 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	
 	host_to_gpib_data_byte_latched <= internal_host_to_gpib_data_byte_latched;
 
+	local_NUL <= talker_NUL_buffer or controller_NUL_buffer;
+	
 	status_byte_buffer(7) <= not local_STB(7); 
 	status_byte_buffer(6) <= not local_RQS; 
 	status_byte_buffer(5 downto 0) <= not local_STB(5 downto 0);
