@@ -93,12 +93,18 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal host_to_gpib_data_byte_latched : std_logic;
 	signal acceptor_handshake_state : AH_state;
 	signal controller_state_p1 : C_state_p1;
+	signal controller_state_p2 : C_state_p2;
 	signal device_clear_state : DC_state;
 	signal device_trigger_state : DT_state;
 	signal listener_state_p1 : LE_state_p1;
 	signal parallel_poll_state_p1 : PP_state_p1;
+	signal remote_local_state : RL_state;
 	signal source_handshake_state : SH_state;
 	signal talker_state_p1 : TE_state_p1;
+	signal in_remote_state : std_logic;
+	signal in_lockout_state : std_logic;
+	signal TADS_or_TACS : std_logic;
+	signal LADS_or_LACS : std_logic;
 	
 	signal ist : std_logic;
 	signal lon : std_logic;	
@@ -135,7 +141,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal generate_END_interrupt_on_EOS : std_logic;
 	
 	signal talk_enable_buffer : std_logic;
-	signal not_controller_in_charge_buffer : std_logic;
+	signal controller_in_charge_buffer : std_logic;
 	signal pullup_disable_buffer : std_logic;
 	signal EOI_output_enable_buffer : std_logic;
 	signal trigger_buffer : std_logic;
@@ -145,6 +151,12 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	
 	signal any_interrupt_active : std_logic;
 	signal invert_interrupt : std_logic;
+
+	-- interrupt mask register 0 interrupts
+	signal ATN_interrupt : std_logic;
+	signal IFC_interrupt : std_logic;
+	signal ATN_interrupt_enable : std_logic;
+	signal IFC_interrupt_enable : std_logic;
 
 	-- interrupt mask register 1 interrupts
 	signal DI_interrupt : std_logic;
@@ -164,6 +176,20 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal APT_interrupt_enable : std_logic;
 	signal CPT_interrupt_enable : std_logic;
 	
+	-- interrupt mask register 2 interrupts
+	signal ADSC_interrupt : std_logic;
+	signal REMC_interrupt : std_logic;
+	signal LOKC_interrupt : std_logic;
+	signal CO_interrupt : std_logic;
+	signal SRQ_interrupt : std_logic;
+	signal ADSC_interrupt_enable : std_logic;
+	signal REMC_interrupt_enable : std_logic;
+	signal LOKC_interrupt_enable : std_logic;
+	signal CO_interrupt_enable : std_logic;
+	signal DMA_input_enable : std_logic;
+	signal DMA_output_enable : std_logic;
+	signal SRQ_interrupt_enable : std_logic;
+
 	-- overhead parameter is fixed number of clock ticks of overhead even when using a timing delay of zero
 	function to_clock_ticks (nanoseconds : in integer; overhead : in integer) return std_logic_vector is
 		constant nanos_per_milli : integer := 1000000;
@@ -250,10 +276,12 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			host_to_gpib_data_byte_latched => host_to_gpib_data_byte_latched,
 			acceptor_handshake_state => acceptor_handshake_state,
 			controller_state_p1 => controller_state_p1,
+			controller_state_p2 => controller_state_p2,
 			device_clear_state => device_clear_state,
 			device_trigger_state => device_trigger_state,
 			listener_state_p1 => listener_state_p1,
 			parallel_poll_state_p1 => parallel_poll_state_p1,
+			remote_local_state => remote_local_state,
 			source_handshake_state => source_handshake_state,
 			talker_state_p1 => talker_state_p1,
 			local_STB => local_STB
@@ -304,8 +332,16 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	-- accept reads from host
 	process (safe_reset, pon, clock)
 		variable do_pulse_gpib_to_host_byte_read : boolean;
-		variable prev_source_handshake_state : SH_state;
 		variable prev_acceptor_handshake_state : AH_state;
+		variable prev_controller_state_p2 : C_state_p2;
+		variable prev_source_handshake_state : SH_state;
+		variable prev_in_remote_state : std_logic;
+		variable prev_in_lockout_state : std_logic;
+		variable prev_ATN_inverted : std_logic;
+		variable prev_IFC_inverted : std_logic;
+		variable prev_TADS_or_TACS : std_logic;
+		variable prev_LADS_or_LACS : std_logic;
+		variable prev_controller_in_charge : std_logic;
 		
 		-- process a read from the host
 		procedure host_read_register (page : in std_logic_vector(3 downto 0);
@@ -317,18 +353,45 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 					host_data_bus_out_buffer <= gpib_to_host_byte;
 					do_pulse_gpib_to_host_byte_read := true;
 				when 1 => -- interrupt status 1
-					host_data_bus_out_buffer(0) <= to_X01(DI_interrupt);
-					if to_X01(DI_interrupt) = '1' then
-						DI_interrupt <= '0';
-					end if;
-					host_data_bus_out_buffer(1) <= to_X01(DO_interrupt);
-					if to_X01(DO_interrupt) = '1' then
-						DO_interrupt <= '0';
-					end if;
-					host_data_bus_out_buffer(4) <= to_X01(END_interrupt);
-					if to_X01(END_interrupt) = '1' then
-						END_interrupt <= '0';
-					end if;
+					host_data_bus_out_buffer(0) <= DI_interrupt;
+					host_data_bus_out_buffer(1) <= DO_interrupt;
+					host_data_bus_out_buffer(2) <= ERR_interrupt;
+					host_data_bus_out_buffer(3) <= DEC_interrupt;
+					host_data_bus_out_buffer(4) <= END_interrupt;
+					host_data_bus_out_buffer(5) <= DET_interrupt;
+					host_data_bus_out_buffer(6) <= APT_interrupt;
+					host_data_bus_out_buffer(7) <= CPT_interrupt;
+					DI_interrupt <= '0';
+					DO_interrupt <= '0';
+					ERR_interrupt <= '0';
+					DEC_interrupt <= '0';
+					END_interrupt <= '0';
+					DET_interrupt <= '0';
+					APT_interrupt <= '0';
+					CPT_interrupt <= '0';
+				when 2 => -- interrupt status 2
+					host_data_bus_out_buffer(0) <= ADSC_interrupt;
+					host_data_bus_out_buffer(1) <= REMC_interrupt;
+					host_data_bus_out_buffer(2) <= LOKC_interrupt;
+					host_data_bus_out_buffer(3) <= CO_interrupt;
+					host_data_bus_out_buffer(4) <= in_remote_state;
+					host_data_bus_out_buffer(5) <= in_lockout_state;
+					host_data_bus_out_buffer(6) <= SRQ_interrupt;
+					host_data_bus_out_buffer(7) <= any_interrupt_active;
+					ADSC_interrupt <= '0';
+					REMC_interrupt <= '0';
+					LOKC_interrupt <= '0';
+					CO_interrupt <= '0';
+					SRQ_interrupt <= '0';
+				when 16#14# => -- interrupt status 0
+					host_data_bus_out_buffer <= 
+						(
+							2 => ATN_interrupt,
+							3 => IFC_interrupt,
+							others => '0'
+						);
+					ATN_interrupt <= '0';
+					IFC_interrupt <= '0';
 				when others =>
 			end case;
 		end host_read_register;
@@ -339,6 +402,10 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 				host_data_bus_out_buffer <= (others => 'Z');
 			end if;
 			do_pulse_gpib_to_host_byte_read := false;
+			-- isr0 interrupts
+			ATN_interrupt <= '0';
+			IFC_interrupt <= '0';
+			-- isr1 interrupts
 			DI_interrupt <= '0';
 			DO_interrupt <= '0';
 			ERR_interrupt <= '0';
@@ -347,8 +414,25 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			DET_interrupt <= '0';
 			APT_interrupt <= '0';
 			CPT_interrupt <= '0';
-			prev_source_handshake_state := SIDS;
-			prev_acceptor_handshake_state := AIDS;
+			-- isr2 interrupts
+			ADSC_interrupt <= '0';
+			REMC_interrupt <= '0';
+			LOKC_interrupt <= '0';
+			CO_interrupt <= '0';
+			SRQ_interrupt <= '0';
+
+			prev_acceptor_handshake_state := acceptor_handshake_state;
+			prev_controller_state_p2 := controller_state_p2;
+			prev_source_handshake_state := source_handshake_state;
+			prev_in_remote_state := in_remote_state;
+			prev_in_lockout_state := in_lockout_state;
+			prev_ATN_inverted := bus_ATN_inverted_in;
+			prev_IFC_inverted := bus_IFC_inverted_in;
+			prev_TADS_or_TACS := TADS_or_TACS;
+			prev_LADS_or_LACS := LADS_or_LACS;
+			prev_controller_in_charge := controller_in_charge_buffer;
+			
+			check_for_listeners <= '1';
 		elsif rising_edge(clock) then
 			if host_read_selected = '1' then
 				if host_read_cycle_counter < host_read_cycle_counter'HIGH then
@@ -401,8 +485,69 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 				END_interrupt <= '0';
 			end if;
 
-			prev_source_handshake_state := source_handshake_state;
+			if device_clear_state = DCAS then
+				DEC_interrupt <= '1';
+			end if;
+			
+			if device_trigger_state = DTAS then
+				DET_interrupt <= '1';
+			end if;
+
+			if false then
+				APT_interrupt <= '1'; --TODO
+			end if;
+			
+			if false then
+				CPT_interrupt <= '1'; --TODO
+			end if;
+
+			if to_X01(no_listeners) = '1' then
+				ERR_interrupt <= '1';
+			end if;
+
+			if prev_TADS_or_TACS /= TADS_or_TACS or prev_LADS_or_LACS /= LADS_or_LACS or
+				prev_controller_in_charge /= controller_in_charge_buffer then
+				ADSC_interrupt <= '1';
+			end if;
+				
+			if prev_in_remote_state /= in_remote_state then
+				REMC_interrupt <= '1';
+			end if;
+			
+			if prev_in_lockout_state /= in_lockout_state then
+				LOKC_interrupt <= '1';
+			end if;
+
+			if false then -- TODO
+				CO_interrupt <= '1';
+			end if;
+			
+			if controller_state_p2 = CSRS then
+				if prev_controller_state_p2 /= CSRS then
+					SRQ_interrupt <= '1';
+				end if;
+			else
+				SRQ_interrupt <= '0';
+			end if;
+			
+			if to_X01(prev_ATN_inverted) = '1' and to_X01(bus_ATN_inverted_in) = '0' then
+				ATN_interrupt <= '1';
+			end if;
+			
+			if to_X01(prev_IFC_inverted) = '1' and to_X01(bus_IFC_inverted_in) = '0' then
+				IFC_interrupt <= '1';
+			end if;
+
 			prev_acceptor_handshake_state := acceptor_handshake_state;
+			prev_controller_state_p2 := controller_state_p2;
+			prev_source_handshake_state := source_handshake_state;
+			prev_in_remote_state := in_remote_state;
+			prev_in_lockout_state := in_lockout_state;
+			prev_ATN_inverted := bus_ATN_inverted_in;
+			prev_IFC_inverted := bus_IFC_inverted_in;
+			prev_TADS_or_TACS := TADS_or_TACS;
+			prev_LADS_or_LACS := LADS_or_LACS;
+			prev_controller_in_charge := controller_in_charge_buffer;
 		end if;
 	end process;
 
@@ -487,9 +632,14 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 					DET_interrupt_enable <= write_data(5);
 					APT_interrupt_enable <= write_data(6);
 					CPT_interrupt_enable <= write_data(7);
-					-- TODO
 				when 2 => -- interrupt mask register 2
-					-- TODO
+					ADSC_interrupt_enable <= write_data(0);
+					REMC_interrupt_enable <= write_data(1);
+					LOKC_interrupt_enable <= write_data(2);
+					CO_interrupt_enable <= write_data(3);
+					DMA_input_enable <= write_data(4);
+					DMA_output_enable <= write_data(5);
+					SRQ_interrupt_enable <= write_data(6);
 				when 3 => -- serial poll mode
 					local_STB <= write_data;
 					rsv <= write_data(6);
@@ -535,6 +685,8 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 					end if;
 				when 7 => -- end of string
 				when 16#e# => -- interrupt mask register 0
+					ATN_interrupt_enable <= write_data(2);
+					IFC_interrupt_enable <= write_data(3);
 				when others =>
 			end case;
 		end host_write_register;
@@ -563,6 +715,11 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			do_pulse_host_to_gpib_data_byte_write := false;
 			send_eoi := '0';
 			invert_interrupt <= '0';
+
+			-- imr0 enables
+			ATN_interrupt_enable <= '0';
+			IFC_interrupt_enable <= '0';
+			--imr1 enables
 			DI_interrupt_enable <= '0';
 			DO_interrupt_enable <= '0';
 			ERR_interrupt_enable <= '0';
@@ -571,6 +728,15 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			DET_interrupt_enable <= '0';
 			APT_interrupt_enable <= '0';
 			CPT_interrupt_enable <= '0';
+			--imr2 enables
+			ADSC_interrupt_enable <= '0';
+			REMC_interrupt_enable <= '0';
+			LOKC_interrupt_enable <= '0';
+			CO_interrupt_enable <= '0';
+			DMA_input_enable <= '0';
+			DMA_output_enable <= '0';
+			SRQ_interrupt_enable <= '0';
+
 			generate_END_interrupt_on_EOS <= '0';
 			-- we have to clear the pon pulse in the "if pon" section
 			-- otherwise we will get stuck in pon. We still want to
@@ -646,10 +812,10 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 		'0';
 	talk_enable <= talk_enable_buffer;
 	
-	not_controller_in_charge_buffer <= '1' when controller_state_p1 = CIDS or controller_state_p1 = CADS else '0';
-	not_controller_in_charge <= not_controller_in_charge_buffer;
+	controller_in_charge_buffer <= '0' when controller_state_p1 = CIDS or controller_state_p1 = CADS else '1';
+	not_controller_in_charge <= not controller_in_charge_buffer;
 
-	pullup_disable_buffer <= '1' when to_X01(not_controller_in_charge_buffer) = '1' or 
+	pullup_disable_buffer <= '1' when to_X01(not controller_in_charge_buffer) = '1' or 
 		parallel_poll_state_p1 /= PPAS else '0';
 	pullup_disable <= pullup_disable_buffer;
 	
@@ -675,13 +841,13 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 					tr2 <= EOI_output_enable_buffer;
 					tr3 <= trigger_buffer;
 				when "01" =>
-					tr2 <= not not_controller_in_charge_buffer;
+					tr2 <= controller_in_charge_buffer;
 					tr3 <= trigger_buffer;
 				when "10" =>
-					tr2 <= not not_controller_in_charge_buffer;
+					tr2 <= controller_in_charge_buffer;
 					tr3 <= EOI_output_enable_buffer;
 				when "11" =>
-					tr2 <= not not_controller_in_charge_buffer;
+					tr2 <= controller_in_charge_buffer;
 					tr3 <= pullup_disable_buffer;
 				when others =>
 					tr2 <= 'X';
@@ -700,6 +866,16 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 		(END_interrupt and END_interrupt_enable) or
 		(DET_interrupt and DET_interrupt_enable) or
 		(APT_interrupt and APT_interrupt_enable) or
-		(CPT_interrupt and CPT_interrupt_enable);
+		(CPT_interrupt and CPT_interrupt_enable) or
+		(ADSC_interrupt and ADSC_interrupt_enable) or
+		(REMC_interrupt and REMC_interrupt_enable) or
+		(LOKC_interrupt and LOKC_interrupt_enable) or
+		(CO_interrupt and CO_interrupt_enable) or
+		(SRQ_interrupt and SRQ_interrupt_enable);
+	
+	in_remote_state <= '1' when remote_local_state = REMS or remote_local_state = RWLS else '0';
+	in_lockout_state <= '1' when remote_local_state = RWLS or remote_local_state = LWLS else '0';
+	LADS_or_LACS <= '1' when listener_state_p1 = LADS or listener_state_p1 = LACS else '0';
+	TADS_or_TACS <= '1' when talker_state_p1 = TADS or talker_state_p1 = TACS else '0';
 	
 end frontend_cb7210p2_arch;

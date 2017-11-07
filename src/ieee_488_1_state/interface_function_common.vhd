@@ -56,4 +56,5 @@ package body interface_function_common is
 		end loop;
 		return result;
 	end to_X0Z;
+	
 end package body interface_function_common;
