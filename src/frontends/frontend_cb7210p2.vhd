@@ -530,8 +530,12 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 				SRQ_interrupt <= '0';
 			end if;
 			
-			if to_X01(prev_ATN_inverted) = '1' and to_X01(bus_ATN_inverted_in) = '0' then
-				ATN_interrupt <= '1';
+			if to_X01(bus_ATN_inverted_in) = '0' then
+				if to_X01(prev_ATN_inverted) = '1' then
+					ATN_interrupt <= '1';
+				end if;
+			else
+				ATN_interrupt <= '0';
 			end if;
 			
 			if to_X01(prev_IFC_inverted) = '1' and to_X01(bus_IFC_inverted_in) = '0' then
