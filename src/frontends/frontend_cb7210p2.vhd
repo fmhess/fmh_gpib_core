@@ -269,7 +269,9 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	
 	host_write_selected <= not write_inverted and not chip_select_inverted;
 	host_read_selected <= not read_inverted and not chip_select_inverted;
-	host_data_bus_out <= host_data_bus_out_buffer when to_X01(read_inverted) = '0' else (others => 'Z');
+	host_data_bus_out <= host_data_bus_out_buffer when to_X01(host_read_selected) = '1' and
+			host_read_cycle_counter > 1 else 
+		(others => 'Z');
 	
 	-- accept reads from host
 	process (safe_reset, pon, clock)
