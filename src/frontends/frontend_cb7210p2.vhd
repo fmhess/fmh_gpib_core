@@ -11,10 +11,10 @@ use work.interface_function_common.all;
 use work.integrated_interface_functions.all;
 
 entity frontend_cb7210p2 is
-	generic(num_address_lines : integer := 3;
+	generic(
+		-- use 6 address lines for a flat register map.  Address lines 3 to 5 will specify page.
+		num_address_lines : integer := 3;
 		clock_frequency_KHz : integer := 20000);
-	-- read, write_inverted, chip_select_inverted, address, and host_data_bus_in are assumed
-	-- to by synched to clock
 	port(
 		clock : in std_logic;
 		chip_select_inverted : in std_logic;
@@ -91,10 +91,13 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal host_to_gpib_data_byte_end : std_logic;
 	signal host_to_gpib_data_byte_write : std_logic;
 	signal host_to_gpib_data_byte_latched : std_logic;
+	signal acceptor_handshake_state : AH_state;
 	signal controller_state_p1 : C_state_p1;
 	signal device_clear_state : DC_state;
 	signal device_trigger_state : DT_state;
+	signal listener_state_p1 : LE_state_p1;
 	signal parallel_poll_state_p1 : PP_state_p1;
+	signal source_handshake_state : SH_state;
 	signal talker_state_p1 : TE_state_p1;
 	
 	signal ist : std_logic;
@@ -129,6 +132,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal ultra_fast_T1_delay : std_logic;
 	signal high_speed_T1_delay : std_logic;
 	signal pon_pulse : std_logic;
+	signal generate_END_interrupt_on_EOS : std_logic;
 	
 	signal talk_enable_buffer : std_logic;
 	signal not_controller_in_charge_buffer : std_logic;
@@ -138,7 +142,28 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 
 	signal host_write_cycle_counter : integer range 0 to 2;
 	signal host_read_cycle_counter : integer range 0 to 2;
+	
+	signal any_interrupt_active : std_logic;
+	signal invert_interrupt : std_logic;
 
+	-- interrupt mask register 1 interrupts
+	signal DI_interrupt : std_logic;
+	signal DO_interrupt : std_logic;
+	signal ERR_interrupt : std_logic;
+	signal DEC_interrupt : std_logic;
+	signal END_interrupt : std_logic;
+	signal DET_interrupt : std_logic;
+	signal APT_interrupt : std_logic;
+	signal CPT_interrupt : std_logic;
+	signal DI_interrupt_enable : std_logic;
+	signal DO_interrupt_enable : std_logic;
+	signal ERR_interrupt_enable : std_logic;
+	signal DEC_interrupt_enable : std_logic;
+	signal END_interrupt_enable : std_logic;
+	signal DET_interrupt_enable : std_logic;
+	signal APT_interrupt_enable : std_logic;
+	signal CPT_interrupt_enable : std_logic;
+	
 	-- overhead parameter is fixed number of clock ticks of overhead even when using a timing delay of zero
 	function to_clock_ticks (nanoseconds : in integer; overhead : in integer) return std_logic_vector is
 		constant nanos_per_milli : integer := 1000000;
@@ -223,10 +248,13 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			host_to_gpib_data_byte_end => host_to_gpib_data_byte_end,
 			host_to_gpib_data_byte_write => host_to_gpib_data_byte_write,
 			host_to_gpib_data_byte_latched => host_to_gpib_data_byte_latched,
+			acceptor_handshake_state => acceptor_handshake_state,
 			controller_state_p1 => controller_state_p1,
 			device_clear_state => device_clear_state,
 			device_trigger_state => device_trigger_state,
+			listener_state_p1 => listener_state_p1,
 			parallel_poll_state_p1 => parallel_poll_state_p1,
+			source_handshake_state => source_handshake_state,
 			talker_state_p1 => talker_state_p1,
 			local_STB => local_STB
 		);
@@ -276,6 +304,8 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	-- accept reads from host
 	process (safe_reset, pon, clock)
 		variable do_pulse_gpib_to_host_byte_read : boolean;
+		variable prev_source_handshake_state : SH_state;
+		variable prev_acceptor_handshake_state : AH_state;
 		
 		-- process a read from the host
 		procedure host_read_register (page : in std_logic_vector(3 downto 0);
@@ -286,6 +316,19 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 				when 0 => -- data in
 					host_data_bus_out_buffer <= gpib_to_host_byte;
 					do_pulse_gpib_to_host_byte_read := true;
+				when 1 => -- interrupt status 1
+					host_data_bus_out_buffer(0) <= to_X01(DI_interrupt);
+					if to_X01(DI_interrupt) = '1' then
+						DI_interrupt <= '0';
+					end if;
+					host_data_bus_out_buffer(1) <= to_X01(DO_interrupt);
+					if to_X01(DO_interrupt) = '1' then
+						DO_interrupt <= '0';
+					end if;
+					host_data_bus_out_buffer(4) <= to_X01(END_interrupt);
+					if to_X01(END_interrupt) = '1' then
+						END_interrupt <= '0';
+					end if;
 				when others =>
 			end case;
 		end host_read_register;
@@ -296,6 +339,16 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 				host_data_bus_out_buffer <= (others => 'Z');
 			end if;
 			do_pulse_gpib_to_host_byte_read := false;
+			DI_interrupt <= '0';
+			DO_interrupt <= '0';
+			ERR_interrupt <= '0';
+			DEC_interrupt <= '0';
+			END_interrupt <= '0';
+			DET_interrupt <= '0';
+			APT_interrupt <= '0';
+			CPT_interrupt <= '0';
+			prev_source_handshake_state := SIDS;
+			prev_acceptor_handshake_state := AIDS;
 		elsif rising_edge(clock) then
 			if host_read_selected = '1' then
 				if host_read_cycle_counter < host_read_cycle_counter'HIGH then
@@ -317,6 +370,39 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			else
 				gpib_to_host_byte_read <= '0';
 			end if;
+
+			-- set read-clearable interrupts
+			
+			if to_X01(host_to_gpib_data_byte_latched) = '0' then
+				if prev_source_handshake_state /= SGNS and source_handshake_state = SGNS then
+					if talker_state_p1 = TACS then
+						DO_interrupt <= '1';
+					elsif controller_state_p1 = CACS then
+						--TODO
+					end if;
+				end if;
+			else
+				DO_interrupt <= '0';
+			end if;
+
+			if to_X01(rdy) = '0' then
+				if prev_acceptor_handshake_state /= ACDS and acceptor_handshake_state = ACDS and listener_state_p1 = LACS then
+					DI_interrupt <= '1';
+				end if;
+			else
+				DI_interrupt <= '0';
+			end if;
+
+			if to_X01(gpib_to_host_byte_end or (generate_END_interrupt_on_EOS and gpib_to_host_byte_eos)) = '1' then
+				if prev_acceptor_handshake_state /= ACDS and acceptor_handshake_state = ACDS and listener_state_p1 = LACS then
+					END_interrupt <= '1';
+				end if;
+			else
+				END_interrupt <= '0';
+			end if;
+
+			prev_source_handshake_state := source_handshake_state;
+			prev_acceptor_handshake_state := acceptor_handshake_state;
 		end if;
 	end process;
 
@@ -393,6 +479,14 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 					send_eoi := '0';
 					do_pulse_host_to_gpib_data_byte_write := true;
 				when 1 => -- interrupt mask register 1
+					DI_interrupt_enable <= write_data(0);
+					DO_interrupt_enable <= write_data(1);
+					ERR_interrupt_enable <= write_data(2);
+					DEC_interrupt_enable <= write_data(3);
+					END_interrupt_enable <= write_data(4);
+					DET_interrupt_enable <= write_data(5);
+					APT_interrupt_enable <= write_data(6);
+					CPT_interrupt_enable <= write_data(7);
 					-- TODO
 				when 2 => -- interrupt mask register 2
 					-- TODO
@@ -413,9 +507,11 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 						when "011" => -- parallel poll register
 							-- TODO
 						when "100" => -- aux A register
+							generate_END_interrupt_on_EOS <= write_data(2);
 							-- TODO
 						when "101" => -- aux B register
 							high_speed_T1_delay <= write_data(2);
+							invert_interrupt <= write_data(3);
 							-- TODO
 						when "110" => -- aux E register
 							-- TODO
@@ -466,6 +562,16 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			host_to_gpib_data_byte_write <= '0';
 			do_pulse_host_to_gpib_data_byte_write := false;
 			send_eoi := '0';
+			invert_interrupt <= '0';
+			DI_interrupt_enable <= '0';
+			DO_interrupt_enable <= '0';
+			ERR_interrupt_enable <= '0';
+			DEC_interrupt_enable <= '0';
+			END_interrupt_enable <= '0';
+			DET_interrupt_enable <= '0';
+			APT_interrupt_enable <= '0';
+			CPT_interrupt_enable <= '0';
+			generate_END_interrupt_on_EOS <= '0';
 			-- we have to clear the pon pulse in the "if pon" section
 			-- otherwise we will get stuck in pon. We still want to
 			-- wait for a clock though.
@@ -583,4 +689,17 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			end case;
 		end if;
 	end process;
+	
+	interrupt <= any_interrupt_active xor invert_interrupt;
+	
+	any_interrupt_active <= 
+		(DI_interrupt and DI_interrupt_enable) or
+		(DO_interrupt and DO_interrupt_enable) or
+		(ERR_interrupt and ERR_interrupt_enable) or
+		(DEC_interrupt and DEC_interrupt_enable) or
+		(END_interrupt and END_interrupt_enable) or
+		(DET_interrupt and DET_interrupt_enable) or
+		(APT_interrupt and APT_interrupt_enable) or
+		(CPT_interrupt and CPT_interrupt_enable);
+	
 end frontend_cb7210p2_arch;

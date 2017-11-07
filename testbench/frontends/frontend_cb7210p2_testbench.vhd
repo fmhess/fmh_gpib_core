@@ -272,7 +272,6 @@ architecture behav of frontend_cb7210p2_testbench is
 		host_write_byte(7 downto 5) := "000";
 		host_write_byte(4 downto 0) := std_logic_vector(to_unsigned(primary_address, 5));
 		host_write("110", host_write_byte); --address register 0/1
-		wait until rising_edge(clock);	
 
 		--address chip as talker
 		bus_ATN_inverted <= '0';
@@ -281,9 +280,24 @@ architecture behav of frontend_cb7210p2_testbench is
 		gpib_write(gpib_write_byte, false); -- MTA
 
 		--send a data byte host to gpib
+
+		bus_ATN_inverted <= 'H';
+		-- enable DO interrupts
+		host_write("001", "00000010"); -- interrupt mask register 1
+
+		-- wait for DO interrupt
+		if interrupt /= '1' then
+			wait until interrupt = '1';
+		end if;
+		host_read("001", host_read_result);
+		assert host_read_result(1) = '1';
+		host_read("001", host_read_result);
+		-- interrupt should clear on read
+		assert host_read_result(1) = '0'; 
+		assert interrupt = '0';
+		
 		host_write("000", X"01");
 		wait until rising_edge(clock);	
-		bus_ATN_inverted <= 'H';
 		wait until rising_edge(clock);	
 		gpib_read(gpib_read_result, gpib_read_eoi);
 		wait until rising_edge(clock);	
@@ -329,12 +343,44 @@ architecture behav of frontend_cb7210p2_testbench is
 		bus_ATN_inverted <= 'H';
 
 		-- write some bytes from gpib to host
+
+		-- enable DI and END interrupts
+		host_write("001", "00010001"); -- interrupt mask register 1
+
 		gpib_write_byte(7 downto 0) := X"10";
 		gpib_write(gpib_write_byte, false);
+
+		-- wait for DI interrupt
+		if interrupt /= '1' then
+			wait until interrupt = '1';
+		end if;
+		host_read("001", host_read_result);
+		assert host_read_result(0) = '1';
+		host_read("001", host_read_result);
+		-- interrupt should clear on read
+		assert host_read_result(0) = '0'; 
+		assert interrupt = '0';
+		-- read out data byte
 		host_read("000", host_read_result);
-		wait until rising_edge(clock);	
 		assert host_read_result = X"10";
 		
+		--write a byte with EOI asserted
+		gpib_write_byte(7 downto 0) := X"20";
+		gpib_write(gpib_write_byte, true);
+		-- check that we got END interrupt along with DI
+		if interrupt /= '1' then
+			wait until interrupt = '1';
+		end if;
+		host_read("001", host_read_result);
+		assert host_read_result(0) = '1'; -- DI interrupt
+		assert host_read_result(4) = '1'; -- END interrupt
+		host_read("001", host_read_result);
+		assert host_read_result(0) = '0'; -- DI interrupt
+		assert host_read_result(4) = '0'; -- END interrupt
+		-- read out data byte
+		host_read("000", host_read_result);
+		assert host_read_result = X"20";
+
 		-- write pon to aux command reg
 		host_write("101", X"00");
 		
