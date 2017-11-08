@@ -21,6 +21,9 @@ use work.interface_function_SR.all;
 use work.interface_function_TE.all;
 
 entity integrated_interface_functions is
+	generic(
+			num_counter_bits : in integer := 8
+		);
 	port(
 		clock : in std_logic;
 		
@@ -52,8 +55,8 @@ entity integrated_interface_functions is
 		local_parallel_poll_config : in std_logic;
 		local_parallel_poll_sense : in std_logic;
 		local_parallel_poll_response_line : in std_logic_vector(2 downto 0);
-		first_T1_terminal_count : in std_logic_vector(15 downto 0);
-		T1_terminal_count : in std_logic_vector(15 downto 0);
+		first_T1_terminal_count : in std_logic_vector(num_counter_bits - 1 downto 0);
+		T1_terminal_count : in std_logic_vector(num_counter_bits - 1 downto 0);
 		check_for_listeners : in std_logic;
 		-- host should set high for a clock when it reads gpib_to_host_byte
 		gpib_to_host_byte_read : in std_logic;
@@ -365,6 +368,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 		);
 
 	my_SH : entity work.interface_function_SH
+		generic map (num_counter_bits => num_counter_bits)
 		port map (
 			clock => clock,
 			talker_state_p1 => talker_state_p1_buffer,

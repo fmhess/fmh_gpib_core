@@ -10,6 +10,7 @@ use ieee.numeric_std.all;
 use work.interface_function_common.all;
 
 entity interface_function_SH is
+	generic( num_counter_bits : in integer := 8);
 	port(
 		clock : in std_logic;
 		talker_state_p1 : in TE_state_p1;
@@ -19,8 +20,8 @@ entity interface_function_SH is
 		RFD : in std_logic;
 		nba : in std_logic;
 		pon : in std_logic;
-		first_T1_terminal_count : in std_logic_vector (15 downto 0); -- longer T1 used for first cycle only
-		T1_terminal_count : in std_logic_vector (15 downto 0);
+		first_T1_terminal_count : in std_logic_vector (num_counter_bits - 1 downto 0); -- longer T1 used for first cycle only
+		T1_terminal_count : in std_logic_vector (num_counter_bits - 1 downto 0);
 		check_for_listeners : in std_logic; -- do optional check in SDYS for listeners
 
 		source_handshake_state : out SH_state;

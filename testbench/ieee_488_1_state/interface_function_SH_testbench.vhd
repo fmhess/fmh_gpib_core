@@ -21,8 +21,8 @@ architecture behav of interface_function_SH_testbench is
 	signal RFD : std_logic;
 	signal nba : std_logic;
 	signal pon : std_logic;
-	signal first_T1_terminal_count : std_logic_vector (15 downto 0);
-	signal T1_terminal_count : std_logic_vector (15 downto 0);
+	signal first_T1_terminal_count : std_logic_vector (7 downto 0);
+	signal T1_terminal_count : std_logic_vector (7 downto 0);
 	signal check_for_listeners : std_logic;
 
 	signal source_handshake_state : SH_state;
@@ -74,8 +74,8 @@ architecture behav of interface_function_SH_testbench is
 		nba <= '0';
 		
 		
-		first_T1_terminal_count <= X"0004";
-		T1_terminal_count <= X"0002";
+		first_T1_terminal_count <= X"04";
+		T1_terminal_count <= X"02";
 		check_for_listeners <= '1';
 		talker_state_p1 <= TIDS;
 		controller_state_p1 <= CIDS;

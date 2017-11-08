@@ -14,7 +14,9 @@ entity frontend_cb7210p2 is
 	generic(
 		-- use 6 address lines for a flat register map.  Address lines 3 to 5 will specify page.
 		num_address_lines : integer := 3;
-		clock_frequency_KHz : integer := 20000);
+		clock_frequency_KHz : integer := 20000;
+		-- you must have enough counter bits to generate a 2 microsecond delay given your clock speed.
+		num_counter_bits : integer := 8);
 	port(
 		clock : in std_logic;
 		chip_select_inverted : in std_logic;
@@ -81,8 +83,8 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal local_parallel_poll_response_line : std_logic_vector(2 downto 0);
 	signal check_for_listeners : std_logic;
 	signal no_listeners : std_logic;
-	signal first_T1_terminal_count : std_logic_vector(15 downto 0);
-	signal T1_terminal_count : std_logic_vector(15 downto 0);
+	signal first_T1_terminal_count : std_logic_vector(num_counter_bits - 1 downto 0);
+	signal T1_terminal_count : std_logic_vector(num_counter_bits - 1 downto 0);
 	signal gpib_to_host_byte : std_logic_vector(7 downto 0);
 	signal gpib_to_host_byte_read : std_logic;
 	signal gpib_to_host_byte_end : std_logic;
@@ -224,7 +226,10 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 
 	begin
 	my_integrated_interface_functions: entity work.integrated_interface_functions 
-		port map (
+	generic map (
+			num_counter_bits => num_counter_bits
+		)
+	port map (
 			clock => clock,
 			bus_DIO_inverted_in => bus_DIO_inverted_in,
 			bus_REN_inverted_in => bus_REN_inverted_in,

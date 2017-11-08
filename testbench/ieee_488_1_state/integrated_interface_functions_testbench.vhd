@@ -43,8 +43,8 @@ architecture behav of integrated_interface_functions_testbench is
 	signal local_parallel_poll_response_line : std_logic_vector(2 downto 0);
 	signal check_for_listeners : std_logic;
 	signal no_listeners : std_logic;
-	signal first_T1_terminal_count : std_logic_vector(15 downto 0);
-	signal T1_terminal_count : std_logic_vector(15 downto 0);
+	signal first_T1_terminal_count : std_logic_vector(7 downto 0);
+	signal T1_terminal_count : std_logic_vector(7 downto 0);
 	signal gpib_to_host_byte : std_logic_vector(7 downto 0);
 	signal gpib_to_host_byte_read : std_logic;
 	signal gpib_to_host_byte_end : std_logic;
@@ -274,8 +274,8 @@ architecture behav of integrated_interface_functions_testbench is
 		local_parallel_poll_sense <= '0';
 		local_parallel_poll_response_line <= "000";
 		check_for_listeners <= '1';
-		first_T1_terminal_count <= X"0004";
-		T1_terminal_count <= X"0002";
+		first_T1_terminal_count <= X"04";
+		T1_terminal_count <= X"02";
 		gpib_to_host_byte_read <= '0';
 		host_to_gpib_data_byte <= X"00";
 		host_to_gpib_data_byte_end <= '0';
