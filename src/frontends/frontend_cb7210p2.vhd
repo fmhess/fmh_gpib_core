@@ -75,7 +75,8 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	type dma_enum is (dma_idle, dma_requesting, dma_acknowledged, dma_waiting_for_idle);
 	signal host_to_gpib_dma_state : dma_enum;
 	signal gpib_to_host_dma_state : dma_enum;
-	
+	signal dma_bus_out_buffer : std_logic_vector(7 downto 0);
+
 	signal bus_ATN_inverted_in : std_logic; 
 	signal bus_DAV_inverted_in :  std_logic; 
 	signal bus_EOI_inverted_in :  std_logic; 
@@ -342,6 +343,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	host_data_bus_out <= host_data_bus_out_buffer when to_X01(host_read_selected) = '1' and
 			host_read_from_bus_state = host_io_waiting_for_idle else 
 		(others => 'Z');
+	dma_bus_out <= dma_bus_out_buffer;
 	
 	-- accept reads from host
 	process (safe_reset, pon, clock)
@@ -416,7 +418,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 				host_data_bus_out_buffer <= (others => 'Z');
 				gpib_to_host_dma_state <= dma_idle;
 				dma_bus_out_request <= '0';
-				dma_bus_out <= (others => 'Z');
+				dma_bus_out_buffer <= (others => 'Z');
 			end if;
 			do_pulse_gpib_to_host_byte_read := false;
 			-- isr0 interrupts
@@ -471,12 +473,13 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			case gpib_to_host_dma_state is
 				when dma_idle =>
 					dma_bus_out_request <= '0';
+					dma_bus_out_buffer <= (others => 'Z');
 					if (DMA_input_enable = '1' and rdy = '0') then
 						gpib_to_host_dma_state <= dma_requesting;
-						dma_bus_out <= gpib_to_host_byte;
+						dma_bus_out_buffer <= gpib_to_host_byte;
 						do_pulse_gpib_to_host_byte_read := true;
 					else
-						dma_bus_out <= (others => 'Z');
+						dma_bus_out_buffer <= (others => 'Z');
 					end if;
 				when dma_requesting =>
 					dma_bus_out_request <= '1';
@@ -489,6 +492,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 					dma_bus_out_request <= '0';
 					gpib_to_host_dma_state <= dma_waiting_for_idle;
 				when dma_waiting_for_idle =>
+					dma_bus_out_buffer <= (others => 'Z');
 					if to_X01(dma_bus_in_ack_inverted) = '1' then
 						gpib_to_host_dma_state <= dma_idle;
 					end if;
