@@ -20,12 +20,14 @@ entity frontend_cb7210p2 is
 	port(
 		clock : in std_logic;
 		chip_select_inverted : in std_logic;
-		dma_ack_inverted : in std_logic;
+		dma_bus_in_ack_inverted : in std_logic;
+		dma_bus_out_ack_inverted : in std_logic;
 		read_inverted : in std_logic;
 		reset : in std_logic;
 		address : in std_logic_vector(num_address_lines - 1 downto 0); 
 		write_inverted : in std_logic;
 		host_data_bus_in : in std_logic_vector(7 downto 0);
+		dma_bus_in : in std_logic_vector(7 downto 0);
 		gpib_ATN_inverted_in : in std_logic; 
 		gpib_DAV_inverted_in : in std_logic; 
 		gpib_EOI_inverted_in : in std_logic; 
@@ -41,8 +43,10 @@ entity frontend_cb7210p2 is
 		tr3 : out std_logic;
 		interrupt : out std_logic;
 
-		dma_request : out std_logic;
+		dma_bus_in_request : out std_logic;
+		dma_bus_out_request : out std_logic;
 		host_data_bus_out : out std_logic_vector(7 downto 0);
+		dma_bus_out : out std_logic_vector(7 downto 0);
 		gpib_ATN_inverted_out : out std_logic; 
 		gpib_DAV_inverted_out : out std_logic; 
 		gpib_EOI_inverted_out : out std_logic; 
@@ -67,7 +71,10 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	type host_io_enum is (host_io_idle, host_io_active, host_io_waiting_for_idle);
 	signal host_read_from_bus_state : host_io_enum;
 	signal host_write_to_bus_state : host_io_enum;
-	signal dma_state : host_io_enum;
+
+	type dma_enum is (dma_idle, dma_requesting, dma_acknowledged, dma_waiting_for_idle);
+	signal host_to_gpib_dma_state : dma_enum;
+	signal gpib_to_host_dma_state : dma_enum;
 	
 	signal bus_ATN_inverted_in : std_logic; 
 	signal bus_DAV_inverted_in :  std_logic; 
@@ -407,6 +414,9 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			if safe_reset = '1' then
 				host_read_from_bus_state <= host_io_idle;
 				host_data_bus_out_buffer <= (others => 'Z');
+				gpib_to_host_dma_state <= dma_idle;
+				dma_bus_out_request <= '0';
+				dma_bus_out <= (others => 'Z');
 			end if;
 			do_pulse_gpib_to_host_byte_read := false;
 			-- isr0 interrupts
@@ -457,6 +467,33 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 					end if;
 			end case;
 
+			-- gpib to host dma state machine
+			case gpib_to_host_dma_state is
+				when dma_idle =>
+					dma_bus_out_request <= '0';
+					if (DMA_input_enable = '1' and rdy = '0') then
+						gpib_to_host_dma_state <= dma_requesting;
+						dma_bus_out <= gpib_to_host_byte;
+						do_pulse_gpib_to_host_byte_read := true;
+					else
+						dma_bus_out <= (others => 'Z');
+					end if;
+				when dma_requesting =>
+					dma_bus_out_request <= '1';
+					if to_X01(dma_bus_out_ack_inverted) = '0' then
+						gpib_to_host_dma_state <= dma_acknowledged;
+					elsif DMA_input_enable = '0' then
+						gpib_to_host_dma_state <= dma_idle;
+					end if;
+				when dma_acknowledged =>
+					dma_bus_out_request <= '0';
+					gpib_to_host_dma_state <= dma_waiting_for_idle;
+				when dma_waiting_for_idle =>
+					if to_X01(dma_bus_in_ack_inverted) = '1' then
+						gpib_to_host_dma_state <= dma_idle;
+					end if;
+			end case;
+
 			-- handle pulses
 			if do_pulse_gpib_to_host_byte_read then
 				gpib_to_host_byte_read <= '1';
@@ -467,7 +504,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 
 			-- set read-clearable interrupts
 			
-			if to_X01(host_to_gpib_data_byte_latched) = '0' then
+			if host_to_gpib_data_byte_latched = '0' then
 				if prev_source_handshake_state /= SGNS and source_handshake_state = SGNS then
 					if talker_state_p1 = TACS then
 						DO_interrupt <= '1';
@@ -625,6 +662,14 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			end case;
 		end execute_auxiliary_command;
 		
+		procedure write_host_to_gpib_data_byte (write_data : in std_logic_vector(7 downto 0)) is
+		begin
+			host_to_gpib_data_byte <= write_data;
+			host_to_gpib_data_byte_end <= send_eoi;
+			send_eoi := '0';
+			do_pulse_host_to_gpib_data_byte_write := true;
+		end write_host_to_gpib_data_byte;
+		
 		-- process a write from the host
 		procedure host_write_register (page : in std_logic_vector(3 downto 0);
 			write_address : in std_logic_vector(num_address_lines - 1 downto 0);
@@ -633,10 +678,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 		begin
 			case flat_address(page, write_address) is
 				when 0 => -- byte out register
-					host_to_gpib_data_byte <= write_data;
-					host_to_gpib_data_byte_end <= send_eoi;
-					send_eoi := '0';
-					do_pulse_host_to_gpib_data_byte_write := true;
+					write_host_to_gpib_data_byte(write_data);
 				when 1 => -- interrupt mask register 1
 					DI_interrupt_enable <= write_data(0);
 					DO_interrupt_enable <= write_data(1);
@@ -729,7 +771,8 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			do_pulse_host_to_gpib_data_byte_write := false;
 			send_eoi := '0';
 			invert_interrupt <= '0';
-
+			dma_bus_in_request <= '0';
+			
 			-- imr0 enables
 			ATN_interrupt_enable <= '0';
 			IFC_interrupt_enable <= '0';
@@ -767,11 +810,35 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 					end if;
 				when host_io_active =>
 					-- process write
-					host_write_register(register_page, address, host_data_bus_in);
+					host_write_register(register_page, address, to_X01(host_data_bus_in));
 					host_write_to_bus_state <= host_io_waiting_for_idle;
 				when host_io_waiting_for_idle =>
 					if host_write_selected = '0' then
 						host_write_to_bus_state <= host_io_idle;
+					end if;
+			end case;
+
+			-- host to gpib dma state machine
+			case host_to_gpib_dma_state is
+				when dma_idle =>
+					dma_bus_in_request <= '0';
+					if (DMA_output_enable = '1' and host_to_gpib_data_byte_latched = '0') then
+						host_to_gpib_dma_state <= dma_requesting;
+					end if;
+				when dma_requesting =>
+					dma_bus_in_request <= '1';
+					if to_X01(dma_bus_in_ack_inverted) = '0' then
+						host_to_gpib_dma_state <= dma_acknowledged;
+					elsif DMA_output_enable = '0' then
+						host_to_gpib_dma_state <= dma_idle;
+					end if;
+				when dma_acknowledged =>
+					write_host_to_gpib_data_byte(dma_bus_in);
+					dma_bus_in_request <= '0';
+					host_to_gpib_dma_state <= dma_waiting_for_idle;
+				when dma_waiting_for_idle =>
+					if to_X01(dma_bus_in_ack_inverted) = '1' then
+						host_to_gpib_dma_state <= dma_idle;
 					end if;
 			end case;
 

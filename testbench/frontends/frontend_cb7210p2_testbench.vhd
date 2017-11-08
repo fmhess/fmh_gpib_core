@@ -34,7 +34,9 @@ architecture behav of frontend_cb7210p2_testbench is
 	signal bus_SRQ_inverted : std_logic;
 	signal bus_DIO_inverted : std_logic_vector(7 downto 0);
 	signal chip_select_inverted : std_logic;
-	signal dma_ack_inverted : std_logic;
+	signal dma_bus_ack_inverted : std_logic;
+	signal dma_bus_request : std_logic;
+	signal dma_bus : std_logic_vector(7 downto 0);
 	signal read_inverted : std_logic;
 	signal reset : std_logic;
 	signal address : std_logic_vector(2 downto 0);
@@ -63,7 +65,8 @@ architecture behav of frontend_cb7210p2_testbench is
 		port map (
 			clock => clock,
 			chip_select_inverted => chip_select_inverted, 
-			dma_ack_inverted => dma_ack_inverted,
+			dma_bus_out_ack_inverted => dma_bus_ack_inverted,
+			dma_bus_in_ack_inverted => dma_bus_ack_inverted,
 			read_inverted => read_inverted,
 			reset => reset,
 			address => address,  
@@ -72,7 +75,10 @@ architecture behav of frontend_cb7210p2_testbench is
 			tr2  => tr2, 
 			tr3  => tr3,
 			interrupt  => interrupt, 
-			dma_request  => dma_request, 
+			dma_bus_out_request  => dma_bus_request, 
+			dma_bus_in_request  => dma_bus_request, 
+			dma_bus_out  => dma_bus, 
+			dma_bus_in  => dma_bus, 
 			host_data_bus_in  => host_data_bus, 
 			gpib_ATN_inverted_in  => device_ATN_inverted,
 			gpib_DAV_inverted_in  => device_DAV_inverted, 
@@ -253,7 +259,9 @@ architecture behav of frontend_cb7210p2_testbench is
 		bus_DAV_inverted <= 'H';
 		reset <= '0';
 		chip_select_inverted <= '1';
-		dma_ack_inverted <= '1';
+		dma_bus_ack_inverted <= '1';
+		dma_bus_request <= '0';
+		dma_bus <= (others => 'Z');
 		host_data_bus <= (others => '0');
 		read_inverted <= '1';
 		address <= ( others => '0' );
