@@ -64,6 +64,11 @@ entity frontend_cb7210p2 is
 end frontend_cb7210p2;
      
 architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
+	type host_io_enum is (host_io_idle, host_io_active, host_io_waiting_for_idle);
+	signal host_read_from_bus_state : host_io_enum;
+	signal host_write_to_bus_state : host_io_enum;
+	signal dma_state : host_io_enum;
+	
 	signal bus_ATN_inverted_in : std_logic; 
 	signal bus_DAV_inverted_in :  std_logic; 
 	signal bus_EOI_inverted_in :  std_logic; 
@@ -148,9 +153,6 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal EOI_output_enable_buffer : std_logic;
 	signal trigger_buffer : std_logic;
 
-	signal host_write_cycle_counter : integer range 0 to 2;
-	signal host_read_cycle_counter : integer range 0 to 2;
-	
 	signal any_interrupt_active : std_logic;
 	signal invert_interrupt : std_logic;
 
@@ -331,7 +333,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	host_write_selected <= not write_inverted and not chip_select_inverted;
 	host_read_selected <= not read_inverted and not chip_select_inverted;
 	host_data_bus_out <= host_data_bus_out_buffer when to_X01(host_read_selected) = '1' and
-			host_read_cycle_counter > 1 else 
+			host_read_from_bus_state = host_io_waiting_for_idle else 
 		(others => 'Z');
 	
 	-- accept reads from host
@@ -403,7 +405,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	begin
 		if pon = '1' then
 			if safe_reset = '1' then
-				host_read_cycle_counter <= 0;
+				host_read_from_bus_state <= host_io_idle;
 				host_data_bus_out_buffer <= (others => 'Z');
 			end if;
 			do_pulse_gpib_to_host_byte_read := false;
@@ -439,18 +441,21 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			
 			check_for_listeners <= '1';
 		elsif rising_edge(clock) then
-			if host_read_selected = '1' then
-				if host_read_cycle_counter < host_read_cycle_counter'HIGH then
-					host_read_cycle_counter <= host_read_cycle_counter + 1;
-				end if;
-			else
-				host_read_cycle_counter <= 0;
-			end if;
-
-			-- process read
-			if host_read_cycle_counter = 1 then
-				host_read_register(register_page, address);
-			end if;
+			-- host read from bus state machine
+			case host_read_from_bus_state is
+				when host_io_idle =>
+					if host_read_selected = '1' then
+						host_read_from_bus_state <= host_io_active;
+					end if;
+				when host_io_active =>
+					-- process read
+					host_read_register(register_page, address);
+					host_read_from_bus_state <= host_io_waiting_for_idle;
+				when host_io_waiting_for_idle =>
+					if host_read_selected = '0' then
+						host_read_from_bus_state <= host_io_idle;
+					end if;
+			end case;
 
 			-- handle pulses
 			if do_pulse_gpib_to_host_byte_read then
@@ -703,7 +708,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	begin
 		if pon = '1' then
 			if safe_reset = '1' then
-				host_write_cycle_counter <= 0;
+				host_write_to_bus_state <= host_io_idle;
 				register_page <= (others => '0');
 			end if;
 			local_STB <= (others => '0');
@@ -754,18 +759,21 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 				pon_pulse <= '0';
 			end if;
 		elsif rising_edge(clock) then
-			if host_write_selected = '1' then
-				if host_write_cycle_counter < host_write_cycle_counter'HIGH then
-					host_write_cycle_counter <= host_write_cycle_counter + 1;
-				end if;
-			else
-				host_write_cycle_counter <= 0;
-			end if;
-
-			-- process write
-			if host_write_cycle_counter = 1 then
-				host_write_register(register_page, address, host_data_bus_in);
-			end if;
+			-- host write_to bus state machine
+			case host_write_to_bus_state is
+				when host_io_idle =>
+					if host_write_selected = '1' then
+						host_write_to_bus_state <= host_io_active;
+					end if;
+				when host_io_active =>
+					-- process write
+					host_write_register(register_page, address, host_data_bus_in);
+					host_write_to_bus_state <= host_io_waiting_for_idle;
+				when host_io_waiting_for_idle =>
+					if host_write_selected = '0' then
+						host_write_to_bus_state <= host_io_idle;
+					end if;
+			end case;
 
 			-- handle pulses
 			if do_pulse_host_to_gpib_data_byte_write then
@@ -776,7 +784,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			end if;
 
 			-- clear register page after read or write
-			if host_write_cycle_counter = 1 or host_read_cycle_counter = 1 then
+			if host_write_to_bus_state = host_io_active or host_read_from_bus_state = host_io_active then
 				register_page <= (others => '0');
 			end if;
 		end if;
