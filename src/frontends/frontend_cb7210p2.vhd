@@ -112,14 +112,17 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal device_clear_state : DC_state;
 	signal device_trigger_state : DT_state;
 	signal listener_state_p1 : LE_state_p1;
+	signal listener_state_p2 : LE_state_p2;
 	signal parallel_poll_state_p1 : PP_state_p1;
 	signal remote_local_state : RL_state;
 	signal service_request_state : SR_state;
 	signal source_handshake_state : SH_state;
 	signal talker_state_p1 : TE_state_p1;
+	signal talker_state_p2 : TE_state_p2;
+	signal talker_state_p3 : TE_state_p3;
 	signal in_remote_state : std_logic;
 	signal in_lockout_state : std_logic;
-	signal TADS_or_TACS : std_logic;
+	signal in_TIDS : std_logic;
 	signal LADS_or_LACS : std_logic;
 	signal pending_rsv : std_logic;
 	
@@ -206,6 +209,9 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal DMA_input_enable : std_logic;
 	signal DMA_output_enable : std_logic;
 	signal SRQ_interrupt_enable : std_logic;
+	
+	-- we don't support minor addresses, they are in gross violation of the standards
+	constant minor_addressed : std_logic := '0';
 
 	-- overhead parameter is fixed number of clock ticks of overhead even when using a timing delay of zero
 	function to_clock_ticks (nanoseconds : in integer; overhead : in integer) return std_logic_vector is
@@ -300,11 +306,14 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			device_clear_state => device_clear_state,
 			device_trigger_state => device_trigger_state,
 			listener_state_p1 => listener_state_p1,
+			listener_state_p2 => listener_state_p2,
 			parallel_poll_state_p1 => parallel_poll_state_p1,
 			remote_local_state => remote_local_state,
 			service_request_state => service_request_state,
 			source_handshake_state => source_handshake_state,
 			talker_state_p1 => talker_state_p1,
+			talker_state_p2 => talker_state_p2,
+			talker_state_p3 => talker_state_p3,
 			local_STB => local_STB
 		);
 
@@ -312,15 +321,15 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	process (clock)
 	begin
 		if falling_edge(clock) then
-			bus_ATN_inverted_in <= gpib_ATN_inverted_in;
-			bus_DAV_inverted_in <= gpib_DAV_inverted_in;
-			bus_EOI_inverted_in <= gpib_EOI_inverted_in;
-			bus_IFC_inverted_in <= gpib_IFC_inverted_in;
-			bus_NDAC_inverted_in <= gpib_NDAC_inverted_in;
-			bus_NRFD_inverted_in <= gpib_NRFD_inverted_in;
-			bus_REN_inverted_in <= gpib_REN_inverted_in;
-			bus_SRQ_inverted_in <= gpib_SRQ_inverted_in;
-			bus_DIO_inverted_in <= gpib_DIO_inverted_in;
+			bus_ATN_inverted_in <= to_X01(gpib_ATN_inverted_in);
+			bus_DAV_inverted_in <= to_X01(gpib_DAV_inverted_in);
+			bus_EOI_inverted_in <= to_X01(gpib_EOI_inverted_in);
+			bus_IFC_inverted_in <= to_X01(gpib_IFC_inverted_in);
+			bus_NDAC_inverted_in <= to_X01(gpib_NDAC_inverted_in);
+			bus_NRFD_inverted_in <= to_X01(gpib_NRFD_inverted_in);
+			bus_REN_inverted_in <= to_X01(gpib_REN_inverted_in);
+			bus_SRQ_inverted_in <= to_X01(gpib_SRQ_inverted_in);
+			bus_DIO_inverted_in <= to_X01(gpib_DIO_inverted_in);
 		end if;
 	end process;
 	
@@ -370,7 +379,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 		variable prev_in_lockout_state : std_logic;
 		variable prev_ATN_inverted : std_logic;
 		variable prev_IFC_inverted : std_logic;
-		variable prev_TADS_or_TACS : std_logic;
+		variable prev_in_TIDS : std_logic;
 		variable prev_LADS_or_LACS : std_logic;
 		variable prev_controller_in_charge : std_logic;
 		
@@ -414,9 +423,30 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 					LOKC_interrupt <= '0';
 					CO_interrupt <= '0';
 					SRQ_interrupt <= '0';
-				when 3 => --serial poll status
+				when 3 => -- serial poll status
 					host_data_bus_out_buffer <= local_STB;
 					host_data_bus_out_buffer(6) <= pending_rsv;
+				when 4 => -- address status
+					host_data_bus_out_buffer(0) <= minor_addressed;
+					host_data_bus_out_buffer(1) <= not in_TIDS; --cb7210.2 user's guide is wrong
+					host_data_bus_out_buffer(2) <= LADS_or_LACS; --cb7210.2 user's guide is wrong
+					if talker_state_p2 = TPAS then
+						host_data_bus_out_buffer(3) <= '1';
+					else
+						host_data_bus_out_buffer(3) <= '0';
+					end if;
+					if listener_state_p2 = LPAS then
+						host_data_bus_out_buffer(4) <= '1';
+					else
+						host_data_bus_out_buffer(4) <= '0';
+					end if;
+					if talker_state_p3 = SPMS then
+						host_data_bus_out_buffer(5) <= '1';
+					else
+						host_data_bus_out_buffer(5) <= '0';
+					end if;
+					host_data_bus_out_buffer(6) <= bus_ATN_inverted_in;
+					host_data_bus_out_buffer(7) <= controller_in_charge_buffer;
 				when 16#14# => -- interrupt status 0
 					host_data_bus_out_buffer <= 
 						(
@@ -444,7 +474,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			prev_in_lockout_state := in_lockout_state;
 			prev_ATN_inverted := bus_ATN_inverted_in;
 			prev_IFC_inverted := bus_IFC_inverted_in;
-			prev_TADS_or_TACS := TADS_or_TACS;
+			prev_in_TIDS := in_TIDS;
 			prev_LADS_or_LACS := LADS_or_LACS;
 			prev_controller_in_charge := controller_in_charge_buffer;
 		
@@ -553,7 +583,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 				ERR_interrupt <= '1';
 			end if;
 
-			if prev_TADS_or_TACS /= TADS_or_TACS or prev_LADS_or_LACS /= LADS_or_LACS or
+			if prev_in_TIDS /= in_TIDS or prev_LADS_or_LACS /= LADS_or_LACS or
 				prev_controller_in_charge /= controller_in_charge_buffer then
 				ADSC_interrupt <= '1';
 			end if;
@@ -578,8 +608,8 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 				SRQ_interrupt <= '0';
 			end if;
 			
-			if to_X01(bus_ATN_inverted_in) = '0' then
-				if to_X01(prev_ATN_inverted) = '1' then
+			if bus_ATN_inverted_in = '0' then
+				if prev_ATN_inverted = '1' then
 					ATN_interrupt <= '1';
 				end if;
 			else
@@ -597,7 +627,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			prev_in_lockout_state := in_lockout_state;
 			prev_ATN_inverted := bus_ATN_inverted_in;
 			prev_IFC_inverted := bus_IFC_inverted_in;
-			prev_TADS_or_TACS := TADS_or_TACS;
+			prev_in_TIDS := in_TIDS;
 			prev_LADS_or_LACS := LADS_or_LACS;
 			prev_controller_in_charge := controller_in_charge_buffer;
 
@@ -1005,6 +1035,6 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	in_remote_state <= '1' when remote_local_state = REMS or remote_local_state = RWLS else '0';
 	in_lockout_state <= '1' when remote_local_state = RWLS or remote_local_state = LWLS else '0';
 	LADS_or_LACS <= '1' when listener_state_p1 = LADS or listener_state_p1 = LACS else '0';
-	TADS_or_TACS <= '1' when talker_state_p1 = TADS or talker_state_p1 = TACS else '0';
+	in_TIDS <= '1' when talker_state_p1 = TIDS else '0';
 	
 end frontend_cb7210p2_arch;
