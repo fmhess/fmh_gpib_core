@@ -465,7 +465,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 				when dma_idle =>
 					dma_bus_out_request <= '0';
 					dma_bus_out_buffer <= (others => 'Z');
-					if (DMA_input_enable = '1' and rdy = '0') then
+					if (DMA_input_enable = '1' and read_inverted = '0' and rdy = '0') then
 						gpib_to_host_dma_state <= dma_requesting;
 						dma_bus_out_buffer <= gpib_to_host_byte;
 						do_pulse_gpib_to_host_byte_read := true;
@@ -794,7 +794,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			case host_to_gpib_dma_state is
 				when dma_idle =>
 					dma_bus_in_request <= '0';
-					if (DMA_output_enable = '1' and host_to_gpib_data_byte_latched = '0') then
+					if (DMA_output_enable = '1' and write_inverted = '0' and host_to_gpib_data_byte_latched = '0') then
 						host_to_gpib_dma_state <= dma_requesting;
 					end if;
 				when dma_requesting =>
