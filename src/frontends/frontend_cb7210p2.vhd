@@ -134,7 +134,11 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal tcs : std_logic;
 	signal local_STB : std_logic_vector(7 downto 0);
 	
-	signal safe_reset : std_logic;
+	signal hard_reset : std_logic;
+	signal soft_reset : std_logic;
+	signal soft_reset_pulse : std_logic;
+	signal pon_pulse : std_logic;
+	
 	signal latched_host_data_byte_in : std_logic_vector(7 downto 0);
 	signal host_write_selected : std_logic;
 	signal host_read_selected : std_logic;
@@ -152,7 +156,6 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal enable_address_register_1 : std_logic;
 	signal ultra_fast_T1_delay : std_logic;
 	signal high_speed_T1_delay : std_logic;
-	signal pon_pulse : std_logic;
 	signal generate_END_interrupt_on_EOS : std_logic;
 	
 	signal talk_enable_buffer : std_logic;
@@ -320,19 +323,28 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	
 	-- generate reset which is asserted async but de-asserted synchronously on 
 	-- falling clock edge, to avoid any potential metastability problems caused
-	-- by pon deasserting near rising clock edge.
-	process (reset, pon, clock)
+	-- by resets deasserting near rising clock edge.  Also deal with various types
+	-- of resets hard_reset -> soft_reset -> pon.
+	process (reset, soft_reset_pulse, pon_pulse, clock)
 	begin
-		if to_bit(reset) = '1' or pon_pulse = '1' then
+		if to_X01(reset) = '1' then
+			hard_reset <= '1';
+			soft_reset <= '1';
 			pon <= '1';
-			if to_bit(reset) = '1' then
-				safe_reset <= '1';
-			end if;
-		elsif falling_edge(clock) then
-			if to_bit(reset) = '0' then
-				safe_reset <= '0';
-				if pon_pulse = '0' then
-					pon <= '0';
+		elsif soft_reset_pulse = '1' then
+			soft_reset <= '1';
+			pon <= '1';
+		elsif pon_pulse = '1' then
+			pon <= '1';
+		end if;
+		if falling_edge(clock) then
+			if to_X01(reset) = '0' then
+				hard_reset <= '0';
+				if soft_reset_pulse = '0' then
+					soft_reset <= '0';
+					if pon_pulse = '0' then
+						pon <= '0';
+					end if;
 				end if;
 			end if;
 		end if;
@@ -346,7 +358,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	dma_bus_out <= dma_bus_out_buffer;
 	
 	-- accept reads from host
-	process (safe_reset, pon, clock)
+	process (hard_reset, clock)
 		variable do_pulse_gpib_to_host_byte_read : boolean;
 		variable prev_acceptor_handshake_state : AH_state;
 		variable prev_controller_state_p2 : C_state_p2;
@@ -412,33 +424,12 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			end case;
 		end host_read_register;
 	begin
-		if pon = '1' then
-			if safe_reset = '1' then
-				host_read_from_bus_state <= host_io_idle;
-				host_data_bus_out_buffer <= (others => 'Z');
-				gpib_to_host_dma_state <= dma_idle;
-				dma_bus_out_request <= '0';
-				dma_bus_out_buffer <= (others => 'Z');
-			end if;
-			do_pulse_gpib_to_host_byte_read := false;
-			-- isr0 interrupts
-			ATN_interrupt <= '0';
-			IFC_interrupt <= '0';
-			-- isr1 interrupts
-			DI_interrupt <= '0';
-			DO_interrupt <= '0';
-			ERR_interrupt <= '0';
-			DEC_interrupt <= '0';
-			END_interrupt <= '0';
-			DET_interrupt <= '0';
-			APT_interrupt <= '0';
-			CPT_interrupt <= '0';
-			-- isr2 interrupts
-			ADSC_interrupt <= '0';
-			REMC_interrupt <= '0';
-			LOKC_interrupt <= '0';
-			CO_interrupt <= '0';
-			SRQ_interrupt <= '0';
+		if hard_reset = '1' then
+			host_read_from_bus_state <= host_io_idle;
+			host_data_bus_out_buffer <= (others => 'Z');
+			gpib_to_host_dma_state <= dma_idle;
+			dma_bus_out_request <= '0';
+			dma_bus_out_buffer <= (others => 'Z');
 
 			prev_acceptor_handshake_state := acceptor_handshake_state;
 			prev_controller_state_p2 := controller_state_p2;
@@ -450,8 +441,8 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			prev_TADS_or_TACS := TADS_or_TACS;
 			prev_LADS_or_LACS := LADS_or_LACS;
 			prev_controller_in_charge := controller_in_charge_buffer;
-			
-			check_for_listeners <= '1';
+		
+			do_pulse_gpib_to_host_byte_read := false;
 		elsif rising_edge(clock) then
 			-- host read from bus state machine
 			case host_read_from_bus_state is
@@ -603,11 +594,34 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			prev_TADS_or_TACS := TADS_or_TACS;
 			prev_LADS_or_LACS := LADS_or_LACS;
 			prev_controller_in_charge := controller_in_charge_buffer;
+
+		end if;
+		if soft_reset = '1' then
+			-- isr0 interrupts
+			ATN_interrupt <= '0';
+			IFC_interrupt <= '0';
+			-- isr1 interrupts
+			DI_interrupt <= '0';
+			DO_interrupt <= '0';
+			ERR_interrupt <= '0';
+			DEC_interrupt <= '0';
+			END_interrupt <= '0';
+			DET_interrupt <= '0';
+			APT_interrupt <= '0';
+			CPT_interrupt <= '0';
+			-- isr2 interrupts
+			ADSC_interrupt <= '0';
+			REMC_interrupt <= '0';
+			LOKC_interrupt <= '0';
+			CO_interrupt <= '0';
+			SRQ_interrupt <= '0';
+
+			check_for_listeners <= '1';
 		end if;
 	end process;
 
 	-- accept writes from host
-	process (safe_reset, pon, clock)
+	process (hard_reset, clock)
 		variable do_pulse_host_to_gpib_data_byte_write : boolean;
 		variable send_eoi : std_logic;
 		
@@ -617,7 +631,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 				when "00000" => -- immediate execute pon
 					pon_pulse <= '1';
 				when "00010" => -- chip reset
-					-- TODO
+					soft_reset_pulse <= '1';
 				when "00011" => -- release RFD holdoff 
 					-- TODO
 				when "00100" => -- trigger
@@ -752,60 +766,14 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 		end host_write_register;
 		
 	begin
-		if pon = '1' then
-			if safe_reset = '1' then
-				host_write_to_bus_state <= host_io_idle;
-				register_page <= (others => '0');
-			end if;
-			local_STB <= (others => '0');
-			rsv <= '0';
-			lon <= '0';
-			ton <= '0';
-			transmit_receive_mode <= "00";
-			address_mode <= "00";
-			ultra_fast_T1_delay <= '0';
-			high_speed_T1_delay <= '0';
-			gpib_address_0 <= (others => '0');
-			enable_talker_gpib_address_0 <= '0';
-			enable_listener_gpib_address_0 <= '0';
-			gpib_address_1 <= (others => '0');
-			enable_talker_gpib_address_1 <= '0';
-			enable_listener_gpib_address_1 <= '0';
-			host_to_gpib_data_byte_write <= '0';
-			do_pulse_host_to_gpib_data_byte_write := false;
-			send_eoi := '0';
-			invert_interrupt <= '0';
-			dma_bus_in_request <= '0';
-			
-			-- imr0 enables
-			ATN_interrupt_enable <= '0';
-			IFC_interrupt_enable <= '0';
-			--imr1 enables
-			DI_interrupt_enable <= '0';
-			DO_interrupt_enable <= '0';
-			ERR_interrupt_enable <= '0';
-			DEC_interrupt_enable <= '0';
-			END_interrupt_enable <= '0';
-			DET_interrupt_enable <= '0';
-			APT_interrupt_enable <= '0';
-			CPT_interrupt_enable <= '0';
-			--imr2 enables
-			ADSC_interrupt_enable <= '0';
-			REMC_interrupt_enable <= '0';
-			LOKC_interrupt_enable <= '0';
-			CO_interrupt_enable <= '0';
-			DMA_input_enable <= '0';
-			DMA_output_enable <= '0';
-			SRQ_interrupt_enable <= '0';
 
-			generate_END_interrupt_on_EOS <= '0';
-			-- we have to clear the pon pulse in the "if pon" section
-			-- otherwise we will get stuck in pon. We still want to
-			-- wait for a clock though.
-			if rising_edge(clock) then 
-				pon_pulse <= '0';
-			end if;
-		elsif rising_edge(clock) then
+		if hard_reset = '1' then
+			host_write_to_bus_state <= host_io_idle;
+			register_page <= (others => '0');
+			pon_pulse <= '0';
+			soft_reset_pulse <= '0';
+		end if;
+		if rising_edge(clock) then
 			-- host write_to bus state machine
 			case host_write_to_bus_state is
 				when host_io_idle =>
@@ -853,11 +821,63 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			else
 				host_to_gpib_data_byte_write <= '0';
 			end if;
+			if soft_reset_pulse /= '0' then 
+				soft_reset_pulse <= '0';
+			end if;
+			if pon_pulse /= '0' then 
+				pon_pulse <= '0';
+			end if;
 
 			-- clear register page after read or write
 			if host_write_to_bus_state = host_io_active or host_read_from_bus_state = host_io_active then
 				register_page <= (others => '0');
 			end if;
+		end if;
+		
+		if soft_reset = '1' then
+			
+			local_STB <= (others => '0');
+			rsv <= '0';
+			lon <= '0';
+			ton <= '0';
+			transmit_receive_mode <= "00";
+			address_mode <= "00";
+			ultra_fast_T1_delay <= '0';
+			high_speed_T1_delay <= '0';
+			gpib_address_0 <= (others => '0');
+			enable_talker_gpib_address_0 <= '0';
+			enable_listener_gpib_address_0 <= '0';
+			gpib_address_1 <= (others => '0');
+			enable_talker_gpib_address_1 <= '0';
+			enable_listener_gpib_address_1 <= '0';
+			host_to_gpib_data_byte_write <= '0';
+			do_pulse_host_to_gpib_data_byte_write := false;
+			send_eoi := '0';
+			invert_interrupt <= '0';
+			dma_bus_in_request <= '0';
+			
+			-- imr0 enables
+			ATN_interrupt_enable <= '0';
+			IFC_interrupt_enable <= '0';
+			--imr1 enables
+			DI_interrupt_enable <= '0';
+			DO_interrupt_enable <= '0';
+			ERR_interrupt_enable <= '0';
+			DEC_interrupt_enable <= '0';
+			END_interrupt_enable <= '0';
+			DET_interrupt_enable <= '0';
+			APT_interrupt_enable <= '0';
+			CPT_interrupt_enable <= '0';
+			--imr2 enables
+			ADSC_interrupt_enable <= '0';
+			REMC_interrupt_enable <= '0';
+			LOKC_interrupt_enable <= '0';
+			CO_interrupt_enable <= '0';
+			DMA_input_enable <= '0';
+			DMA_output_enable <= '0';
+			SRQ_interrupt_enable <= '0';
+
+			generate_END_interrupt_on_EOS <= '0';
 		end if;
 	end process;	
 
@@ -870,9 +890,9 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	
 	-- figure out configured primary/secondary addresses based on settings written
 	-- to chip registers
-	process (pon, clock)
+	process (hard_reset, clock)
 	begin
-		if pon = '1' then
+		if hard_reset = '1' then
 			configured_primary_address <= to_stdlogicvector(NO_ADDRESS_CONFIGURED);
 			configured_secondary_address <= to_stdlogicvector(NO_ADDRESS_CONFIGURED);
 		elsif rising_edge(clock) then
@@ -918,9 +938,9 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	trigger <= trigger_buffer;
 	
 	tr1 <= talk_enable_buffer;
-	process (pon, clock)
+	process (hard_reset, clock)
 	begin
-		if pon = '1' then
+		if hard_reset = '1' then
 			tr2 <= '0';
 			tr3 <= '0';
 		elsif rising_edge(clock) then
