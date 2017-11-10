@@ -87,8 +87,8 @@ entity integrated_interface_functions is
 		parallel_poll_state_p1 : out PP_state_p1;
 		parallel_poll_state_p2 : out PP_state_p2;
 		remote_local_state : out RL_state;
-		source_handshake_state : out SH_state;
 		service_request_state : out SR_state;
+		source_handshake_state : out SH_state;
 		talker_state_p1 : out TE_state_p1;
 		talker_state_p2 : out TE_state_p2;
 		talker_state_p3 : out TE_state_p3;

@@ -114,12 +114,14 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal listener_state_p1 : LE_state_p1;
 	signal parallel_poll_state_p1 : PP_state_p1;
 	signal remote_local_state : RL_state;
+	signal service_request_state : SR_state;
 	signal source_handshake_state : SH_state;
 	signal talker_state_p1 : TE_state_p1;
 	signal in_remote_state : std_logic;
 	signal in_lockout_state : std_logic;
 	signal TADS_or_TACS : std_logic;
 	signal LADS_or_LACS : std_logic;
+	signal pending_rsv : std_logic;
 	
 	signal ist : std_logic;
 	signal lon : std_logic;	
@@ -300,6 +302,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			listener_state_p1 => listener_state_p1,
 			parallel_poll_state_p1 => parallel_poll_state_p1,
 			remote_local_state => remote_local_state,
+			service_request_state => service_request_state,
 			source_handshake_state => source_handshake_state,
 			talker_state_p1 => talker_state_p1,
 			local_STB => local_STB
@@ -411,6 +414,9 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 					LOKC_interrupt <= '0';
 					CO_interrupt <= '0';
 					SRQ_interrupt <= '0';
+				when 3 => --serial poll status
+					host_data_bus_out_buffer <= local_STB;
+					host_data_bus_out_buffer(6) <= pending_rsv;
 				when 16#14# => -- interrupt status 0
 					host_data_bus_out_buffer <= 
 						(
@@ -772,6 +778,8 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			register_page <= (others => '0');
 			pon_pulse <= '0';
 			soft_reset_pulse <= '0';
+			do_pulse_host_to_gpib_data_byte_write := false;
+			dma_bus_in_request <= '0';
 		end if;
 		if rising_edge(clock) then
 			-- host write_to bus state machine
@@ -851,10 +859,8 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			enable_talker_gpib_address_1 <= '0';
 			enable_listener_gpib_address_1 <= '0';
 			host_to_gpib_data_byte_write <= '0';
-			do_pulse_host_to_gpib_data_byte_write := false;
 			send_eoi := '0';
 			invert_interrupt <= '0';
-			dma_bus_in_request <= '0';
 			
 			-- imr0 enables
 			ATN_interrupt_enable <= '0';
@@ -961,6 +967,19 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 					tr2 <= 'X';
 					tr3 <= 'X';
 			end case;
+		end if;
+	end process;
+	
+	process (hard_reset, clock)
+	begin
+		if hard_reset = '1' then
+			pending_rsv <= '0';
+		elsif rising_edge(clock) then
+			if rsv = '1' then
+				pending_rsv <= '1';
+			elsif service_request_state = NPRS then
+				pending_rsv <= '0';
+			end if;
 		end if;
 	end process;
 	
