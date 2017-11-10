@@ -57,7 +57,10 @@ architecture behav of integrated_interface_functions_testbench is
 	signal device_clear_state : DC_state;
 	signal source_handshake_state : SH_state;
 	signal parallel_poll_state_p1 : PP_state_p1;
-	
+	signal RFD_holdoff_mode : RFD_holdoff_enum;
+	signal RFD_holdoff_immediately_pulse : std_logic;
+	signal release_RFD_holdoff_pulse : std_logic;
+
 	signal ist : std_logic;
 	signal lon : std_logic;	
 	signal lpe : std_logic;
@@ -138,7 +141,10 @@ architecture behav of integrated_interface_functions_testbench is
 			device_clear_state => device_clear_state,
 			source_handshake_state => source_handshake_state,
 			parallel_poll_state_p1 => parallel_poll_state_p1,
-			local_STB => local_STB
+			local_STB => local_STB,
+			RFD_holdoff_mode => RFD_holdoff_mode,
+			RFD_holdoff_immediately_pulse => RFD_holdoff_immediately_pulse,
+			release_RFD_holdoff_pulse => release_RFD_holdoff_pulse
 		);
 
 	my_gpib_transceiver: entity work.gpib_transceiver
@@ -291,6 +297,9 @@ architecture behav of integrated_interface_functions_testbench is
 		ton <= '0';
 		tcs <= '0';
 		local_STB <= (others => '0');
+		RFD_holdoff_mode <= holdoff_normal;
+		RFD_holdoff_immediately_pulse <= '0';
+		release_RFD_holdoff_pulse <= '0';
 		
 		wait until rising_edge(clock);	
 		pon <= '1';

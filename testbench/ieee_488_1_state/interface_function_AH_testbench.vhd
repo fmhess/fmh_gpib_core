@@ -19,6 +19,7 @@ architecture behav of interface_function_AH_testbench is
 	signal pon : std_logic;
 	signal rdy : std_logic;
 	signal tcs : std_logic;
+	signal RFD_holdoff : std_logic;
 	signal acceptor_handshake_state : AH_state;
 	signal RFD : std_logic;
 	signal DAC : std_logic;
@@ -37,6 +38,7 @@ architecture behav of interface_function_AH_testbench is
 			pon => pon,
 			rdy => rdy,
 			tcs => tcs,
+			RFD_holdoff => RFD_holdoff,
 			acceptor_handshake_state => acceptor_handshake_state,
 			RFD => RFD,
 			DAC => DAC
@@ -70,6 +72,7 @@ architecture behav of interface_function_AH_testbench is
 		pon <= '0';
 		rdy <= '0';
 		tcs <= '0';
+		RFD_holdoff <= '0';
 		
 		wait until rising_edge(clock);
 		pon <= '1';

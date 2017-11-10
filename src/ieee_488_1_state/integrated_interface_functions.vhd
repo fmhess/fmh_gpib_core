@@ -64,6 +64,11 @@ entity integrated_interface_functions is
 		host_to_gpib_data_byte_end : in std_logic;
 		host_to_gpib_data_byte_write : in std_logic;
 		local_STB : in std_logic_vector(7 downto 0);
+		RFD_holdoff_mode : in RFD_holdoff_enum;
+		-- pulse to put acceptor handshake into rfd holdoff
+		RFD_holdoff_immediately_pulse : in std_logic;
+		-- pulse to release rfd holdoff
+		release_RFD_holdoff_pulse : in std_logic;
 		
 		bus_DIO_inverted_out : out std_logic_vector(7 downto 0);
 		bus_REN_inverted_out : out std_logic;
@@ -109,7 +114,8 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	signal internal_host_to_gpib_data_byte_latched : std_logic;
 	signal internal_host_to_gpib_data_byte : std_logic_vector(7 downto 0);
 	signal internal_host_to_gpib_data_byte_end : std_logic;
-
+	signal RFD_holdoff : std_logic;
+	
 	signal ACG : std_logic;
 	signal ATN : std_logic;
 	signal DAC : std_logic;
@@ -281,6 +287,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			pon => pon,
 			rdy => rdy,
 			tcs => tcs,
+			RFD_holdoff => RFD_holdoff,
 			acceptor_handshake_state => acceptor_handshake_state_buffer,
 			RFD => local_RFD,
 			DAC => local_DAC
@@ -516,18 +523,37 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			gpib_to_host_byte <= X"00";
 			gpib_to_host_byte_end <= '0';
 			gpib_to_host_byte_eos <= '0';
+			RFD_holdoff <= '0';
 		else
 			if acceptor_handshake_state_buffer'EVENT and 
 				acceptor_handshake_state_buffer = ACDS and
 				to_bit(ATN) = '0' then
-					rdy <= '0';
-					gpib_to_host_byte <= not bus_DIO_inverted_in;
-					gpib_to_host_byte_end <= END_msg;
-					gpib_to_host_byte_eos <= EOS;
+					if RFD_holdoff_mode /= continuous_mode then
+						rdy <= '0';
+						gpib_to_host_byte <= not bus_DIO_inverted_in;
+						gpib_to_host_byte_end <= END_msg;
+						gpib_to_host_byte_eos <= EOS;
+					end if;
+					case RFD_holdoff_mode is
+						when holdoff_normal =>
+						when holdoff_on_all =>
+							RFD_holdoff <= '1';
+						when holdoff_on_end =>
+							if to_X01(END_msg or EOS) = '1' then
+								RFD_holdoff <= '1';
+							end if;
+						when continuous_mode =>
+					end case;
 			end if;
 			if rising_edge(clock) then
-				if to_bit(gpib_to_host_byte_read) = '1' then
+				if to_X01(gpib_to_host_byte_read) = '1' then
 					rdy <= '1';
+				end if;
+				if to_X01(release_RFD_holdoff_pulse) = '1' then
+					RFD_holdoff <= '0';
+				end if;
+				if to_X01(RFD_holdoff_immediately_pulse) = '1' then
+					RFD_holdoff <= '1';
 				end if;
 			end if;
 		end if;

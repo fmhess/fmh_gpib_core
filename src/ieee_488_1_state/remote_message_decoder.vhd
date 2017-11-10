@@ -95,7 +95,7 @@ begin
 	EOS <= '1' when  
 		to_bitvector(not bus_DIO_inverted(6 downto 0)) = to_bitvector(configured_eos_character(6 downto 0)) and
 		(to_bit(ignore_eos_bit_7) = '1' or to_bit(not bus_DIO_inverted(7)) = to_bit(configured_eos_character(7))) and
-		not bus_ATN_inverted = '0' else
+		bus_ATN_inverted = '1' else
 		'0';
 	GET <= '1' when ACG_buffer = '1' and not bus_DIO_inverted(3 downto 0) = "1000" and not bus_ATN_inverted = '1' else
 		'0';

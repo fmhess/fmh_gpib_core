@@ -9,6 +9,7 @@ use ieee.numeric_std.all;
 
 package interface_function_common is
 
+	-- 488.1 interface function states
 	type AH_state is (AIDS, ANRS, ACRS, ACDS, AWNS);
 	type C_state_p1 is (CIDS, CADS, CACS, CTRS, CSBS, CSHS, CSWS, CAWS, CPWS, CPPS);
 	type C_state_p2 is (CSNS, CSRS);
@@ -27,6 +28,8 @@ package interface_function_common is
 	type TE_state_p1 is (TIDS, TADS, TACS, SPAS);
 	type TE_state_p2 is (TPIS, TPAS);
 	type TE_state_p3 is (SPIS, SPMS);
+	
+	type RFD_holdoff_enum is (holdoff_normal, holdoff_on_all, holdoff_on_end, continuous_mode);
 
 	constant NO_ADDRESS_CONFIGURED : bit_vector := "11111";
 

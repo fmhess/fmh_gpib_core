@@ -173,6 +173,9 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal ultra_fast_T1_delay : std_logic;
 	signal high_speed_T1_delay : std_logic;
 	signal generate_END_interrupt_on_EOS : std_logic;
+	signal RFD_holdoff_mode : RFD_holdoff_enum;
+	signal RFD_holdoff_immediately_pulse : std_logic;
+	signal release_RFD_holdoff_pulse : std_logic;
 	
 	signal talk_enable_buffer : std_logic;
 	signal controller_in_charge_buffer : std_logic;
@@ -329,7 +332,10 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			talker_state_p1 => talker_state_p1,
 			talker_state_p2 => talker_state_p2,
 			talker_state_p3 => talker_state_p3,
-			local_STB => local_STB
+			local_STB => local_STB,
+			RFD_holdoff_mode => RFD_holdoff_mode,
+			RFD_holdoff_immediately_pulse => RFD_holdoff_immediately_pulse,
+			release_RFD_holdoff_pulse => release_RFD_holdoff_pulse
 		);
 
 	-- latch external gpib signals on falling clock edge
@@ -473,7 +479,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 					host_data_bus_out_buffer(4 downto 0) <= gpib_address_1;
 					host_data_bus_out_buffer(5) <= not enable_listener_gpib_address_1;
 					host_data_bus_out_buffer(6) <= not enable_talker_gpib_address_1;
-					host_data_bus_out_buffer(7) <= gpib_to_host_byte_eos or gpib_to_host_byte_end;
+					host_data_bus_out_buffer(7) <= gpib_to_host_byte_end;
 				when 16#b# => -- revision register
 					host_data_bus_out_buffer <= X"ff";
 				when 16#c# => -- state 1 register
@@ -867,16 +873,17 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 				when "00010" => -- chip reset
 					soft_reset_pulse <= '1';
 				when "00011" => -- release RFD holdoff 
-					-- TODO
+					release_RFD_holdoff_pulse <= '1';
 				when "00100" => -- trigger
 					-- TODO
-				when "00101" | "01101" => -- rtl 
+				when "00101" => -- pulse and clear rtl
+				when "01101" => -- set rtl 
 				when "00110" => -- send EOI on next byte 
 					send_eoi := '1';
 				when "00111" => -- non-valid pass through secondary address 
-					-- TODO
+					-- unsupported
 				when "01111" => -- valid pass through secondary address 
-					-- TODO
+					-- unsupported
 				when "00001" => -- clear parallel poll flag 
 					-- TODO
 				when "01001" => -- set parallel poll flag 
@@ -895,6 +902,8 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 					rsv <= '1';
 				when "11001" => -- request rsv false
 					rsv <= '0';
+				when "10101" => -- request RFD holdoff immediately (extension)
+					RFD_holdoff_immediately_pulse <= '1';
 				when "11011" => -- listen with continuous mode
 					-- TODO
 				when "11100" => -- local unlisten (pulse)
@@ -965,8 +974,20 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 						when "011" => -- parallel poll register
 							-- TODO
 						when "100" => -- aux A register
+							case write_data(1 downto 0) is
+								when "00" =>
+									RFD_holdoff_mode <= holdoff_normal;
+								when "01" =>
+									RFD_holdoff_mode <= holdoff_on_all;
+								when "10" =>
+									RFD_holdoff_mode <= holdoff_on_end;
+								when "11" =>
+									RFD_holdoff_mode <= continuous_mode;
+								when others =>
+							end case;
 							generate_END_interrupt_on_EOS <= write_data(2);
-							-- TODO
+							-- TODO auto EOI on EOS <= write_data(3);
+							ignore_eos_bit_7 <= not write_data(4);
 						when "101" => -- aux B register
 							high_speed_T1_delay <= write_data(2);
 							invert_interrupt <= write_data(3);
@@ -1008,6 +1029,8 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			soft_reset_pulse <= '0';
 			do_pulse_host_to_gpib_data_byte_write := false;
 			dma_bus_in_request <= '0';
+			RFD_holdoff_immediately_pulse <= '0';
+			release_RFD_holdoff_pulse <= '0';
 		end if;
 		if rising_edge(clock) then
 			-- host write_to bus state machine
@@ -1063,7 +1086,13 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			if pon_pulse /= '0' then 
 				pon_pulse <= '0';
 			end if;
-
+			if release_RFD_holdoff_pulse /= '0' then
+				release_RFD_holdoff_pulse <= '0';
+			end if;
+			if RFD_holdoff_immediately_pulse /= '0' then
+				RFD_holdoff_immediately_pulse <= '0';
+			end if;
+			
 			-- clear register page after read or write
 			if host_write_to_bus_state = host_io_active or host_read_from_bus_state = host_io_active then
 				register_page <= (others => '0');
@@ -1089,6 +1118,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			host_to_gpib_data_byte_write <= '0';
 			send_eoi := '0';
 			invert_interrupt <= '0';
+			ignore_eos_bit_7 <= '0';
 			
 			-- imr0 enables
 			ATN_interrupt_enable <= '0';
@@ -1112,6 +1142,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			SRQ_interrupt_enable <= '0';
 
 			generate_END_interrupt_on_EOS <= '0';
+			RFD_holdoff_mode <= holdoff_normal;
 		end if;
 	end process;	
 
