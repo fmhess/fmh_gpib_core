@@ -117,11 +117,15 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal acceptor_handshake_state : AH_state;
 	signal controller_state_p1 : C_state_p1;
 	signal controller_state_p2 : C_state_p2;
+	signal controller_state_p3 : C_state_p3;
+	signal controller_state_p4 : C_state_p4;
+	signal controller_state_p5 : C_state_p5;
 	signal device_clear_state : DC_state;
 	signal device_trigger_state : DT_state;
 	signal listener_state_p1 : LE_state_p1;
 	signal listener_state_p2 : LE_state_p2;
 	signal parallel_poll_state_p1 : PP_state_p1;
+	signal parallel_poll_state_p2 : PP_state_p2;
 	signal remote_local_state : RL_state;
 	signal service_request_state : SR_state;
 	signal source_handshake_state : SH_state;
@@ -310,11 +314,15 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			acceptor_handshake_state => acceptor_handshake_state,
 			controller_state_p1 => controller_state_p1,
 			controller_state_p2 => controller_state_p2,
+			controller_state_p3 => controller_state_p3,
+			controller_state_p4 => controller_state_p4,
+			controller_state_p5 => controller_state_p5,
 			device_clear_state => device_clear_state,
 			device_trigger_state => device_trigger_state,
 			listener_state_p1 => listener_state_p1,
 			listener_state_p2 => listener_state_p2,
 			parallel_poll_state_p1 => parallel_poll_state_p1,
+			parallel_poll_state_p2 => parallel_poll_state_p2,
 			remote_local_state => remote_local_state,
 			service_request_state => service_request_state,
 			source_handshake_state => source_handshake_state,
@@ -466,7 +474,46 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 					host_data_bus_out_buffer(5) <= not enable_listener_gpib_address_1;
 					host_data_bus_out_buffer(6) <= not enable_talker_gpib_address_1;
 					host_data_bus_out_buffer(7) <= gpib_to_host_byte_eos or gpib_to_host_byte_end;
-				when 16#14# => -- interrupt status 0
+				when 16#b# => -- revision register
+					host_data_bus_out_buffer <= X"ff";
+				when 16#c# => -- state 1 register
+					case source_handshake_state is
+						when SIDS =>
+							host_data_bus_out_buffer(2 downto 0) <= "000";
+						when SGNS =>
+							host_data_bus_out_buffer(2 downto 0) <= "001";
+						when SDYS =>
+							host_data_bus_out_buffer(2 downto 0) <= "010";
+						when STRS =>
+							host_data_bus_out_buffer(2 downto 0) <= "101";
+						when SIWS =>
+							host_data_bus_out_buffer(2 downto 0) <= "011";
+						when SWNS =>
+							host_data_bus_out_buffer(2 downto 0) <= "100";
+					end case;
+					case acceptor_handshake_state is
+						when AIDS =>
+							host_data_bus_out_buffer(5 downto 3) <= "000";
+						when ANRS =>
+							host_data_bus_out_buffer(5 downto 3) <= "001";
+						when ACRS =>
+							host_data_bus_out_buffer(5 downto 3) <= "010";
+						when ACDS =>
+							host_data_bus_out_buffer(5 downto 3) <= "100";
+						when AWNS =>
+							host_data_bus_out_buffer(5 downto 3) <= "011";
+					end case;
+					case talker_state_p1 is
+						when TIDS =>
+							host_data_bus_out_buffer(7 downto 6) <= "00";
+						when TADS =>
+							host_data_bus_out_buffer(7 downto 6) <= "01";
+						when TACS =>
+							host_data_bus_out_buffer(7 downto 6) <= "11";
+						when SPAS =>
+							host_data_bus_out_buffer(7 downto 6) <= "10";
+					end case;
+				when 16#e# => -- interrupt status 0
 					host_data_bus_out_buffer <= 
 						(
 							2 => ATN_interrupt,
@@ -475,6 +522,138 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 						);
 					ATN_interrupt <= '0';
 					IFC_interrupt <= '0';
+				when 16#f# => -- bus status register
+					host_data_bus_out_buffer(0) <= bus_REN_inverted_in;
+					host_data_bus_out_buffer(1) <= bus_IFC_inverted_in;
+					host_data_bus_out_buffer(2) <= bus_SRQ_inverted_in;
+					host_data_bus_out_buffer(3) <= bus_EOI_inverted_in;
+					host_data_bus_out_buffer(4) <= bus_NRFD_inverted_in;
+					host_data_bus_out_buffer(5) <= bus_NDAC_inverted_in;
+					host_data_bus_out_buffer(6) <= bus_DAV_inverted_in;
+					host_data_bus_out_buffer(7) <= bus_ATN_inverted_in;
+				when 16#14# => -- state 2 register
+					case talker_state_p2 is
+						when TPIS =>
+							host_data_bus_out_buffer(0) <= '0';
+						when TPAS =>
+							host_data_bus_out_buffer(0) <= '1';
+					end case;
+					case talker_state_p3 is
+						when SPIS =>
+							host_data_bus_out_buffer(1) <= '0';
+						when SPMS =>
+							host_data_bus_out_buffer(1) <= '1';
+					end case;
+					case listener_state_p1 is
+						when LIDS =>
+							host_data_bus_out_buffer(3 downto 2) <= "00";
+						when LADS =>
+							host_data_bus_out_buffer(3 downto 2) <= "01";
+						when LACS =>
+							host_data_bus_out_buffer(3 downto 2) <= "10";
+					end case;
+					case listener_state_p2 is
+						when LPIS =>
+							host_data_bus_out_buffer(4) <= '0';
+						when LPAS =>
+							host_data_bus_out_buffer(4) <= '1';
+					end case;
+					case service_request_state is
+						when NPRS =>
+							host_data_bus_out_buffer(6 downto 5) <= "00";
+						when SRQS =>
+							host_data_bus_out_buffer(6 downto 5) <= "01";
+						when APRS =>
+							host_data_bus_out_buffer(6 downto 5) <= "10";
+					end case;
+					case device_clear_state is
+						when DCIS =>
+							host_data_bus_out_buffer(7) <= '0';
+						when DCAS =>
+							host_data_bus_out_buffer(7) <= '1';
+					end case;
+				when 16#1c# => -- state 3 register
+					case remote_local_state is
+						when LOCS =>
+							host_data_bus_out_buffer(1 downto 0) <= "00";
+						when REMS =>
+							host_data_bus_out_buffer(1 downto 0) <= "01";
+						when RWLS =>
+							host_data_bus_out_buffer(1 downto 0) <= "11";
+						when LWLS =>
+							host_data_bus_out_buffer(1 downto 0) <= "10";
+					end case;
+					case parallel_poll_state_p1 is
+						when PPIS =>
+							host_data_bus_out_buffer(3 downto 2) <= "00";
+						when PPSS =>
+							host_data_bus_out_buffer(3 downto 2) <= "01";
+						when PPAS =>
+							host_data_bus_out_buffer(3 downto 2) <= "10";
+					end case;
+					case parallel_poll_state_p2 is
+						when PUCS =>
+							host_data_bus_out_buffer(4) <= '0';
+						when PACS =>
+							host_data_bus_out_buffer(4) <= '1';
+					end case;
+					case device_trigger_state is
+						when DTIS =>
+							host_data_bus_out_buffer(5) <= '0';
+						when DTAS =>
+							host_data_bus_out_buffer(5) <= '1';
+					end case;
+					case controller_state_p5 is
+						when SIIS =>
+							host_data_bus_out_buffer(7 downto 6) <= "00";
+						when SIAS =>
+							host_data_bus_out_buffer(7 downto 6) <= "01";
+						when SINS =>
+							host_data_bus_out_buffer(7 downto 6) <= "10";
+					end case;
+				when 16#24# => -- state 4 register
+					case controller_state_p1 is
+						when CIDS =>
+							host_data_bus_out_buffer(3 downto 0) <= "0000";
+						when CADS =>
+							host_data_bus_out_buffer(3 downto 0) <= "0010";
+						when CACS =>
+							host_data_bus_out_buffer(3 downto 0) <= "0011";
+						when CTRS =>
+							host_data_bus_out_buffer(3 downto 0) <= "0001";
+						when CSBS =>
+							host_data_bus_out_buffer(3 downto 0) <= "0100";
+						when CSHS =>
+							host_data_bus_out_buffer(3 downto 0) <= "0101";
+						when CSWS =>
+							host_data_bus_out_buffer(3 downto 0) <= "1000";
+						when CAWS =>
+							host_data_bus_out_buffer(3 downto 0) <= "0111";
+						when CPWS =>
+							host_data_bus_out_buffer(3 downto 0) <= "0110";
+						when CPPS =>
+							host_data_bus_out_buffer(3 downto 0) <= "1001";
+					end case;
+					case controller_state_p2 is
+						when CSNS =>
+							host_data_bus_out_buffer(4) <= '0';
+						when CSRS =>
+							host_data_bus_out_buffer(4) <= '1';
+					end case;
+					case controller_state_p3 is
+						when SNAS =>
+							host_data_bus_out_buffer(5) <= '0';
+						when SACS =>
+							host_data_bus_out_buffer(5) <= '1';
+					end case;
+					case controller_state_p4 is
+						when SRIS =>
+							host_data_bus_out_buffer(7 downto 6) <= "00";
+						when SRAS =>
+							host_data_bus_out_buffer(7 downto 6) <= "01";
+						when SRNS =>
+							host_data_bus_out_buffer(7 downto 6) <= "10";
+					end case;
 				when others =>
 			end case;
 		end host_read_register;
