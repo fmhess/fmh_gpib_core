@@ -58,7 +58,7 @@ entity integrated_interface_functions is
 		first_T1_terminal_count : in std_logic_vector(num_counter_bits - 1 downto 0);
 		T1_terminal_count : in std_logic_vector(num_counter_bits - 1 downto 0);
 		check_for_listeners : in std_logic;
-		-- host should set high for a clock when it reads gpib_to_host_byte
+		-- host should set gpib_to_host_byte_read high for a clock when it reads gpib_to_host_byte
 		gpib_to_host_byte_read : in std_logic;
 		host_to_gpib_data_byte : in std_logic_vector(7 downto 0);
 		host_to_gpib_data_byte_end : in std_logic;

@@ -1,5 +1,13 @@
 -- frontend with cb7210.2 style register layout
 -- It has been extended with the addition or a isr0/imr0 register at page 1, offset 6.
+--
+-- Features we don't implement, because they are standards violating or nearly useless:
+-- * minor addresses
+-- * address mode 3
+-- * individually disabling addresses for either talk or listen.  If you try to disable either
+--   talk or listen, the address will be disabled entirely.
+-- * command pass through
+--
 -- Author: Frank Mori Hess fmh6jj@gmail.com
 -- Copyright 2017 Frank Mori Hess
 --
@@ -158,7 +166,6 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal gpib_address_1 : std_logic_vector(4 downto 0);
 	signal enable_talker_gpib_address_1 : std_logic;
 	signal enable_listener_gpib_address_1 : std_logic;
-	signal enable_address_register_1 : std_logic;
 	signal ultra_fast_T1_delay : std_logic;
 	signal high_speed_T1_delay : std_logic;
 	signal generate_END_interrupt_on_EOS : std_logic;
@@ -447,6 +454,18 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 					end if;
 					host_data_bus_out_buffer(6) <= bus_ATN_inverted_in;
 					host_data_bus_out_buffer(7) <= controller_in_charge_buffer;
+				when 5 => -- command pass through
+					host_data_bus_out_buffer <= not bus_DIO_inverted_in;
+				when 6 => -- address register 0
+					host_data_bus_out_buffer(4 downto 0) <= gpib_address_0;
+					host_data_bus_out_buffer(5) <= not enable_listener_gpib_address_0;
+					host_data_bus_out_buffer(6) <= not enable_talker_gpib_address_0;
+					host_data_bus_out_buffer(7) <= '0';
+				when 7 => -- address register 1
+					host_data_bus_out_buffer(4 downto 0) <= gpib_address_1;
+					host_data_bus_out_buffer(5) <= not enable_listener_gpib_address_1;
+					host_data_bus_out_buffer(6) <= not enable_talker_gpib_address_1;
+					host_data_bus_out_buffer(7) <= gpib_to_host_byte_eos or gpib_to_host_byte_end;
 				when 16#14# => -- interrupt status 0
 					host_data_bus_out_buffer <= 
 						(
@@ -937,15 +956,25 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 					configured_primary_address <= to_stdlogicvector(NO_ADDRESS_CONFIGURED);
 					configured_secondary_address <= to_stdlogicvector(NO_ADDRESS_CONFIGURED);
 				when "01" =>
-					configured_primary_address <= gpib_address_0;
+					-- we don't support disabling one or the other of talker/listener address,
+					-- it's all or nothing.
+					if (enable_listener_gpib_address_0  and enable_talker_gpib_address_0) = '1' then
+						configured_primary_address <= gpib_address_0;
+					else
+						configured_primary_address <= to_stdlogicvector(NO_ADDRESS_CONFIGURED);
+					end if;
 					configured_secondary_address <= to_stdlogicvector(NO_ADDRESS_CONFIGURED);
-					-- TODO minor address
 				when "10" =>
-					configured_primary_address <= gpib_address_0;
-					configured_secondary_address <= gpib_address_1;
+					if (enable_listener_gpib_address_0 and enable_talker_gpib_address_0 and
+						enable_listener_gpib_address_1 and enable_talker_gpib_address_1) = '1' then
+						configured_primary_address <= gpib_address_0;
+						configured_secondary_address <= gpib_address_1;
+					else
+						configured_primary_address <= to_stdlogicvector(NO_ADDRESS_CONFIGURED);
+						configured_secondary_address <= to_stdlogicvector(NO_ADDRESS_CONFIGURED);
+					end if;
 				when "11" =>
-					-- TODO addresses are major/minor primary addresses and secondaries are
-					-- done via software using command pass through reg
+					-- we don't support address mode 3
 				when others =>
 			end case;
 		end if;
