@@ -189,7 +189,8 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal pullup_disable_buffer : std_logic;
 	signal EOI_output_enable_buffer : std_logic;
 	signal trigger_buffer : std_logic;
-
+	signal trigger_aux_command_pulse : std_logic;
+	
 	signal any_interrupt_active : std_logic;
 	signal invert_interrupt : std_logic;
 
@@ -882,7 +883,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 				when "00011" => -- release RFD holdoff 
 					release_RFD_holdoff_pulse <= '1';
 				when "00100" => -- trigger
-					-- TODO
+					trigger_aux_command_pulse <= '1';
 				when "00101" => -- pulse and clear rtl
 				when "01101" => -- set rtl 
 				when "00110" => -- send EOI on next byte 
@@ -1038,6 +1039,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			dma_bus_in_request <= '0';
 			RFD_holdoff_immediately_pulse <= '0';
 			release_RFD_holdoff_pulse <= '0';
+			trigger_aux_command_pulse <= '1';
 		end if;
 		if rising_edge(clock) then
 			-- host write_to bus state machine
@@ -1098,6 +1100,9 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			end if;
 			if RFD_holdoff_immediately_pulse /= '0' then
 				RFD_holdoff_immediately_pulse <= '0';
+			end if;
+			if trigger_aux_command_pulse /= '0' then
+				trigger_aux_command_pulse <= '0';
 			end if;
 			
 			-- clear register page after read or write
@@ -1216,7 +1221,8 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 		'0';
 	EOI_output_enable <= EOI_output_enable_buffer;
 
-	trigger_buffer <= '1' when device_trigger_state = DTAS else '0';
+	trigger_buffer <= '1' when device_trigger_state = DTAS or
+		trigger_aux_command_pulse = '1' else '0';
 	trigger <= trigger_buffer;
 	
 	tr1 <= talk_enable_buffer;
