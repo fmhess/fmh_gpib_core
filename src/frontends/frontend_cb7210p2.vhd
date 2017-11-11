@@ -183,6 +183,8 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal RFD_holdoff_mode : RFD_holdoff_enum;
 	signal RFD_holdoff_immediately_pulse : std_logic;
 	signal release_RFD_holdoff_pulse : std_logic;
+	signal parallel_poll_flag : std_logic;
+	signal use_SRQS_as_ist : std_logic;
 	
 	signal talk_enable_buffer : std_logic;
 	signal controller_in_charge_buffer : std_logic;
@@ -897,9 +899,9 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 				when "01111" => -- valid pass through secondary address 
 					-- unsupported
 				when "00001" => -- clear parallel poll flag 
-					-- TODO
+					parallel_poll_flag <= '0';
 				when "01001" => -- set parallel poll flag 
-					-- TODO
+					parallel_poll_flag <= '1';
 				when "10000" => -- go to standby 
 					-- TODO
 				when "10001" => -- take control asynchronously
@@ -1003,6 +1005,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 						when "101" => -- aux B register
 							high_speed_T1_delay <= write_data(2);
 							invert_interrupt <= write_data(3);
+							use_SRQS_as_ist <= write_data(4);
 							-- TODO
 						when "110" => -- aux E register
 							-- TODO
@@ -1142,6 +1145,8 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			send_eoi := '0';
 			invert_interrupt <= '0';
 			ignore_eos_bit_7 <= '0';
+			parallel_poll_flag <= '0';
+			use_SRQS_as_ist <= '0';
 			
 			-- imr0 enables
 			ATN_interrupt_enable <= '0';
@@ -1299,5 +1304,9 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	in_lockout_state <= '1' when remote_local_state = RWLS or remote_local_state = LWLS else '0';
 	LADS_or_LACS <= '1' when listener_state_p1 = LADS or listener_state_p1 = LACS else '0';
 	in_TIDS <= '1' when talker_state_p1 = TIDS else '0';
+	
+	ist <= parallel_poll_flag when use_SRQS_as_ist = '0' else
+		'1' when service_request_state = SRQS else
+		'0';
 	
 end frontend_cb7210p2_arch;
