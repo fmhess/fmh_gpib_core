@@ -996,8 +996,9 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 						when "001" => -- reference clock frequency
 							-- TODO
 						when "011" => -- parallel poll register
-							lpe
-							-- TODO
+							lpe <= not write_data(4);
+							local_parallel_poll_sense <= write_data(3);
+							local_parallel_poll_response_line <= write_data(2 downto 0);
 						when "100" => -- aux A register
 							case write_data(1 downto 0) is
 								when "00" =>
