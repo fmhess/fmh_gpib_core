@@ -872,6 +872,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	process (hard_reset, clock)
 		variable do_pulse_host_to_gpib_data_byte_write : boolean;
 		variable send_eoi : std_logic;
+		variable clear_rtl : boolean;
 		
 		procedure execute_auxiliary_command(command : in std_logic_vector(4 downto 0)) is
 		begin
@@ -885,7 +886,10 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 				when "00100" => -- trigger
 					trigger_aux_command_pulse <= '1';
 				when "00101" => -- pulse and clear rtl
+					rtl <= '1';
+					clear_rtl := true;
 				when "01101" => -- set rtl 
+					rtl <= '1';
 				when "00110" => -- send EOI on next byte 
 					send_eoi := '1';
 				when "00111" => -- non-valid pass through secondary address 
@@ -1040,6 +1044,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			RFD_holdoff_immediately_pulse <= '0';
 			release_RFD_holdoff_pulse <= '0';
 			trigger_aux_command_pulse <= '1';
+			clear_rtl := false;
 		end if;
 		if rising_edge(clock) then
 			-- host write_to bus state machine
@@ -1105,6 +1110,11 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 				trigger_aux_command_pulse <= '0';
 			end if;
 			
+			if clear_rtl then
+				rtl <= '0';
+				clear_rtl := false;
+			end if;
+			
 			-- clear register page after read or write
 			if host_write_to_bus_state = host_io_active or host_read_from_bus_state = host_io_active then
 				register_page <= (others => '0');
@@ -1117,6 +1127,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			rsv <= '0';
 			lon <= '0';
 			ton <= '0';
+			rtl <= '0';
 			transmit_receive_mode <= "00";
 			address_mode <= "00";
 			ultra_fast_T1_delay <= '0';
