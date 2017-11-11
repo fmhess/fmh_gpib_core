@@ -1,12 +1,17 @@
--- frontend with cb7210.2 style register layout
--- It has been extended with the addition or a isr0/imr0 register at page 1, offset 6.
+-- frontend with cb7210.2 style register layout.  It favors standards compliance
+-- and sanity over bug-for-bug compatibility with the original chip.
+--
+-- It has been extended with:
+-- * the addition or a isr0/imr0 register at page 1, offset 6.
+-- * a RFD holdoff immediately auxiliary command
 --
 -- Features we don't implement, because they are standards violating or nearly useless:
 -- * minor addresses
--- * address mode 3
+-- * address mode 3 and address pass through
 -- * individually disabling addresses for either talk or listen.  If you try to disable either
 --   talk or listen, the address will be disabled entirely.
--- * command pass through
+-- * command pass through (although the command pass through register will let you read the
+--   state of the DIO lines).
 --
 -- Author: Frank Mori Hess fmh6jj@gmail.com
 -- Copyright 2017 Frank Mori Hess
@@ -30,6 +35,8 @@ entity frontend_cb7210p2 is
 		chip_select_inverted : in std_logic;
 		dma_bus_in_ack_inverted : in std_logic;
 		dma_bus_out_ack_inverted : in std_logic;
+		dma_read_inverted : in std_logic;
+		dma_write_inverted : in std_logic;
 		read_inverted : in std_logic;
 		reset : in std_logic;
 		address : in std_logic_vector(num_address_lines - 1 downto 0); 
@@ -705,7 +712,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 				when dma_idle =>
 					dma_bus_out_request <= '0';
 					dma_bus_out_buffer <= (others => 'Z');
-					if (DMA_input_enable = '1' and read_inverted = '0' and rdy = '0') then
+					if (DMA_input_enable = '1' and dma_read_inverted = '0' and rdy = '0') then
 						gpib_to_host_dma_state <= dma_requesting;
 						dma_bus_out_buffer <= gpib_to_host_byte;
 						do_pulse_gpib_to_host_byte_read := true;
@@ -1053,7 +1060,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			case host_to_gpib_dma_state is
 				when dma_idle =>
 					dma_bus_in_request <= '0';
-					if (DMA_output_enable = '1' and write_inverted = '0' and host_to_gpib_data_byte_latched = '0') then
+					if (DMA_output_enable = '1' and dma_write_inverted = '0' and host_to_gpib_data_byte_latched = '0') then
 						host_to_gpib_dma_state <= dma_requesting;
 					end if;
 				when dma_requesting =>

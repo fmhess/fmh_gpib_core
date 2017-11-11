@@ -37,6 +37,8 @@ architecture behav of frontend_cb7210p2_testbench is
 	signal dma_bus_ack_inverted : std_logic;
 	signal dma_bus_request : std_logic;
 	signal dma_bus : std_logic_vector(7 downto 0);
+	signal dma_read_inverted : std_logic;
+	signal dma_write_inverted : std_logic;
 	signal read_inverted : std_logic;
 	signal reset : std_logic;
 	signal address : std_logic_vector(2 downto 0);
@@ -67,6 +69,8 @@ architecture behav of frontend_cb7210p2_testbench is
 			chip_select_inverted => chip_select_inverted, 
 			dma_bus_out_ack_inverted => dma_bus_ack_inverted,
 			dma_bus_in_ack_inverted => dma_bus_ack_inverted,
+			dma_read_inverted => dma_read_inverted,
+			dma_write_inverted => dma_write_inverted,
 			read_inverted => read_inverted,
 			reset => reset,
 			address => address,  
@@ -264,6 +268,8 @@ architecture behav of frontend_cb7210p2_testbench is
 		dma_bus <= (others => 'Z');
 		host_data_bus <= (others => '0');
 		read_inverted <= '1';
+		dma_read_inverted <= '1';
+		dma_write_inverted <= '1';
 		address <= ( others => '0' );
 		
 		wait until rising_edge(clock);	
