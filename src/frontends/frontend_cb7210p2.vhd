@@ -1047,6 +1047,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 						enable_talker_gpib_address_0 <= not write_data(6);
 					end if;
 				when 7 => -- end of string
+					configured_eos_character <= write_data;
 				when 16#e# => -- interrupt mask register 0
 					ATN_interrupt_enable <= write_data(2);
 					IFC_interrupt_enable <= write_data(3);
@@ -1167,6 +1168,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			parallel_poll_flag <= '0';
 			use_SRQS_as_ist <= '0';
 			host_to_gpib_auto_EOI_on_EOS <= '0';
+			configured_eos_character <= X"00";
 			
 			-- imr0 enables
 			ATN_interrupt_enable <= '0';
