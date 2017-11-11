@@ -7,18 +7,23 @@
 --
 -- Features yet to be implemented:
 -- * Controller support.
+--
+-- Features we don't implement, because they are nearly useless, but could be implemented
+-- if anyone cares:
+-- * command pass through (although the command pass through register will let you read the
+--   state of the DIO lines).
+-- * configuring whether to assert END while in SPAS.
+-- * DAC holdoff on DTAS or DCAS
 -- * Setting clock frequency by writing to the auxiliary mode register.  It is done
 --   by a generic parameter instead.  Would want to implement if someone actually
 --   wanted to produce this as an ASIC rather than burning it into an FPGA.
 --
--- Features we don't implement, because they are standards violating or nearly useless:
+-- Features we don't implement, because they are standards violating:
 -- * minor addresses
 -- * address mode 3 and address pass through
 -- * individually disabling addresses for either talk or listen.  If you try to disable either
 --   talk or listen, the address will be disabled entirely.
--- * command pass through (although the command pass through register will let you read the
---   state of the DIO lines).
--- * configuring whether to assert END while in SPAS.
+-- * bug-for-bug compatible source handshaking that violates 488.1 or 488.2.
 --
 -- Author: Frank Mori Hess fmh6jj@gmail.com
 -- Copyright 2017 Frank Mori Hess
@@ -151,6 +156,8 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal in_TIDS : std_logic;
 	signal LADS_or_LACS : std_logic;
 	signal pending_rsv : std_logic;
+	signal entered_DTAS : std_logic;
+	signal entered_DCAS : std_logic;
 	
 	signal ist : std_logic;
 	signal lon : std_logic;	
@@ -786,11 +793,11 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 				END_interrupt <= '0';
 			end if;
 
-			if device_clear_state = DCAS then
+			if entered_DCAS = '1' then
 				DEC_interrupt <= '1';
 			end if;
 			
-			if device_trigger_state = DTAS then
+			if entered_DTAS = '1' then
 				DET_interrupt <= '1';
 			end if;
 
@@ -1250,7 +1257,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 		'0';
 	EOI_output_enable <= EOI_output_enable_buffer;
 
-	trigger_buffer <= '1' when device_trigger_state = DTAS or
+	trigger_buffer <= '1' when entered_DTAS = '1' or
 		trigger_aux_command_pulse = '1' else '0';
 	trigger <= trigger_buffer;
 	
@@ -1321,5 +1328,30 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	ist <= parallel_poll_flag when use_SRQS_as_ist = '0' else
 		'1' when service_request_state = SRQS else
 		'0';
-	
+
+	process (hard_reset, clock, device_trigger_state)
+	begin
+		if hard_reset = '1' then
+			entered_DTAS <= '0';
+		elsif device_trigger_state'EVENT and device_trigger_state = DTAS then
+			entered_DTAS <= '1';
+		elsif rising_edge(clock) then
+			if entered_DTAS = '1' then
+				entered_DTAS <= '0';
+			end if;
+		end if;
+	end process;
+
+	process (hard_reset, clock, device_clear_state)
+	begin
+		if hard_reset = '1' then
+			entered_DCAS <= '0';
+		elsif device_clear_state'EVENT and device_clear_state = DCAS then
+			entered_DCAS <= '1';
+		elsif rising_edge(clock) then
+			if entered_DCAS = '1' then
+				entered_DCAS <= '0';
+			end if;
+		end if;
+	end process;
 end frontend_cb7210p2_arch;
