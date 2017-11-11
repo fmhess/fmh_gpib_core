@@ -996,6 +996,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 						when "001" => -- reference clock frequency
 							-- TODO
 						when "011" => -- parallel poll register
+							lpe
 							-- TODO
 						when "100" => -- aux A register
 							case write_data(1 downto 0) is
@@ -1013,10 +1014,10 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 							host_to_gpib_auto_EOI_on_EOS <= write_data(3);
 							ignore_eos_bit_7 <= not write_data(4);
 						when "101" => -- aux B register
+							-- bits 0 and 1 not supported
 							high_speed_T1_delay <= write_data(2);
 							invert_interrupt <= write_data(3);
 							use_SRQS_as_ist <= write_data(4);
-							-- TODO
 						when "110" => -- aux E register
 							-- TODO
 						when "010" => 
@@ -1123,7 +1124,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 				trigger_aux_command_pulse <= '0';
 			end if;
 			
-			if clear_rtl then
+			if rtl /= '0' and clear_rtl then
 				rtl <= '0';
 				clear_rtl := false;
 			end if;
