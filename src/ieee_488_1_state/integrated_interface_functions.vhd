@@ -543,6 +543,9 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 								RFD_holdoff <= '1';
 							end if;
 						when continuous_mode =>
+							if to_X01(END_msg or EOS) = '1' then
+								RFD_holdoff <= '1';
+							end if;
 					end case;
 			end if;
 			if rising_edge(clock) then
