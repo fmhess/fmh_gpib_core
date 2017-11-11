@@ -5,6 +5,12 @@
 -- * the addition or a isr0/imr0 register at page 1, offset 6.
 -- * a RFD holdoff immediately auxiliary command
 --
+-- Features yet to be implemented:
+-- * Controller support.
+-- * Setting clock frequency by writing to the auxiliary mode register.  It is done
+--   by a generic parameter instead.  Would want to implement if someone actually
+--   wanted to produce this as an ASIC rather than burning it into an FPGA.
+--
 -- Features we don't implement, because they are standards violating or nearly useless:
 -- * minor addresses
 -- * address mode 3 and address pass through
@@ -12,6 +18,7 @@
 --   talk or listen, the address will be disabled entirely.
 -- * command pass through (although the command pass through register will let you read the
 --   state of the DIO lines).
+-- * configuring whether to assert END while in SPAS.
 --
 -- Author: Frank Mori Hess fmh6jj@gmail.com
 -- Copyright 2017 Frank Mori Hess
@@ -185,6 +192,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal release_RFD_holdoff_pulse : std_logic;
 	signal parallel_poll_flag : std_logic;
 	signal use_SRQS_as_ist : std_logic;
+	signal host_to_gpib_auto_EOI_on_EOS : std_logic;
 	
 	signal talk_enable_buffer : std_logic;
 	signal controller_in_charge_buffer : std_logic;
@@ -322,6 +330,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			rdy => rdy,
 			host_to_gpib_data_byte => host_to_gpib_data_byte,
 			host_to_gpib_data_byte_end => host_to_gpib_data_byte_end,
+			host_to_gpib_auto_EOI_on_EOS => host_to_gpib_auto_EOI_on_EOS,
 			host_to_gpib_data_byte_write => host_to_gpib_data_byte_write,
 			host_to_gpib_data_byte_latched => host_to_gpib_data_byte_latched,
 			acceptor_handshake_state => acceptor_handshake_state,
@@ -921,6 +930,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 				when "11011" => -- listen with continuous mode
 					-- TODO
 				when "11100" => -- local unlisten (pulse)
+					-- TODO
 				when "11101" => -- execute parallel poll
 					-- TODO
 				when "10110" => -- clear IFC 
@@ -1000,7 +1010,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 								when others =>
 							end case;
 							generate_END_interrupt_on_EOS <= write_data(2);
-							-- TODO auto EOI on EOS <= write_data(3);
+							host_to_gpib_auto_EOI_on_EOS <= write_data(3);
 							ignore_eos_bit_7 <= not write_data(4);
 						when "101" => -- aux B register
 							high_speed_T1_delay <= write_data(2);
@@ -1147,6 +1157,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			ignore_eos_bit_7 <= '0';
 			parallel_poll_flag <= '0';
 			use_SRQS_as_ist <= '0';
+			host_to_gpib_auto_EOI_on_EOS <= '0';
 			
 			-- imr0 enables
 			ATN_interrupt_enable <= '0';

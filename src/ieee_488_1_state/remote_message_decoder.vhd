@@ -92,10 +92,8 @@ begin
 	DCL <= '1' when UCG_buffer = '1' and not bus_DIO_inverted(3 downto 0) = "0100" and not bus_ATN_inverted = '1' else
 		'0';
 	END_msg <= bus_ATN_inverted and not bus_EOI_inverted;
-	EOS <= '1' when  
-		to_bitvector(not bus_DIO_inverted(6 downto 0)) = to_bitvector(configured_eos_character(6 downto 0)) and
-		(to_bit(ignore_eos_bit_7) = '1' or to_bit(not bus_DIO_inverted(7)) = to_bit(configured_eos_character(7))) and
-		bus_ATN_inverted = '1' else
+	EOS <= '1' when EOS_match(not bus_DIO_inverted, configured_eos_character, ignore_eos_bit_7)
+		and bus_ATN_inverted = '1' else
 		'0';
 	GET <= '1' when ACG_buffer = '1' and not bus_DIO_inverted(3 downto 0) = "1000" and not bus_ATN_inverted = '1' else
 		'0';

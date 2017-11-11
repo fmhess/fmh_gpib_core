@@ -35,6 +35,9 @@ package interface_function_common is
 
 	function to_X0Z (mysig : std_logic) return std_logic;
 	function to_X0Z (myvector : std_logic_vector) return std_logic_vector;
+	function EOS_match (byte_A : std_logic_vector(7 downto 0); 
+		byte_B : std_logic_vector(7 downto 0);
+		ignore_eos_bit_7 : std_logic) return boolean;
 
 end interface_function_common;
 
@@ -59,5 +62,13 @@ package body interface_function_common is
 		end loop;
 		return result;
 	end to_X0Z;
+	
+	function EOS_match (byte_A : std_logic_vector(7 downto 0); 
+		byte_B : std_logic_vector(7 downto 0);
+		ignore_eos_bit_7 : std_logic) return boolean is
+	begin
+		return to_X01(byte_A(6 downto 0)) = to_X01(byte_B(6 downto 0)) and
+		(ignore_eos_bit_7 = '1' or to_X01(byte_A(7)) = to_X01(byte_B(7)));
+	end EOS_match;
 	
 end package body interface_function_common;

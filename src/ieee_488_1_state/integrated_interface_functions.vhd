@@ -62,6 +62,7 @@ entity integrated_interface_functions is
 		gpib_to_host_byte_read : in std_logic;
 		host_to_gpib_data_byte : in std_logic_vector(7 downto 0);
 		host_to_gpib_data_byte_end : in std_logic;
+		host_to_gpib_auto_EOI_on_EOS : in std_logic;
 		host_to_gpib_data_byte_write : in std_logic;
 		local_STB : in std_logic_vector(7 downto 0);
 		RFD_holdoff_mode : in RFD_holdoff_enum;
@@ -517,7 +518,8 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	bus_DIO_inverted_out <= bus_DIO_inverted_out_buffer;
 
 	-- deal with byte read by host from gpib bus
-	process(pon, clock, acceptor_handshake_state_buffer) begin
+	process(pon, clock, acceptor_handshake_state_buffer) 
+	begin
 		if to_bit(pon) = '1' then
 			rdy <= '1';
 			gpib_to_host_byte <= X"00";
@@ -563,7 +565,8 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	end process;
 
 	-- deal with byte written by host to gpib bus
-	process(pon, clock, source_handshake_state_buffer) begin
+	process(pon, clock, source_handshake_state_buffer) 
+	begin
 		if to_bit(pon) = '1' then
 			internal_host_to_gpib_data_byte_latched <= '0';
 			internal_host_to_gpib_data_byte <= X"00";
@@ -579,7 +582,13 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 					internal_host_to_gpib_data_byte_latched <= '0';
 				elsif to_bit(host_to_gpib_data_byte_write) = '1' then
 					internal_host_to_gpib_data_byte <= host_to_gpib_data_byte;
-					internal_host_to_gpib_data_byte_end <= host_to_gpib_data_byte_end;
+					if host_to_gpib_data_byte_end = '1' or
+						(host_to_gpib_auto_EOI_on_EOS = '1' and 
+						EOS_match(internal_host_to_gpib_data_byte, configured_eos_character, ignore_eos_bit_7)) then
+						internal_host_to_gpib_data_byte_end <= '1';
+					else
+						internal_host_to_gpib_data_byte_end <= '0';
+					end if;
 					internal_host_to_gpib_data_byte_latched <= '1';
 				end if;
 			end if;
@@ -587,7 +596,8 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	end process;
 
 	-- update parallel poll sense and line
-	process(pon, clock) begin
+	process(pon, clock) 
+	begin
 		if to_bit(pon) = '1' then
 			parallel_poll_sense <= '1';
 			parallel_poll_response_line <= "000";
