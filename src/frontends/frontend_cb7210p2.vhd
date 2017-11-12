@@ -89,8 +89,7 @@ entity frontend_cb7210p2 is
 		EOI_output_enable : out std_logic;
 		not_controller_in_charge : out std_logic; -- transceiver DC
 		pullup_disable : out std_logic; -- transceiver PE
-		talk_enable : out std_logic; -- transceiver TE
-		trigger : out std_logic 
+		trigger : out std_logic
 	);
 end frontend_cb7210p2;
      
@@ -177,9 +176,10 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal soft_reset_pulse : std_logic;
 	signal pon_pulse : std_logic;
 	
-	signal latched_host_data_byte_in : std_logic_vector(7 downto 0);
 	signal host_write_selected : std_logic;
 	signal host_read_selected : std_logic;
+	signal dma_write_selected : std_logic;
+	signal dma_read_selected : std_logic;
 	signal register_page : std_logic_vector(3 downto 0);
 	signal host_data_bus_out_buffer : std_logic_vector(7 downto 0);
 	
@@ -284,7 +284,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 		end if;
 	end flat_address;
 
-	begin
+begin
 	my_integrated_interface_functions: entity work.integrated_interface_functions 
 	generic map (
 			num_counter_bits => num_counter_bits
@@ -414,6 +414,8 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	host_data_bus_out <= host_data_bus_out_buffer when to_X01(host_read_selected) = '1' and
 			host_read_from_bus_state = host_io_waiting_for_idle else 
 		(others => 'Z');
+	dma_write_selected <= not dma_write_inverted and not dma_bus_in_ack_inverted;
+	dma_read_selected <= not dma_read_inverted and not dma_bus_out_ack_inverted;
 	dma_bus_out <= dma_bus_out_buffer;
 	
 	-- accept reads from host
@@ -731,26 +733,24 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 				when dma_idle =>
 					dma_bus_out_request <= '0';
 					dma_bus_out_buffer <= (others => 'Z');
-					if (DMA_input_enable = '1' and rdy = '0') then
+					if DMA_input_enable = '1' and 
+						rdy = '0' then
 						gpib_to_host_dma_state <= dma_requesting;
-						dma_bus_out_buffer <= gpib_to_host_byte;
-						do_pulse_gpib_to_host_byte_read := true;
-					else
-						dma_bus_out_buffer <= (others => 'Z');
 					end if;
 				when dma_requesting =>
 					dma_bus_out_request <= '1';
-					if to_X01(dma_bus_out_ack_inverted) = '0' and to_X01(dma_read_inverted) = '0'then
+					if dma_read_selected = '1' then
 						gpib_to_host_dma_state <= dma_acknowledged;
 					elsif DMA_input_enable = '0' then
 						gpib_to_host_dma_state <= dma_idle;
 					end if;
 				when dma_acknowledged =>
-					dma_bus_out_request <= '0';
 					gpib_to_host_dma_state <= dma_waiting_for_idle;
+					dma_bus_out_buffer <= gpib_to_host_byte;
+					do_pulse_gpib_to_host_byte_read := true;
 				when dma_waiting_for_idle =>
-					dma_bus_out_buffer <= (others => 'Z');
-					if to_X01(dma_bus_in_ack_inverted) = '1' then
+					dma_bus_out_request <= '0';
+					if dma_read_selected = '0' then
 						gpib_to_host_dma_state <= dma_idle;
 					end if;
 			end case;
@@ -1004,6 +1004,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 							-- TODO
 						when "011" => -- parallel poll register
 							lpe <= not write_data(4);
+							local_parallel_poll_config <= lpe;
 							local_parallel_poll_sense <= write_data(3);
 							local_parallel_poll_response_line <= write_data(2 downto 0);
 						when "100" => -- aux A register
@@ -1066,7 +1067,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			dma_bus_in_request <= '0';
 			RFD_holdoff_immediately_pulse <= '0';
 			release_RFD_holdoff_pulse <= '0';
-			trigger_aux_command_pulse <= '1';
+			trigger_aux_command_pulse <= '0';
 			clear_rtl := false;
 		end if;
 		if rising_edge(clock) then
@@ -1090,22 +1091,22 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			case host_to_gpib_dma_state is
 				when dma_idle =>
 					dma_bus_in_request <= '0';
-					if (DMA_output_enable = '1' and host_to_gpib_data_byte_latched = '0') then
+					if DMA_output_enable = '1' and host_to_gpib_data_byte_latched = '0' then
 						host_to_gpib_dma_state <= dma_requesting;
 					end if;
 				when dma_requesting =>
 					dma_bus_in_request <= '1';
-					if to_X01(dma_bus_in_ack_inverted) = '0' and to_X01(dma_write_inverted) = '0'then
+					if dma_write_selected = '1' then
 						host_to_gpib_dma_state <= dma_acknowledged;
 					elsif DMA_output_enable = '0' then
 						host_to_gpib_dma_state <= dma_idle;
 					end if;
 				when dma_acknowledged =>
 					write_host_to_gpib_data_byte(dma_bus_in);
-					dma_bus_in_request <= '0';
 					host_to_gpib_dma_state <= dma_waiting_for_idle;
 				when dma_waiting_for_idle =>
-					if to_X01(dma_bus_in_ack_inverted) = '1' then
+					dma_bus_in_request <= '0';
+					if dma_write_selected = '0' then
 						host_to_gpib_dma_state <= dma_idle;
 					end if;
 			end case;
@@ -1149,8 +1150,12 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			local_STB <= (others => '0');
 			rsv <= '0';
 			lon <= '0';
-			ton <= '0';
+			lpe <= '0';
+			ltn <= '0';
+			lun <= '0';
 			rtl <= '0';
+			tcs <= '0';
+			ton <= '0';
 			transmit_receive_mode <= "00";
 			address_mode <= "00";
 			ultra_fast_T1_delay <= '0';
@@ -1168,8 +1173,11 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 			parallel_poll_flag <= '0';
 			use_SRQS_as_ist <= '0';
 			host_to_gpib_auto_EOI_on_EOS <= '0';
-			configured_eos_character <= X"00";
-			
+			configured_eos_character <= (others => '0');
+			local_parallel_poll_config <= '0';
+			local_parallel_poll_sense <= '0';
+			local_parallel_poll_response_line <= (others => '0');
+
 			-- imr0 enables
 			ATN_interrupt_enable <= '0';
 			IFC_interrupt_enable <= '0';
@@ -1243,7 +1251,6 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	talk_enable_buffer <= '1' when talker_state_p1 = TACS or talker_state_p1 = SPAS or 
 			controller_state_p1 = CACS else
 		'0';
-	talk_enable <= talk_enable_buffer;
 	
 	controller_in_charge_buffer <= '0' when controller_state_p1 = CIDS or controller_state_p1 = CADS else '1';
 	not_controller_in_charge <= not controller_in_charge_buffer;

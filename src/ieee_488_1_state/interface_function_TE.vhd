@@ -153,6 +153,9 @@ begin
 				if source_handshake_state'EVENT and source_handshake_state = SDYS then  
 					END_msg <= host_to_gpib_data_byte_end;
 				end if;
+				if source_handshake_state /= SDYS and source_handshake_state /= STRS then
+					END_msg <= 'L';
+				end if;
 				RQS <= 'L';
 				NUL <= 'L';
 			when SPAS =>
