@@ -60,7 +60,8 @@ architecture behav of integrated_interface_functions_testbench is
 	signal RFD_holdoff_mode : RFD_holdoff_enum;
 	signal RFD_holdoff_immediately_pulse : std_logic;
 	signal release_RFD_holdoff_pulse : std_logic;
-
+	signal host_to_gpib_auto_EOI_on_EOS : std_logic;
+	
 	signal ist : std_logic;
 	signal lon : std_logic;	
 	signal lpe : std_logic;
@@ -138,6 +139,7 @@ architecture behav of integrated_interface_functions_testbench is
 			host_to_gpib_data_byte_end => host_to_gpib_data_byte_end,
 			host_to_gpib_data_byte_write => host_to_gpib_data_byte_write,
 			host_to_gpib_data_byte_latched => host_to_gpib_data_byte_latched,
+			host_to_gpib_auto_EOI_on_EOS => host_to_gpib_auto_EOI_on_EOS,
 			device_clear_state => device_clear_state,
 			source_handshake_state => source_handshake_state,
 			parallel_poll_state_p1 => parallel_poll_state_p1,
@@ -286,6 +288,7 @@ architecture behav of integrated_interface_functions_testbench is
 		host_to_gpib_data_byte <= X"00";
 		host_to_gpib_data_byte_end <= '0';
 		host_to_gpib_data_byte_write <= '0'; 
+		host_to_gpib_auto_EOI_on_EOS <= '0';
 		ist <= '0';
 		lon <= '0';
 		lpe <= '0';
