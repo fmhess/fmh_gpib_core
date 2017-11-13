@@ -22,7 +22,7 @@ entity gpib_control_debounce_filter is
 		-- inputs are latched on rising and falling edge of input_clock
 		input_clock : in std_logic;
 		-- outputs are updated on rising edge of output_clock
-		output_clock : out std_logic;
+		output_clock : in std_logic;
 		inputs : in std_logic_vector(num_inputs - 1 downto 0);
 		outputs : out std_logic_vector(num_inputs - 1 downto 0)
 	); 
