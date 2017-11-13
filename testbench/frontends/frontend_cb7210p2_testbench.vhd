@@ -47,7 +47,6 @@ architecture behav of frontend_cb7210p2_testbench is
 	signal tr2 : std_logic;
 	signal tr3 : std_logic;
 	signal interrupt : std_logic;
-	signal dma_request : std_logic;
 	signal host_data_bus : std_logic_vector(7 downto 0);
 	signal pullup_disable : std_logic;
 	signal talk_enable : std_logic;

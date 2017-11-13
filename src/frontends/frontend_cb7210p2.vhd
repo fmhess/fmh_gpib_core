@@ -200,6 +200,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal parallel_poll_flag : std_logic;
 	signal use_SRQS_as_ist : std_logic;
 	signal host_to_gpib_auto_EOI_on_EOS : std_logic;
+	signal end_interrupt_condition : std_logic;
 	
 	signal talk_enable_buffer : std_logic;
 	signal controller_in_charge_buffer : std_logic;
@@ -427,6 +428,8 @@ begin
 		variable prev_in_TIDS : std_logic;
 		variable prev_LADS_or_LACS : std_logic;
 		variable prev_controller_in_charge : std_logic;
+		variable prev_rdy : std_logic;
+		variable prev_end_interrupt_condition : std_logic;
 		
 		-- process a read from the host
 		procedure host_read_register (page : in std_logic_vector(3 downto 0);
@@ -732,6 +735,8 @@ begin
 			prev_in_TIDS := '1';
 			prev_LADS_or_LACS := '0';
 			prev_controller_in_charge := '0';
+			prev_rdy := '1';
+			prev_end_interrupt_condition := '0';
 		
 			do_pulse_gpib_to_host_byte_read := false;
 			handle_soft_reset;
@@ -801,19 +806,22 @@ begin
 				DO_interrupt <= '0';
 			end if;
 
-			if to_X01(rdy) = '0' then
-				if prev_acceptor_handshake_state /= ACDS and acceptor_handshake_state = ACDS and listener_state_p1 = LACS then
+			-- FIXME suppress DI interrupts in continuous mode
+			if rdy = '0' and prev_rdy = '1' then
+				if acceptor_handshake_state = ACDS and listener_state_p1 = LACS then
 					DI_interrupt <= '1';
 				end if;
-			else
+			end if;
+			if rdy = '1' then
 				DI_interrupt <= '0';
 			end if;
 
-			if to_X01(gpib_to_host_byte_end or (generate_END_interrupt_on_EOS and gpib_to_host_byte_eos)) = '1' then
-				if prev_acceptor_handshake_state /= ACDS and acceptor_handshake_state = ACDS and listener_state_p1 = LACS then
+			if end_interrupt_condition = '1' and prev_end_interrupt_condition = '0' then
+				if acceptor_handshake_state = ACDS and listener_state_p1 = LACS then
 					END_interrupt <= '1';
 				end if;
-			else
+			end if;
+			if end_interrupt_condition = '0' then
 				END_interrupt <= '0';
 			end if;
 
@@ -884,11 +892,15 @@ begin
 			prev_in_TIDS := in_TIDS;
 			prev_LADS_or_LACS := LADS_or_LACS;
 			prev_controller_in_charge := controller_in_charge_buffer;
-
+			prev_rdy := rdy;
+			prev_end_interrupt_condition := end_interrupt_condition;
+			
 			handle_soft_reset;
 		end if;
 	end process;
-
+		
+	end_interrupt_condition <= gpib_to_host_byte_end or (generate_END_interrupt_on_EOS and gpib_to_host_byte_eos);
+	
 	-- accept writes from host
 	process (hard_reset, clock)
 		variable do_pulse_host_to_gpib_data_byte_write : boolean;

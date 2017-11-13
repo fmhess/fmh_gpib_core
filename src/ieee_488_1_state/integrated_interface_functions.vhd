@@ -521,8 +521,8 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			if prev_acceptor_handshake_state /= ACDS and 
 				acceptor_handshake_state_buffer = ACDS and
 				to_bit(ATN) = '0' then
+					rdy_buffer <= '0';
 					if RFD_holdoff_mode /= continuous_mode then
-						rdy_buffer <= '0';
 						gpib_to_host_byte <= not bus_DIO_inverted_in;
 						gpib_to_host_byte_end <= END_msg;
 						gpib_to_host_byte_eos <= EOS;
@@ -542,7 +542,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 					end case;
 			end if;
 			if to_X01(gpib_to_host_byte_read) = '1' then
-				rdy_buffer <= '1';
+				rdy_buffer <= '1'; --FIXME make sure we don't get stuck in ACDS.  Also, continuous mode needs to auto set rdy_buffer
 			end if;
 			if to_X01(release_RFD_holdoff_pulse) = '1' then
 				RFD_holdoff <= '0';
