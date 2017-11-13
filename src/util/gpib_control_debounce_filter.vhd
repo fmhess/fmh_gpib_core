@@ -12,6 +12,8 @@ entity gpib_control_debounce_filter is
 	generic( 
 		num_inputs : integer := 8;
 		-- length is number of historical input values we remember for calculating outputs
+		-- should be an even number since we save input values on rising and falling clock
+		-- edges.
 		length : integer := 12;
 		-- if the number of historical values of an input differing from the current output meet the threshold, 
 		-- the output changes to match.
@@ -29,23 +31,33 @@ entity gpib_control_debounce_filter is
 end gpib_control_debounce_filter;
  
 architecture arch of gpib_control_debounce_filter is
-	type inputs_history_type is array (length - 1 downto 0) of std_logic_vector(num_inputs - 1 downto 0);
-	signal inputs_history : inputs_history_type;
+	constant half_length : integer := length / 2;
+	type inputs_history_type is array (half_length - 1 downto 0) of std_logic_vector(num_inputs - 1 downto 0);
+	-- we split inputs history into rising and falling because quartus has problems
+	-- with signals getting written to on both rising and falling clock edges.
+	signal rising_inputs_history : inputs_history_type;
+	signal falling_inputs_history : inputs_history_type;
 	signal outputs_buffer : std_logic_vector(num_inputs - 1 downto 0);
 begin
 	process (reset, input_clock)
 	begin
 		if to_X01(reset) = '1' then
-			for i in 0 to length - 1 loop
+			for i in 0 to half_length - 1 loop
 				for j in 0 to num_inputs - 1 loop
-					inputs_history(i)(j) <= '1';
+					rising_inputs_history(i)(j) <= '1';
+					falling_inputs_history(i)(j) <= '1';
 				end loop;
 			end loop;
-		elsif rising_edge(input_clock) or falling_edge(input_clock) then
-			for i in length - 1 downto 1 loop
-				inputs_history(i) <= inputs_history(i - 1);
+		elsif rising_edge(input_clock) then
+			for i in half_length - 1 downto 1 loop
+				rising_inputs_history(i) <= rising_inputs_history(i - 1);
 			end loop;
-			inputs_history(0) <= to_X01(inputs);
+			rising_inputs_history(0) <= to_X01(inputs);
+		elsif falling_edge(input_clock) then
+			for i in half_length - 1 downto 1 loop
+				falling_inputs_history(i) <= falling_inputs_history(i - 1);
+			end loop;
+			falling_inputs_history(0) <= to_X01(inputs);
 		end if;
 	end process;
 	
@@ -57,8 +69,11 @@ begin
 		elsif rising_edge(output_clock) then
 			for j in 0 to num_inputs - 1 loop
 				input_sum := 0;
-				for i in 0 to length - 1 loop
-					if inputs_history(i)(j) = '1' then
+				for i in 0 to half_length - 1 loop
+					if rising_inputs_history(i)(j) = '1' then
+						input_sum := input_sum + 1;
+					end if;
+					if falling_inputs_history(i)(j) = '1' then
 						input_sum := input_sum + 1;
 					end if;
 				end loop;
