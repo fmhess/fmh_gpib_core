@@ -35,7 +35,7 @@ architecture interface_function_SH_arch of interface_function_SH is
  
 	signal interrupt : boolean;
 	signal active : boolean;
-	signal T1_current_count : unsigned range 0 to T1_terminal_count'HIGH;
+	signal T1_current_count : unsigned(T1_terminal_count'LENGTH - 1 downto 0);
 	signal T1_counter_done : boolean;
 	signal first_cycle : boolean; -- we are on the first transfer since leaving SIDS
 	-- used to insure we only report no listeners one time during SDYS
