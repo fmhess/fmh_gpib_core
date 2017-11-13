@@ -8,17 +8,17 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 use work.interface_function_common.all;
-use work.remote_message_decoder.all;
-use work.interface_function_AH.all;
-use work.interface_function_C.all;
-use work.interface_function_DC.all;
-use work.interface_function_DT.all;
-use work.interface_function_LE.all;
-use work.interface_function_PP.all;
-use work.interface_function_RL.all;
-use work.interface_function_SH.all;
-use work.interface_function_SR.all;
-use work.interface_function_TE.all;
+use work.remote_message_decoder;
+use work.interface_function_AH;
+use work.interface_function_C;
+use work.interface_function_DC;
+use work.interface_function_DT;
+use work.interface_function_LE;
+use work.interface_function_PP;
+use work.interface_function_RL;
+use work.interface_function_SH;
+use work.interface_function_SR;
+use work.interface_function_TE;
 
 entity integrated_interface_functions is
 	generic(
@@ -112,6 +112,7 @@ end integrated_interface_functions;
  
 architecture integrated_interface_functions_arch of integrated_interface_functions is
 	signal nba : std_logic;
+	signal rdy_buffer : std_logic;
 	signal internal_host_to_gpib_data_byte_latched : std_logic;
 	signal internal_host_to_gpib_data_byte : std_logic_vector(7 downto 0);
 	signal internal_host_to_gpib_data_byte_end : std_logic;
@@ -286,7 +287,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			ATN => ATN,
 			DAV => DAV,
 			pon => pon,
-			rdy => rdy,
+			rdy => rdy_buffer,
 			tcs => tcs,
 			RFD_holdoff => RFD_holdoff,
 			acceptor_handshake_state => acceptor_handshake_state_buffer,
@@ -521,7 +522,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	process(pon, clock, acceptor_handshake_state_buffer) 
 	begin
 		if to_bit(pon) = '1' then
-			rdy <= '1';
+			rdy_buffer <= '1';
 			gpib_to_host_byte <= X"00";
 			gpib_to_host_byte_end <= '0';
 			gpib_to_host_byte_eos <= '0';
@@ -531,7 +532,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 				acceptor_handshake_state_buffer = ACDS and
 				to_bit(ATN) = '0' then
 					if RFD_holdoff_mode /= continuous_mode then
-						rdy <= '0';
+						rdy_buffer <= '0';
 						gpib_to_host_byte <= not bus_DIO_inverted_in;
 						gpib_to_host_byte_end <= END_msg;
 						gpib_to_host_byte_eos <= EOS;
@@ -552,7 +553,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			end if;
 			if rising_edge(clock) then
 				if to_X01(gpib_to_host_byte_read) = '1' then
-					rdy <= '1';
+					rdy_buffer <= '1';
 				end if;
 				if to_X01(release_RFD_holdoff_pulse) = '1' then
 					RFD_holdoff <= '0';
@@ -614,4 +615,5 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 		end if;
 	end process;
 	
+	rdy <= rdy_buffer;
 end integrated_interface_functions_arch;
