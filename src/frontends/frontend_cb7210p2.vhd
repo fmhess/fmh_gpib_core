@@ -1137,8 +1137,7 @@ begin
 			trigger_aux_command_pulse <= '0';
 			clear_rtl := false;
 			handle_soft_reset;
-		end if;
-		if rising_edge(clock) then
+		elsif rising_edge(clock) then
 			-- host write_to bus state machine
 			case host_write_to_bus_state is
 				when host_io_idle =>
