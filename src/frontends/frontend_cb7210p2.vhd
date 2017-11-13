@@ -391,10 +391,17 @@ begin
 			soft_reset <= '1';
 			pon <= '1';
 		elsif soft_reset_pulse = '1' then
+			hard_reset <= hard_reset;
 			soft_reset <= '1';
 			pon <= '1';
 		elsif pon_pulse = '1' then
+			hard_reset <= hard_reset;
+			soft_reset <= soft_reset;
 			pon <= '1';
+		else
+			hard_reset <= hard_reset;
+			soft_reset <= soft_reset;
+			pon <= pon;
 		end if;
 		if falling_edge(clock) then
 			if to_X01(reset) = '0' then
