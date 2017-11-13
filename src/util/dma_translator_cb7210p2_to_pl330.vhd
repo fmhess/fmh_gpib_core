@@ -23,7 +23,7 @@ entity dma_translator_cb7210p2_to_pl330 is
 	);
 end dma_translator_cb7210p2_to_pl330;
 
-architecture default of dma_translator_cb7210p2_to_pl330 is
+architecture arch of dma_translator_cb7210p2_to_pl330 is
 
 	type dma_transfer_state_enum is (transfer_idle,
 		slave_requesting,
@@ -83,4 +83,4 @@ begin
 	cb7210p2_dma_read_inverted <= pl330_dma_rd_inverted or pl330_dma_cs_inverted;
 	cb7210p2_dma_write_inverted <= pl330_dma_wr_inverted or pl330_dma_cs_inverted;
 	pl330_dma_req <= pl330_dma_req_buffer;
-end architecture default;
+end architecture arch;

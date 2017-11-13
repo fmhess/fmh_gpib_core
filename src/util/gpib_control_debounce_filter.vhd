@@ -28,7 +28,7 @@ entity gpib_control_debounce_filter is
 	); 
 end gpib_control_debounce_filter;
  
-architecture default of gpib_control_debounce_filter is
+architecture arch of gpib_control_debounce_filter is
 	type inputs_history_type is array (length - 1 downto 0) of std_logic_vector(num_inputs - 1 downto 0);
 	signal inputs_history : inputs_history_type;
 	signal outputs_buffer : std_logic_vector(num_inputs - 1 downto 0);
@@ -66,4 +66,4 @@ begin
 	end process;
 	
 	outputs <= outputs_buffer;
-end architecture default;
+end architecture arch;
