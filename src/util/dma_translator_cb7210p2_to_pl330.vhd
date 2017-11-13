@@ -25,18 +25,18 @@ end dma_translator_cb7210p2_to_pl330;
 
 architecture default of dma_translator_cb7210p2_to_pl330 is
 
-type dma_transfer_state_enum is (transfer_idle,
-	slave_requesting,
-	wait_for_cb7210p2_request_to_clear,
-	transfer_awaiting_completion);
-signal dma_transfer_state : dma_transfer_state_enum;
-
+	type dma_transfer_state_enum is (transfer_idle,
+		slave_requesting,
+		wait_for_cb7210p2_request_to_clear,
+		transfer_awaiting_completion);
+	signal dma_transfer_state : dma_transfer_state_enum;
+	signal pl330_dma_req_buffer : std_logic;
 begin
 	process (reset, clock)
 	begin
 		if to_X01(reset) = '1' then
 			dma_transfer_state <= transfer_idle;
-			pl330_dma_req <= '0';
+			pl330_dma_req_buffer <= '0';
 			pl330_dma_single <= '0';
 			cb7210p2_dma_ack_inverted <= '1';
 		elsif rising_edge(clock) then
@@ -45,7 +45,7 @@ begin
 					if (cb7210p2_dma_in_request or cb7210p2_dma_out_request) = '1' then
 						dma_transfer_state <= slave_requesting;
 					end if;
-					pl330_dma_req <= '0';
+					pl330_dma_req_buffer <= '0';
 					pl330_dma_single <= '0';
 					cb7210p2_dma_ack_inverted <= '1';
 				when slave_requesting =>
@@ -69,12 +69,12 @@ begin
 						dma_transfer_state <= transfer_awaiting_completion;
 					end if;
 				when transfer_awaiting_completion =>
-					pl330_dma_req <= '1';
-					if to_X01(pl330_dma_ack) = '1' and pl330_dma_req = '1' then
+					pl330_dma_req_buffer <= '1';
+					if to_X01(pl330_dma_ack) = '1' and pl330_dma_req_buffer = '1' then
 						dma_transfer_state <= transfer_idle;
 						-- need to clear req immediately after seeing ack so bus doesn't think we are doing 
 						-- back to back transfers
-						pl330_dma_req <= '0';
+						pl330_dma_req_buffer <= '0';
 					end if;
 			end case;
 		end if;
@@ -82,5 +82,5 @@ begin
 
 	cb7210p2_dma_read_inverted <= pl330_dma_rd_inverted or pl330_dma_cs_inverted;
 	cb7210p2_dma_write_inverted <= pl330_dma_wr_inverted or pl330_dma_cs_inverted;
-	
+	pl330_dma_req <= pl330_dma_req_buffer;
 end architecture default;
