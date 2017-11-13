@@ -54,7 +54,7 @@ begin
 	begin
 		if to_X01(reset) = '1' then
 			outputs_buffer <= (others => '1');
-		elsif rising_edge(input_clock) or falling_edge(input_clock) then
+		elsif rising_edge(output_clock) then
 			for j in 0 to num_inputs - 1 loop
 				input_sum := 0;
 				for i in 0 to length - 1 loop
