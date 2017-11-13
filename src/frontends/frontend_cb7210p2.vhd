@@ -33,7 +33,7 @@ library IEEE;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 use work.interface_function_common.all;
-use work.integrated_interface_functions.all;
+use work.integrated_interface_functions;
 
 entity frontend_cb7210p2 is
 	generic(
