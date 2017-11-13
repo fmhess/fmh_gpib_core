@@ -70,8 +70,11 @@ begin
 					end if;
 				when transfer_awaiting_completion =>
 					pl330_dma_req <= '1';
-					if to_X01(pl330_dma_ack) = '1' then
+					if to_X01(pl330_dma_ack) = '1' and pl330_dma_req = '1' then
 						dma_transfer_state <= transfer_idle;
+						-- need to clear req immediately after seeing ack so bus doesn't think we are doing 
+						-- back to back transfers
+						pl330_dma_req <= '0';
 					end if;
 			end case;
 		end if;
