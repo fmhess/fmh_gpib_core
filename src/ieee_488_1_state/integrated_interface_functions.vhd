@@ -170,6 +170,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	signal local_RQS : std_logic;
 	signal local_SRQ : std_logic;
 	signal local_IDY : std_logic;
+	signal local_EOI : std_logic;
 	signal talker_NUL_buffer : std_logic;
 	signal controller_NUL_buffer : std_logic;
 	signal local_NUL : std_logic;
@@ -201,26 +202,6 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	signal parallel_poll_sense : std_logic;
 	signal parallel_poll_response_line : std_logic_vector(2 downto 0);
 
-	function not_passive_low (mysignal : in std_logic) return boolean is
-	begin
-		case mysignal is
-			when '1' => return true;
-			when '0' => return true;
-			when 'H' => return true;
-			when others => return false;
-		end case;
-	end not_passive_low;
-
-	function not_passive_high (mysignal : in std_logic) return boolean is
-	begin
-		case mysignal is
-			when '1' => return true;
-			when '0' => return true;
-			when 'L' => return true;
-			when others => return false;
-		end case;
-	end not_passive_high;
-	
 	begin
 	my_decoder: entity work.remote_message_decoder 
 		port map (
@@ -482,28 +463,35 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	
 	host_to_gpib_data_byte_latched <= internal_host_to_gpib_data_byte_latched;
 
-	local_NUL <= talker_NUL_buffer or controller_NUL_buffer;
+	local_NUL <= talker_NUL_buffer;
+	local_NUL <= controller_NUL_buffer;
+
+	local_EOI <= local_END;
+	local_EOI <= local_IDY;
 	
 	status_byte_buffer(7) <= not local_STB(7); 
 	status_byte_buffer(6) <= not local_RQS; 
 	status_byte_buffer(5 downto 0) <= not local_STB(5 downto 0);
 
 	bus_ATN_inverted_out <= not local_ATN when
-		not_passive_low(local_ATN) else 'Z';
+		controller_state_p1_buffer /= CIDS and controller_state_p1_buffer /= CADS else 'Z';
 	bus_DAV_inverted_out <= not local_DAV when
-		not_passive_low(local_DAV) else 'Z';
-	bus_EOI_inverted_out <= not (local_END or local_IDY) when
-		talker_state_p1_buffer = TACS or not_passive_low(local_IDY) else 'Z';
+		source_handshake_state_buffer /= SIDS and source_handshake_state_buffer /= SIWS else 'Z';
+	bus_EOI_inverted_out <= not (local_EOI) when
+		talker_state_p1_buffer = TACS or 
+		(
+			controller_state_p1_buffer /= CIDS and 
+			controller_state_p1_buffer /= CADS and 
+			controller_state_p1_buffer /= CSBS and 
+			controller_state_p1_buffer /= CSHS 
+		) else 'Z';
 	bus_IFC_inverted_out <= not local_IFC when
-		not_passive_low(local_IFC) else 'Z';
-	bus_NDAC_inverted_out <= to_X0Z(local_DAC) when
-		not_passive_high(local_DAC) else 'Z';
-	bus_NRFD_inverted_out <= to_X0Z(local_RFD) when 
-		not_passive_high(local_RFD) else 'Z';
+		controller_state_p5_buffer /= SIIS else 'Z';
+	bus_NDAC_inverted_out <= to_X0Z(local_DAC);
+	bus_NRFD_inverted_out <= to_X0Z(local_RFD);
 	bus_REN_inverted_out <= not local_REN when
-		not_passive_low(local_REN) else 'Z';
-	bus_SRQ_inverted_out <= to_X0Z(not local_SRQ) when
-		not_passive_low(local_SRQ) else 'Z';
+		controller_state_p4_buffer /= SRIS else 'Z';
+	bus_SRQ_inverted_out <= to_X0Z(not local_SRQ);
 	bus_DIO_inverted_out_buffer <=  
 		not internal_host_to_gpib_data_byte when 
 			(source_handshake_state_buffer = SDYS or source_handshake_state_buffer = STRS) and
@@ -519,7 +507,8 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	bus_DIO_inverted_out <= bus_DIO_inverted_out_buffer;
 
 	-- deal with byte read by host from gpib bus
-	process(pon, clock, acceptor_handshake_state_buffer) 
+	process(pon, clock) 
+		variable prev_acceptor_handshake_state : AH_state;
 	begin
 		if to_bit(pon) = '1' then
 			rdy_buffer <= '1';
@@ -527,8 +516,9 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			gpib_to_host_byte_end <= '0';
 			gpib_to_host_byte_eos <= '0';
 			RFD_holdoff <= '0';
-		else
-			if acceptor_handshake_state_buffer'EVENT and 
+			prev_acceptor_handshake_state := AIDS;
+		elsif rising_edge(clock) then
+			if prev_acceptor_handshake_state /= ACDS and 
 				acceptor_handshake_state_buffer = ACDS and
 				to_bit(ATN) = '0' then
 					if RFD_holdoff_mode /= continuous_mode then
@@ -551,48 +541,48 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 							end if;
 					end case;
 			end if;
-			if rising_edge(clock) then
-				if to_X01(gpib_to_host_byte_read) = '1' then
-					rdy_buffer <= '1';
-				end if;
-				if to_X01(release_RFD_holdoff_pulse) = '1' then
-					RFD_holdoff <= '0';
-				end if;
-				if to_X01(RFD_holdoff_immediately_pulse) = '1' then
-					RFD_holdoff <= '1';
-				end if;
+			if to_X01(gpib_to_host_byte_read) = '1' then
+				rdy_buffer <= '1';
 			end if;
+			if to_X01(release_RFD_holdoff_pulse) = '1' then
+				RFD_holdoff <= '0';
+			end if;
+			if to_X01(RFD_holdoff_immediately_pulse) = '1' then
+				RFD_holdoff <= '1';
+			end if;
+			prev_acceptor_handshake_state := acceptor_handshake_state_buffer;
 		end if;
 	end process;
 
 	-- deal with byte written by host to gpib bus
-	process(pon, clock, source_handshake_state_buffer) 
+	process(pon, clock)
+		variable prev_source_handshake_state  : SH_state;
 	begin
 		if to_bit(pon) = '1' then
 			internal_host_to_gpib_data_byte_latched <= '0';
 			internal_host_to_gpib_data_byte <= X"00";
 			internal_host_to_gpib_data_byte_end <= '0';
-		else
-			if source_handshake_state_buffer'EVENT and 
+			prev_source_handshake_state := SIDS;
+		elsif rising_edge(clock) then
+			if prev_source_handshake_state /= STRS and 
 				source_handshake_state_buffer = STRS and
 				to_bit(ATN) = '0' then
 					internal_host_to_gpib_data_byte_latched <= '0';
 			end if;
-			if rising_edge(clock) then
-				if device_clear_state_buffer = DCAS then
-					internal_host_to_gpib_data_byte_latched <= '0';
-				elsif to_bit(host_to_gpib_data_byte_write) = '1' then
-					internal_host_to_gpib_data_byte <= host_to_gpib_data_byte;
-					if host_to_gpib_data_byte_end = '1' or
-						(host_to_gpib_auto_EOI_on_EOS = '1' and 
-						EOS_match(internal_host_to_gpib_data_byte, configured_eos_character, ignore_eos_bit_7)) then
-						internal_host_to_gpib_data_byte_end <= '1';
-					else
-						internal_host_to_gpib_data_byte_end <= '0';
-					end if;
-					internal_host_to_gpib_data_byte_latched <= '1';
+			if device_clear_state_buffer = DCAS then
+				internal_host_to_gpib_data_byte_latched <= '0';
+			elsif to_bit(host_to_gpib_data_byte_write) = '1' then
+				internal_host_to_gpib_data_byte <= host_to_gpib_data_byte;
+				if host_to_gpib_data_byte_end = '1' or
+					(host_to_gpib_auto_EOI_on_EOS = '1' and 
+					EOS_match(internal_host_to_gpib_data_byte, configured_eos_character, ignore_eos_bit_7)) then
+					internal_host_to_gpib_data_byte_end <= '1';
+				else
+					internal_host_to_gpib_data_byte_end <= '0';
 				end if;
+				internal_host_to_gpib_data_byte_latched <= '1';
 			end if;
+			prev_source_handshake_state := source_handshake_state_buffer;
 		end if;
 	end process;
 
