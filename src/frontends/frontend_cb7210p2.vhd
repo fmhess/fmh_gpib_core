@@ -691,6 +691,33 @@ begin
 				when others =>
 			end case;
 		end host_read_register;
+
+		procedure handle_soft_reset is
+		begin
+			if soft_reset = '1' then
+				-- isr0 interrupts
+				ATN_interrupt <= '0';
+				IFC_interrupt <= '0';
+				-- isr1 interrupts
+				DI_interrupt <= '0';
+				DO_interrupt <= '0';
+				ERR_interrupt <= '0';
+				DEC_interrupt <= '0';
+				END_interrupt <= '0';
+				DET_interrupt <= '0';
+				APT_interrupt <= '0';
+				CPT_interrupt <= '0';
+				-- isr2 interrupts
+				ADSC_interrupt <= '0';
+				REMC_interrupt <= '0';
+				LOKC_interrupt <= '0';
+				CO_interrupt <= '0';
+				SRQ_interrupt <= '0';
+
+				check_for_listeners <= '1';
+			end if;
+		end handle_soft_reset;
+	
 	begin
 		if hard_reset = '1' then
 			host_read_from_bus_state <= host_io_idle;
@@ -699,18 +726,19 @@ begin
 			dma_bus_out_request <= '0';
 			dma_bus_out_buffer <= (others => 'Z');
 
-			prev_acceptor_handshake_state := acceptor_handshake_state;
-			prev_controller_state_p2 := controller_state_p2;
-			prev_source_handshake_state := source_handshake_state;
-			prev_in_remote_state := in_remote_state;
-			prev_in_lockout_state := in_lockout_state;
-			prev_ATN_inverted := bus_ATN_inverted_in;
-			prev_IFC_inverted := bus_IFC_inverted_in;
-			prev_in_TIDS := in_TIDS;
-			prev_LADS_or_LACS := LADS_or_LACS;
-			prev_controller_in_charge := controller_in_charge_buffer;
+			prev_acceptor_handshake_state := AIDS;
+			prev_controller_state_p2 := CSNS;
+			prev_source_handshake_state := SIDS;
+			prev_in_remote_state := '0';
+			prev_in_lockout_state := '0';
+			prev_ATN_inverted := '0';
+			prev_IFC_inverted := '0';
+			prev_in_TIDS := '1';
+			prev_LADS_or_LACS := '0';
+			prev_controller_in_charge := '0';
 		
 			do_pulse_gpib_to_host_byte_read := false;
+			handle_soft_reset;
 		elsif rising_edge(clock) then
 			-- host read from bus state machine
 			case host_read_from_bus_state is
@@ -861,28 +889,7 @@ begin
 			prev_LADS_or_LACS := LADS_or_LACS;
 			prev_controller_in_charge := controller_in_charge_buffer;
 
-		end if;
-		if soft_reset = '1' then
-			-- isr0 interrupts
-			ATN_interrupt <= '0';
-			IFC_interrupt <= '0';
-			-- isr1 interrupts
-			DI_interrupt <= '0';
-			DO_interrupt <= '0';
-			ERR_interrupt <= '0';
-			DEC_interrupt <= '0';
-			END_interrupt <= '0';
-			DET_interrupt <= '0';
-			APT_interrupt <= '0';
-			CPT_interrupt <= '0';
-			-- isr2 interrupts
-			ADSC_interrupt <= '0';
-			REMC_interrupt <= '0';
-			LOKC_interrupt <= '0';
-			CO_interrupt <= '0';
-			SRQ_interrupt <= '0';
-
-			check_for_listeners <= '1';
+			handle_soft_reset;
 		end if;
 	end process;
 
@@ -1056,6 +1063,66 @@ begin
 			end case;
 		end host_write_register;
 		
+		procedure handle_soft_reset is
+		begin
+			if soft_reset = '1' then
+				
+				local_STB <= (others => '0');
+				rsv <= '0';
+				lon <= '0';
+				lpe <= '0';
+				ltn <= '0';
+				lun <= '0';
+				rtl <= '0';
+				tcs <= '0';
+				ton <= '0';
+				transmit_receive_mode <= "00";
+				address_mode <= "00";
+				ultra_fast_T1_delay <= '0';
+				high_speed_T1_delay <= '0';
+				gpib_address_0 <= (others => '0');
+				enable_talker_gpib_address_0 <= '0';
+				enable_listener_gpib_address_0 <= '0';
+				gpib_address_1 <= (others => '0');
+				enable_talker_gpib_address_1 <= '0';
+				enable_listener_gpib_address_1 <= '0';
+				host_to_gpib_data_byte_write <= '0';
+				send_eoi := '0';
+				invert_interrupt <= '0';
+				ignore_eos_bit_7 <= '0';
+				parallel_poll_flag <= '0';
+				use_SRQS_as_ist <= '0';
+				host_to_gpib_auto_EOI_on_EOS <= '0';
+				configured_eos_character <= (others => '0');
+				local_parallel_poll_config <= '0';
+				local_parallel_poll_sense <= '0';
+				local_parallel_poll_response_line <= (others => '0');
+
+				-- imr0 enables
+				ATN_interrupt_enable <= '0';
+				IFC_interrupt_enable <= '0';
+				--imr1 enables
+				DI_interrupt_enable <= '0';
+				DO_interrupt_enable <= '0';
+				ERR_interrupt_enable <= '0';
+				DEC_interrupt_enable <= '0';
+				END_interrupt_enable <= '0';
+				DET_interrupt_enable <= '0';
+				APT_interrupt_enable <= '0';
+				CPT_interrupt_enable <= '0';
+				--imr2 enables
+				ADSC_interrupt_enable <= '0';
+				REMC_interrupt_enable <= '0';
+				LOKC_interrupt_enable <= '0';
+				CO_interrupt_enable <= '0';
+				DMA_input_enable <= '0';
+				DMA_output_enable <= '0';
+				SRQ_interrupt_enable <= '0';
+
+				generate_END_interrupt_on_EOS <= '0';
+				RFD_holdoff_mode <= holdoff_normal;
+			end if;
+		end handle_soft_reset;
 	begin
 
 		if hard_reset = '1' then
@@ -1069,6 +1136,7 @@ begin
 			release_RFD_holdoff_pulse <= '0';
 			trigger_aux_command_pulse <= '0';
 			clear_rtl := false;
+			handle_soft_reset;
 		end if;
 		if rising_edge(clock) then
 			-- host write_to bus state machine
@@ -1143,64 +1211,7 @@ begin
 			if host_write_to_bus_state = host_io_active or host_read_from_bus_state = host_io_active then
 				register_page <= (others => '0');
 			end if;
-		end if;
-		
-		if soft_reset = '1' then
-			
-			local_STB <= (others => '0');
-			rsv <= '0';
-			lon <= '0';
-			lpe <= '0';
-			ltn <= '0';
-			lun <= '0';
-			rtl <= '0';
-			tcs <= '0';
-			ton <= '0';
-			transmit_receive_mode <= "00";
-			address_mode <= "00";
-			ultra_fast_T1_delay <= '0';
-			high_speed_T1_delay <= '0';
-			gpib_address_0 <= (others => '0');
-			enable_talker_gpib_address_0 <= '0';
-			enable_listener_gpib_address_0 <= '0';
-			gpib_address_1 <= (others => '0');
-			enable_talker_gpib_address_1 <= '0';
-			enable_listener_gpib_address_1 <= '0';
-			host_to_gpib_data_byte_write <= '0';
-			send_eoi := '0';
-			invert_interrupt <= '0';
-			ignore_eos_bit_7 <= '0';
-			parallel_poll_flag <= '0';
-			use_SRQS_as_ist <= '0';
-			host_to_gpib_auto_EOI_on_EOS <= '0';
-			configured_eos_character <= (others => '0');
-			local_parallel_poll_config <= '0';
-			local_parallel_poll_sense <= '0';
-			local_parallel_poll_response_line <= (others => '0');
-
-			-- imr0 enables
-			ATN_interrupt_enable <= '0';
-			IFC_interrupt_enable <= '0';
-			--imr1 enables
-			DI_interrupt_enable <= '0';
-			DO_interrupt_enable <= '0';
-			ERR_interrupt_enable <= '0';
-			DEC_interrupt_enable <= '0';
-			END_interrupt_enable <= '0';
-			DET_interrupt_enable <= '0';
-			APT_interrupt_enable <= '0';
-			CPT_interrupt_enable <= '0';
-			--imr2 enables
-			ADSC_interrupt_enable <= '0';
-			REMC_interrupt_enable <= '0';
-			LOKC_interrupt_enable <= '0';
-			CO_interrupt_enable <= '0';
-			DMA_input_enable <= '0';
-			DMA_output_enable <= '0';
-			SRQ_interrupt_enable <= '0';
-
-			generate_END_interrupt_on_EOS <= '0';
-			RFD_holdoff_mode <= holdoff_normal;
+			handle_soft_reset;
 		end if;
 	end process;	
 
@@ -1338,29 +1349,35 @@ begin
 		'1' when service_request_state = SRQS else
 		'0';
 
-	process (hard_reset, clock, device_trigger_state)
+	process (hard_reset, clock)
+		variable prev_device_trigger_state : DT_state;
 	begin
 		if hard_reset = '1' then
 			entered_DTAS <= '0';
-		elsif device_trigger_state'EVENT and device_trigger_state = DTAS then
-			entered_DTAS <= '1';
+			prev_device_trigger_state := DTIS;
 		elsif rising_edge(clock) then
-			if entered_DTAS = '1' then
+			if prev_device_trigger_state /= DTAS and device_trigger_state = DTAS then
+				entered_DTAS <= '1';
+			else
 				entered_DTAS <= '0';
 			end if;
+			prev_device_trigger_state := device_trigger_state;
 		end if;
 	end process;
 
-	process (hard_reset, clock, device_clear_state)
+	process (hard_reset, clock)
+		variable prev_device_clear_state : DC_state;
 	begin
 		if hard_reset = '1' then
 			entered_DCAS <= '0';
-		elsif device_clear_state'EVENT and device_clear_state = DCAS then
-			entered_DCAS <= '1';
+			prev_device_clear_state := DCIS;
 		elsif rising_edge(clock) then
-			if entered_DCAS = '1' then
+			if prev_device_clear_state /= DCAS and device_clear_state = DCAS then
+				entered_DCAS <= '1';
+			else
 				entered_DCAS <= '0';
 			end if;
+			prev_device_clear_state := device_clear_state;
 		end if;
 	end process;
 end frontend_cb7210p2_arch;
