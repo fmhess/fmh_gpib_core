@@ -384,34 +384,23 @@ begin
 	-- falling clock edge, to avoid any potential metastability problems caused
 	-- by resets deasserting near rising clock edge.  Also deal with various types
 	-- of resets hard_reset -> soft_reset -> pon.
-	process (reset, soft_reset_pulse, pon_pulse, clock)
+	process (reset, clock)
 	begin
 		if to_X01(reset) = '1' then
 			hard_reset <= '1';
 			soft_reset <= '1';
 			pon <= '1';
-		elsif soft_reset_pulse = '1' then
-			hard_reset <= hard_reset;
-			soft_reset <= '1';
-			pon <= '1';
-		elsif pon_pulse = '1' then
-			hard_reset <= hard_reset;
-			soft_reset <= soft_reset;
-			pon <= '1';
-		else
-			hard_reset <= hard_reset;
-			soft_reset <= soft_reset;
-			pon <= pon;
-		end if;
-		if falling_edge(clock) then
-			if to_X01(reset) = '0' then
-				hard_reset <= '0';
-				if soft_reset_pulse = '0' then
-					soft_reset <= '0';
-					if pon_pulse = '0' then
-						pon <= '0';
-					end if;
-				end if;
+		elsif rising_edge(clock) then
+			hard_reset <= '0';
+			if soft_reset_pulse = '1' then
+				soft_reset <= '1';
+				pon <= '1';
+			elsif pon_pulse = '1' then
+				soft_reset <= '0';
+				pon <= '1';
+			else
+				soft_reset <= '0';
+				pon <= '0';
 			end if;
 		end if;
 	end process;
