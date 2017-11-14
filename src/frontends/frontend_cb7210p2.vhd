@@ -418,7 +418,6 @@ begin
 	-- accept reads from host
 	process (hard_reset, clock)
 		variable do_pulse_gpib_to_host_byte_read : boolean;
-		variable prev_acceptor_handshake_state : AH_state;
 		variable prev_controller_state_p2 : C_state_p2;
 		variable prev_source_handshake_state : SH_state;
 		variable prev_in_remote_state : std_logic;
@@ -725,7 +724,6 @@ begin
 			dma_bus_out_request <= '0';
 			dma_bus_out_buffer <= (others => 'Z');
 
-			prev_acceptor_handshake_state := AIDS;
 			prev_controller_state_p2 := CSNS;
 			prev_source_handshake_state := SIDS;
 			prev_in_remote_state := '0';
@@ -882,7 +880,6 @@ begin
 				IFC_interrupt <= '1';
 			end if;
 
-			prev_acceptor_handshake_state := acceptor_handshake_state;
 			prev_controller_state_p2 := controller_state_p2;
 			prev_source_handshake_state := source_handshake_state;
 			prev_in_remote_state := in_remote_state;

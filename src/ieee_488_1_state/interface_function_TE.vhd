@@ -52,6 +52,7 @@ architecture interface_function_TE_arch of interface_function_TE is
 	signal TE_unaddressed : boolean;
 	signal T_unaddressed : boolean;
 	signal unaddressed : boolean;
+	signal latched_end : std_logic;
 	
 begin
  
@@ -77,6 +78,7 @@ begin
 			talker_state_p1_buffer <= TIDS;
 			talker_state_p2_buffer <= TPIS;
 			talker_state_p3_buffer <= SPIS;
+			latched_end <= '0';
 		elsif rising_edge(clock) then
 
 			-- part 1 state machine
@@ -133,12 +135,16 @@ begin
 				talker_state_p1_buffer <= TIDS;
 				talker_state_p3_buffer <= SPIS;
 			end if;
-
+	
+			if source_handshake_state /= STRS then
+				latched_end <= host_to_gpib_data_byte_end;
+			end if;
 		end if;
 	end process;
 	
 	-- set local message outputs as soon as state changes for low latency
-	process(talker_state_p1_buffer, source_handshake_state, service_request_state) begin
+	process(talker_state_p1_buffer, source_handshake_state, service_request_state, latched_end) 
+	begin
 		-- part 1 state machine
 		case talker_state_p1_buffer is
 			when TIDS =>
@@ -150,10 +156,9 @@ begin
 				RQS <= 'L';
 				NUL <= 'H';
 			when TACS =>
-				if source_handshake_state'EVENT and source_handshake_state = SDYS then  
-					END_msg <= host_to_gpib_data_byte_end;
-				end if;
-				if source_handshake_state /= SDYS and source_handshake_state /= STRS then
+				if source_handshake_state = SDYS or source_handshake_state = STRS then  
+					END_msg <= latched_end;
+				else
 					END_msg <= 'L';
 				end if;
 				RQS <= 'L';
@@ -168,5 +173,5 @@ begin
 				NUL <= 'L';
 		end case;
 	end process;
-
+	
 end interface_function_TE_arch;

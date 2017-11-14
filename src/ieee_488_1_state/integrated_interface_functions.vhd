@@ -463,11 +463,9 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	
 	host_to_gpib_data_byte_latched <= internal_host_to_gpib_data_byte_latched;
 
-	local_NUL <= talker_NUL_buffer;
-	local_NUL <= controller_NUL_buffer;
+	local_NUL <= talker_NUL_buffer or controller_NUL_buffer;
 
-	local_EOI <= local_END;
-	local_EOI <= local_IDY;
+	local_EOI <= local_END or local_EOI;
 	
 	status_byte_buffer(7) <= not local_STB(7); 
 	status_byte_buffer(6) <= not local_RQS; 
@@ -492,18 +490,31 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	bus_REN_inverted_out <= not local_REN when
 		controller_state_p4_buffer /= SRIS else 'Z';
 	bus_SRQ_inverted_out <= to_X0Z(not local_SRQ);
-	bus_DIO_inverted_out_buffer <=  
-		not internal_host_to_gpib_data_byte when 
-			(source_handshake_state_buffer = SDYS or source_handshake_state_buffer = STRS) and
-			to_bit(ATN) = '0' else
-		not status_byte_buffer when talker_state_p1_buffer = SPAS else
-		not "00001001" when to_X01(local_TCT) = '1' else
-		to_X0Z(not local_PPR) when parallel_poll_state_p1_buffer = PPAS else 
-		(others => '1') when to_X01(local_NUL) = '1' and  
-			(talker_state_p1_buffer = TACS or controller_state_p1_buffer = CACS) else
-		bus_DIO_inverted_out_buffer when  
-			(talker_state_p1_buffer = TACS or controller_state_p1_buffer = CACS) else
-		(others => 'Z');
+
+	process(pon, clock)
+	begin
+		if pon = '1' then
+			bus_DIO_inverted_out_buffer <= (others => 'Z');  
+		elsif rising_edge(clock) then
+		
+			if (source_handshake_state_buffer = SDYS or source_handshake_state_buffer = STRS) and
+				to_X01(ATN) = '0' then
+				bus_DIO_inverted_out_buffer <= not internal_host_to_gpib_data_byte;
+			elsif talker_state_p1_buffer = SPAS then
+				bus_DIO_inverted_out_buffer <= not status_byte_buffer;
+			elsif to_X01(local_TCT) = '1' then
+				bus_DIO_inverted_out_buffer <= not "00001001";
+			elsif parallel_poll_state_p1_buffer = PPAS then
+				bus_DIO_inverted_out_buffer <= to_X0Z(not local_PPR);
+			elsif (talker_state_p1_buffer = TACS or controller_state_p1_buffer = CACS) then
+				if to_X01(local_NUL) = '1' then
+					bus_DIO_inverted_out_buffer <= (others => '1');
+				end if;
+			else
+				bus_DIO_inverted_out_buffer <= (others => 'Z');
+			end if;
+		end if;
+	end process;
 	bus_DIO_inverted_out <= bus_DIO_inverted_out_buffer;
 
 	-- deal with byte read by host from gpib bus

@@ -102,7 +102,7 @@ begin
 	end process;
 
 	-- set local message outputs as soon as state changes for low latency
-	process(parallel_poll_state_p1_buffer) begin
+	process(parallel_poll_state_p1_buffer, sense, ist, PPR_line) begin
 		case parallel_poll_state_p1_buffer is
 			when PPAS =>
 				PPR <= "00000000";
