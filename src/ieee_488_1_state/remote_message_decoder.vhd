@@ -139,9 +139,9 @@ begin
 	PPE <= PPE_buffer;
 	
 	PPE_sense <= not bus_DIO_inverted(3) when PPE_buffer = '1' and not bus_ATN_inverted = '1' else
-		'Z';
+		'L';
 	PPE_response_line <= not bus_DIO_inverted(2 downto 0) when PPE_buffer = '1' and not bus_ATN_inverted = '1' else
-		"ZZZ";
+		"LLL";
 	PPD <= '1' when not bus_DIO_inverted(6 downto 4) = "111" and not bus_ATN_inverted = '1' else
 		'0';
 	PPU <= '1' when UCG_buffer = '1' and not bus_DIO_inverted(3 downto 0) = "0101" and not bus_ATN_inverted = '1' else

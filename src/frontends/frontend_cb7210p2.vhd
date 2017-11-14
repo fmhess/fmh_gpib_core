@@ -416,7 +416,7 @@ begin
 	dma_bus_out <= dma_bus_out_buffer;
 	
 	-- accept reads from host
-	process (hard_reset, soft_reset, clock)
+	process (hard_reset, clock)
 		variable do_pulse_gpib_to_host_byte_read : boolean;
 		variable prev_controller_state_p2 : C_state_p2;
 		variable prev_source_handshake_state : SH_state;
@@ -690,9 +690,9 @@ begin
 			end case;
 		end host_read_register;
 
-		procedure handle_soft_reset is
+		procedure handle_soft_reset(do_reset : std_logic) is
 		begin
-			if soft_reset = '1' then
+			if do_reset = '1' then
 				-- isr0 interrupts
 				ATN_interrupt <= '0';
 				IFC_interrupt <= '0';
@@ -737,7 +737,7 @@ begin
 			prev_end_interrupt_condition := '0';
 		
 			do_pulse_gpib_to_host_byte_read := false;
-			handle_soft_reset;
+			handle_soft_reset('1');
 		elsif rising_edge(clock) then
 			-- host read from bus state machine
 			case host_read_from_bus_state is
@@ -892,14 +892,14 @@ begin
 			prev_rdy := rdy;
 			prev_end_interrupt_condition := end_interrupt_condition;
 			
-			handle_soft_reset;
+			handle_soft_reset(soft_reset);
 		end if;
 	end process;
 		
 	end_interrupt_condition <= gpib_to_host_byte_end or (generate_END_interrupt_on_EOS and gpib_to_host_byte_eos);
 	
 	-- accept writes from host
-	process (hard_reset, soft_reset, clock)
+	process (hard_reset, clock)
 		variable do_pulse_host_to_gpib_data_byte_write : boolean;
 		variable send_eoi : std_logic;
 		variable clear_rtl : boolean;
@@ -1068,9 +1068,9 @@ begin
 			end case;
 		end host_write_register;
 		
-		procedure handle_soft_reset is
+		procedure handle_soft_reset( do_reset : std_logic )is
 		begin
-			if soft_reset = '1' then
+			if do_reset = '1' then
 				
 				local_STB <= (others => '0');
 				rsv <= '0';
@@ -1141,7 +1141,7 @@ begin
 			release_RFD_holdoff_pulse <= '0';
 			trigger_aux_command_pulse <= '0';
 			clear_rtl := false;
-			handle_soft_reset;
+			handle_soft_reset('1');
 		elsif rising_edge(clock) then
 			-- host write_to bus state machine
 			case host_write_to_bus_state is
@@ -1215,7 +1215,7 @@ begin
 			if host_write_to_bus_state = host_io_active or host_read_from_bus_state = host_io_active then
 				register_page <= (others => '0');
 			end if;
-			handle_soft_reset;
+			handle_soft_reset(soft_reset);
 		end if;
 	end process;	
 
