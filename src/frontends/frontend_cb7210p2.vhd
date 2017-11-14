@@ -408,6 +408,7 @@ begin
 	
 	host_write_selected <= not write_inverted and not chip_select_inverted;
 	host_read_selected <= not read_inverted and not chip_select_inverted;
+	host_data_bus_out <= host_data_bus_out_buffer;
 	dma_write_selected <= not dma_write_inverted and not dma_bus_in_ack_inverted;
 	dma_read_selected <= not dma_read_inverted and not dma_bus_out_ack_inverted;
 	dma_bus_out <= dma_bus_out_buffer;
@@ -756,6 +757,7 @@ begin
 					if host_read_selected = '1' then
 						host_read_from_bus_state <= host_io_active;
 					end if;
+					host_data_bus_out_buffer <= (others => 'Z');
 				when host_io_active =>
 					-- process read
 					host_read_register(register_page, address);
