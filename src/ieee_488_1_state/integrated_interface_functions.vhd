@@ -465,7 +465,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 
 	local_NUL <= talker_NUL_buffer or controller_NUL_buffer;
 
-	local_EOI <= local_END or local_EOI;
+	local_EOI <= local_END or local_IDY;
 	
 	status_byte_buffer(7) <= not local_STB(7); 
 	status_byte_buffer(6) <= not local_RQS; 
