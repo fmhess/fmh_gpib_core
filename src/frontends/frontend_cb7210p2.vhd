@@ -416,7 +416,7 @@ begin
 	dma_bus_out <= dma_bus_out_buffer;
 	
 	-- accept reads from host
-	process (hard_reset, clock)
+	process (hard_reset, soft_reset, clock)
 		variable do_pulse_gpib_to_host_byte_read : boolean;
 		variable prev_controller_state_p2 : C_state_p2;
 		variable prev_source_handshake_state : SH_state;
@@ -899,7 +899,7 @@ begin
 	end_interrupt_condition <= gpib_to_host_byte_end or (generate_END_interrupt_on_EOS and gpib_to_host_byte_eos);
 	
 	-- accept writes from host
-	process (hard_reset, clock)
+	process (hard_reset, soft_reset, clock)
 		variable do_pulse_host_to_gpib_data_byte_write : boolean;
 		variable send_eoi : std_logic;
 		variable clear_rtl : boolean;
