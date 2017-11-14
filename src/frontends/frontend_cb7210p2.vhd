@@ -408,12 +408,23 @@ begin
 	
 	host_write_selected <= not write_inverted and not chip_select_inverted;
 	host_read_selected <= not read_inverted and not chip_select_inverted;
-	host_data_bus_out <= host_data_bus_out_buffer when to_X01(host_read_selected) = '1' and
-			host_read_from_bus_state = host_io_waiting_for_idle else 
-		(others => 'Z');
 	dma_write_selected <= not dma_write_inverted and not dma_bus_in_ack_inverted;
 	dma_read_selected <= not dma_read_inverted and not dma_bus_out_ack_inverted;
 	dma_bus_out <= dma_bus_out_buffer;
+
+	process (hard_reset, clock)
+	begin
+		if hard_reset = '1' then
+			host_data_bus_out <= (others => 'Z');
+		elsif rising_edge(clock) then
+			if to_X01(host_read_selected) = '1' and
+				host_read_from_bus_state = host_io_waiting_for_idle then 
+				host_data_bus_out <= host_data_bus_out_buffer;
+			else
+				host_data_bus_out <= (others=> 'Z');
+			end if;
+		end if;
+	end process;
 	
 	-- accept reads from host
 	process (hard_reset, clock)
