@@ -233,7 +233,7 @@ architecture behav of frontend_cb7210p2_testbench is
 			chip_select_inverted <= '0';
 			address <= addr;
 			host_data_bus <= (others => 'Z');
-			wait_for_ticks(3);
+			wait_for_ticks(4);
 
 			read_inverted <= '1';
 			chip_select_inverted <= '1';
