@@ -1016,7 +1016,7 @@ begin
 							-- TODO
 						when "011" => -- parallel poll register
 							lpe <= not write_data(4);
-							local_parallel_poll_config <= lpe;
+							local_parallel_poll_config <= not write_data(4);
 							local_parallel_poll_sense <= write_data(3);
 							local_parallel_poll_response_line <= write_data(2 downto 0);
 						when "100" => -- aux A register
