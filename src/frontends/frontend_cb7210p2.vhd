@@ -817,9 +817,9 @@ begin
 				DO_interrupt <= '0';
 			end if;
 
-			-- FIXME suppress DI interrupts in continuous mode
 			if rdy = '0' and prev_rdy = '1' then
-				if acceptor_handshake_state = ACDS and listener_state_p1 = LACS then
+				if acceptor_handshake_state = ACDS and listener_state_p1 = LACS and
+					RFD_holdoff_mode /= continuous_mode then
 					DI_interrupt <= '1';
 				end if;
 			end if;
