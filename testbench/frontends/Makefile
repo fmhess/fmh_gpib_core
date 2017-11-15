@@ -17,6 +17,7 @@ FRONTEND_CB7210P2_TEST_SRC = \
 	../../src/ieee_488_1_state/integrated_interface_functions.vhd \
 	../../src/util/gpib_transceiver.vhd \
 	../../src/frontends/frontend_cb7210p2.vhd \
+	../test_common.vhd \
 	frontend_cb7210p2_testbench.vhd
 frontend_cb7210p2_testbench.fst: $(FRONTEND_CB7210P2_TEST_SRC)
 	nvc -a $(FRONTEND_CB7210P2_TEST_SRC)

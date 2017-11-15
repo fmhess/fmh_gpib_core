@@ -8,6 +8,7 @@ use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 use work.interface_function_common.all;
 use work.gpib_transceiver.all;
+use work.test_common.all;
 use work.frontend_cb7210p2.all;
 
 entity frontend_cb7210p2_testbench is
@@ -143,103 +144,68 @@ architecture behav of frontend_cb7210p2_testbench is
 	end process;
 
 	process
-		-- wait wait for a condition with a hard coded timeout to avoid infinite test loops on failure
 		procedure wait_for_ticks (num_clock_cycles : in integer) is
 		begin
-			for i in 1 to num_clock_cycles loop
-				wait until rising_edge(clock);
-			end loop;
+			wait_for_ticks(num_clock_cycles, clock);
 		end procedure wait_for_ticks;
 
-		-- write a byte from gpib bus to device
+		procedure gpib_setup_bus (assert_ATN : boolean; 
+		talk_enable : in boolean) is
+		begin
+			gpib_setup_bus(assert_ATN, talk_enable,
+				bus_DIO_inverted,
+				bus_ATN_inverted,
+				bus_DAV_inverted,
+				bus_EOI_inverted,
+				bus_NDAC_inverted,
+				bus_NRFD_inverted,
+				bus_SRQ_inverted);
+		end gpib_setup_bus;
+
 		procedure gpib_write (data_byte : in std_logic_vector(7 downto 0);
 			assert_eoi : in boolean) is
 		begin
-			bus_NRFD_inverted <= 'Z';
-			bus_NDAC_inverted <= 'Z';
-			if (to_bit(bus_NRFD_inverted) /= '1' or to_bit(bus_NDAC_inverted) /= '0') then
-					wait until (to_bit(bus_NRFD_inverted) = '1' and to_bit(bus_NDAC_inverted) = '0');
-			end if;
-			wait for 99ns;
-			bus_DIO_inverted <= not data_byte;
-			if assert_eoi then
-					bus_EOI_inverted <= '0';
-			else 
-				bus_EOI_inverted <= 'H';
-			end if;
-			wait for 499ns;
-			bus_DAV_inverted <='0';
-			if (to_bit(bus_NRFD_inverted) /= '0' or to_bit(bus_NDAC_inverted) /= '1') then
-					wait until (to_bit(bus_NRFD_inverted) = '0' and to_bit(bus_NDAC_inverted) = '1');
-			end if;
-			wait for 99ns;
-			bus_DAV_inverted <='H';
-			bus_EOI_inverted <= 'H';
-			bus_DIO_inverted <= "HHHHHHHH";
-			if (to_bit(bus_NDAC_inverted) /= '1') then
-					wait until (to_bit(bus_NDAC_inverted) = '1');
-			end if;
-			wait for 99ns;
+			gpib_write (data_byte, assert_eoi,
+				bus_DIO_inverted,
+				bus_DAV_inverted,
+				bus_EOI_inverted,
+				bus_NDAC_inverted,
+				bus_NRFD_inverted);
 		end procedure gpib_write;
 
 		procedure gpib_read (data_byte : out std_logic_vector(7 downto 0);
 			eoi : out std_logic) is
 		begin
-			bus_DAV_inverted <= 'Z';
-			bus_NDAC_inverted <= '0';
-			wait for 99ns;
-			bus_NRFD_inverted <= 'H';
-			if (to_bit(bus_DAV_inverted) /= '0') then
-					wait until (to_bit(bus_DAV_inverted) = '0');
-			end if;
-			wait for 99ns;
-			bus_NRFD_inverted <= '0';
-			data_byte := not bus_DIO_inverted;
-			eoi := not bus_EOI_inverted;
-			wait for 99ns;
-			bus_NDAC_inverted <= 'H';
-			if (to_bit(bus_DAV_inverted) /= '1') then
-					wait until (to_bit(bus_DAV_inverted) = '1');
-			end if;
-			wait for 99ns;
-			bus_NDAC_inverted <= 'H';
-			wait for 99ns;
+			gpib_read(data_byte, eoi,
+				bus_DIO_inverted,
+				bus_DAV_inverted,
+				bus_EOI_inverted,
+				bus_NDAC_inverted,
+				bus_NRFD_inverted);
 		end procedure gpib_read;
 
-		-- write a byte from host to device register
 		procedure host_write (addr: in std_logic_vector(2 downto 0);
 			byte : in std_logic_vector(7 downto 0)) is
 		begin
-			wait until rising_edge(clock);
-			write_inverted <= '0';
-			chip_select_inverted <= '0';
-			address <= addr;
-			host_data_bus <= byte;
-			wait_for_ticks(3);
-
-			write_inverted <= '1';
-			chip_select_inverted <= '1';
-			address <= (others => '0');
-			host_data_bus <= (others => 'Z');
-			wait until rising_edge(clock);
+			host_write (addr, byte,
+				clock,
+				chip_select_inverted,
+				address,
+				write_inverted,
+				host_data_bus
+			);
 		end procedure host_write;
 
-		-- read a byte from device register
 		procedure host_read (addr: in std_logic_vector(2 downto 0);
 			result: out std_logic_vector(7 downto 0)) is
 		begin
-			wait until rising_edge(clock);
-			read_inverted <= '0';
-			chip_select_inverted <= '0';
-			address <= addr;
-			host_data_bus <= (others => 'Z');
-			wait_for_ticks(4);
-
-			read_inverted <= '1';
-			chip_select_inverted <= '1';
-			address <= (others => '0');
-			result := host_data_bus;
-			wait until rising_edge(clock);
+			host_read (addr, result,
+				clock,
+				chip_select_inverted,
+				address,
+				read_inverted,
+				host_data_bus
+			);
 		end procedure host_read;
 
 		variable gpib_read_result : std_logic_vector(7 downto 0);
@@ -267,6 +233,7 @@ architecture behav of frontend_cb7210p2_testbench is
 		dma_bus <= (others => 'Z');
 		host_data_bus <= (others => '0');
 		read_inverted <= '1';
+		write_inverted <= '1';
 		dma_read_inverted <= '1';
 		dma_write_inverted <= '1';
 		address <= ( others => '0' );
@@ -288,14 +255,14 @@ architecture behav of frontend_cb7210p2_testbench is
 		host_write("110", host_write_byte); --address register 0/1
 
 		--address chip as talker
-		bus_ATN_inverted <= '0';
+		gpib_setup_bus(true, true);
 		gpib_write_byte(7 downto 5) := "010";
 		gpib_write_byte(4 downto 0) := std_logic_vector(to_unsigned(primary_address, 5));
 		gpib_write(gpib_write_byte, false); -- MTA
 
 		--send a data byte host to gpib
 
-		bus_ATN_inverted <= 'H';
+		gpib_setup_bus(false, false);
 		-- enable DO interrupts
 		host_write("001", "00000010"); -- interrupt mask register 1
 
@@ -342,8 +309,9 @@ architecture behav of frontend_cb7210p2_testbench is
 		host_write("110", host_write_byte); --address register 0/1
 		host_write("100", X"32"); -- address mode register, transmit/receive mode 0x3 address mode 2
 
+		gpib_setup_bus(true, true);
+		
 		--address chip as listener
-		bus_ATN_inverted <= '0';
 		wait until rising_edge(clock);	
 		gpib_write_byte(7 downto 5) := "001";
 		gpib_write_byte(4 downto 0) := std_logic_vector(to_unsigned(primary_address, 5));
@@ -354,9 +322,9 @@ architecture behav of frontend_cb7210p2_testbench is
 		gpib_write(gpib_write_byte, false); -- MSA
 
 		wait until rising_edge(clock);	
-		bus_ATN_inverted <= 'H';
 
 		-- write some bytes from gpib to host
+		gpib_setup_bus(false, true);
 
 		-- enable DI and END interrupts
 		host_write("001", "00010001"); -- interrupt mask register 1

@@ -26,6 +26,7 @@ INTEGRATED_INTERFACE_FUNCTIONS_TEST_SRC = \
 	../../src/ieee_488_1_state/interface_function_TE.vhd \
 	../../src/ieee_488_1_state/remote_message_decoder.vhd \
 	../../src/ieee_488_1_state/integrated_interface_functions.vhd \
+	../test_common.vhd \
 	integrated_interface_functions_testbench.vhd
 integrated_interface_functions_testbench.fst: $(INTEGRATED_INTERFACE_FUNCTIONS_TEST_SRC)
 	nvc -a $(INTEGRATED_INTERFACE_FUNCTIONS_TEST_SRC)

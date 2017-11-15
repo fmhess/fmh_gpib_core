@@ -8,6 +8,7 @@ use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 use work.gpib_transceiver.all;
 use work.interface_function_common.all;
+use work.test_common.all;
 use work.integrated_interface_functions.all;
 
 entity integrated_interface_functions_testbench is
@@ -207,71 +208,48 @@ architecture behav of integrated_interface_functions_testbench is
 	end process;
 	
 	process
-		-- wait wait for a condition with a hard coded timeout to avoid infinite test loops on failure
 		procedure wait_for_ticks (num_clock_cycles : in integer) is
-			begin
-				for i in 1 to num_clock_cycles loop
-					wait until rising_edge(clock);
-				end loop;
-			end procedure wait_for_ticks;
+		begin
+			wait_for_ticks(num_clock_cycles, clock);
+		end procedure wait_for_ticks;
 
-		-- write a byte from gpib bus to device
+		procedure gpib_setup_bus (assert_ATN : boolean; 
+		talk_enable : in boolean) is
+		begin
+			gpib_setup_bus(assert_ATN, talk_enable,
+				bus_DIO_inverted,
+				bus_ATN_inverted,
+				bus_DAV_inverted,
+				bus_EOI_inverted,
+				bus_NDAC_inverted,
+				bus_NRFD_inverted,
+				bus_SRQ_inverted);
+		end gpib_setup_bus;
+
 		procedure gpib_write (data_byte : in std_logic_vector(7 downto 0);
 			assert_eoi : in boolean) is
-			begin
-					bus_NRFD_inverted <= 'Z';
-					bus_NDAC_inverted <= 'Z';
-					if (to_bit(bus_NRFD_inverted) /= '1' or to_bit(bus_NDAC_inverted) /= '0') then
-							wait until (to_bit(bus_NRFD_inverted) = '1' and to_bit(bus_NDAC_inverted) = '0');
-					end if;
-					wait for 99ns;
-					bus_DIO_inverted <= not data_byte;
-					if assert_eoi then
-							bus_EOI_inverted <= '0';
-					else 
-						bus_EOI_inverted <= 'H';
-					end if;
-					wait for 499ns;
-					bus_DAV_inverted <= '0';
-					if (to_bit(bus_NRFD_inverted) /= '0' or to_bit(bus_NDAC_inverted) /= '1') then
-							wait until (to_bit(bus_NRFD_inverted) = '0' and to_bit(bus_NDAC_inverted) = '1');
-					end if;
-					wait for 99ns;
-					bus_DAV_inverted <='H';
-					bus_EOI_inverted <= 'H';
-					bus_DIO_inverted <= "HHHHHHHH";
-					if (to_bit(bus_NDAC_inverted) /= '1') then
-							wait until (to_bit(bus_NDAC_inverted) = '1');
-					end if;
-					wait for 99ns;
-			end procedure gpib_write;
+		begin
+			gpib_write (data_byte, assert_eoi,
+				bus_DIO_inverted,
+				bus_DAV_inverted,
+				bus_EOI_inverted,
+				bus_NDAC_inverted,
+				bus_NRFD_inverted);
+		end procedure gpib_write;
 
-			procedure gpib_read (data_byte : out integer;
-					eoi : out boolean) is
-			begin
-					bus_DAV_inverted <= 'Z';
-					bus_NDAC_inverted <= '0';
-					wait for 99ns;
-					bus_NRFD_inverted <= 'H';
-					if (to_bit(bus_DAV_inverted) /= '0') then
-							wait until (to_bit(bus_DAV_inverted) = '0');
-					end if;
-					wait for 99ns;
-					bus_NRFD_inverted <= '0';
-					data_byte := to_integer(unsigned(not bus_DIO_inverted));
-					eoi := to_bit(bus_EOI_inverted) = '0';
-					wait for 99ns;
-					bus_NDAC_inverted <= 'H';
-					if (to_bit(bus_DAV_inverted) /= '1') then
-							wait until (to_bit(bus_DAV_inverted) = '1');
-					end if;
-					wait for 99ns;
-					bus_NDAC_inverted <= 'H';
-					wait for 99ns;
-			end procedure gpib_read;
+		procedure gpib_read (data_byte : out std_logic_vector(7 downto 0);
+			eoi : out std_logic) is
+		begin
+			gpib_read(data_byte, eoi,
+				bus_DIO_inverted,
+				bus_DAV_inverted,
+				bus_EOI_inverted,
+				bus_NDAC_inverted,
+				bus_NRFD_inverted);
+		end procedure gpib_read;
 
-		variable gpib_read_result : integer;
-		variable gpib_read_eoi : boolean;
+		variable gpib_read_result : std_logic_vector(7 downto 0);
+		variable gpib_read_eoi : std_logic;
 	
 	begin
 		configured_eos_character <= X"00";
@@ -312,12 +290,12 @@ architecture behav of integrated_interface_functions_testbench is
 		
 		-- address device as listener
 		configured_primary_address <= "00001";
-		bus_ATN_inverted <= '0';
+		gpib_setup_bus(true, true);
 		gpib_write("00100001", false); -- MLA
 
 		-- try sending some data bytes gpib to host
 		
-		bus_ATN_inverted <= 'H';
+		gpib_setup_bus(false, true);
 		gpib_write(X"01", false);
 
 		wait until rising_edge(clock);	
@@ -352,12 +330,12 @@ architecture behav of integrated_interface_functions_testbench is
 		wait until rising_edge(clock);	
 		
 		-- address device as talker
-		bus_ATN_inverted <= '0';
+		gpib_setup_bus(true, true);
 		gpib_write("01000001", false); -- MTA
 
 		-- try sending some data bytes host to gpib
 
-		bus_ATN_inverted <= 'H';
+		gpib_setup_bus(false, false);
 
 		wait until rising_edge(clock);	
 		host_to_gpib_data_byte <= X"b3";
@@ -367,8 +345,8 @@ architecture behav of integrated_interface_functions_testbench is
 		host_to_gpib_data_byte_write <= '0';
 		
 		gpib_read(gpib_read_result, gpib_read_eoi);
-		assert gpib_read_result = 16#b3#;
-		assert gpib_read_eoi = false;
+		assert gpib_read_result = X"b3";
+		assert gpib_read_eoi = '0';
 		
 		-- now try a sending a byte with end asserted
 		wait until rising_edge(clock);	
@@ -381,12 +359,12 @@ architecture behav of integrated_interface_functions_testbench is
 		assert host_to_gpib_data_byte_latched = '1';
 		
 		gpib_read(gpib_read_result, gpib_read_eoi);
-		assert gpib_read_result = 16#c4#;
-		assert gpib_read_eoi = true;
+		assert gpib_read_result = X"c4";
+		assert gpib_read_eoi = '1';
 		assert host_to_gpib_data_byte_latched = '0';
 
 		-- do a selected device clear
-		bus_ATN_inverted <= '0';
+		gpib_setup_bus(true, true);
 		gpib_write("01001111", false); -- UNT
 		gpib_write("00100001", false); -- MLA
 		reset_device_clear_seen <= true;
