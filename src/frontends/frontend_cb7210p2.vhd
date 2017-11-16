@@ -848,13 +848,13 @@ begin
 				DET_interrupt <= '1';
 			end if;
 
-			if false then
-				APT_interrupt <= '1'; --TODO
-			end if;
-			
-			if false then
-				CPT_interrupt <= '1'; --TODO
-			end if;
+-- 			if false then
+-- 				APT_interrupt <= '1'; --TODO
+-- 			end if;
+-- 			
+-- 			if false then
+-- 				CPT_interrupt <= '1'; --TODO
+-- 			end if;
 
 			if to_X01(no_listeners) = '1' then
 				ERR_interrupt <= '1';
@@ -1252,30 +1252,30 @@ begin
 	process (hard_reset, clock)
 	begin
 		if hard_reset = '1' then
-			configured_primary_address <= to_stdlogicvector(NO_ADDRESS_CONFIGURED);
-			configured_secondary_address <= to_stdlogicvector(NO_ADDRESS_CONFIGURED);
+			configured_primary_address <= NO_ADDRESS_CONFIGURED;
+			configured_secondary_address <= NO_ADDRESS_CONFIGURED;
 		elsif rising_edge(clock) then
 			case address_mode is
 				when "00" =>
-					configured_primary_address <= to_stdlogicvector(NO_ADDRESS_CONFIGURED);
-					configured_secondary_address <= to_stdlogicvector(NO_ADDRESS_CONFIGURED);
+					configured_primary_address <= NO_ADDRESS_CONFIGURED;
+					configured_secondary_address <= NO_ADDRESS_CONFIGURED;
 				when "01" =>
 					-- we don't support disabling one or the other of talker/listener address,
 					-- it's all or nothing.
 					if (enable_listener_gpib_address_0  and enable_talker_gpib_address_0) = '1' then
 						configured_primary_address <= gpib_address_0;
 					else
-						configured_primary_address <= to_stdlogicvector(NO_ADDRESS_CONFIGURED);
+						configured_primary_address <= NO_ADDRESS_CONFIGURED;
 					end if;
-					configured_secondary_address <= to_stdlogicvector(NO_ADDRESS_CONFIGURED);
+					configured_secondary_address <= NO_ADDRESS_CONFIGURED;
 				when "10" =>
 					if (enable_listener_gpib_address_0 and enable_talker_gpib_address_0 and
 						enable_listener_gpib_address_1 and enable_talker_gpib_address_1) = '1' then
 						configured_primary_address <= gpib_address_0;
 						configured_secondary_address <= gpib_address_1;
 					else
-						configured_primary_address <= to_stdlogicvector(NO_ADDRESS_CONFIGURED);
-						configured_secondary_address <= to_stdlogicvector(NO_ADDRESS_CONFIGURED);
+						configured_primary_address <= NO_ADDRESS_CONFIGURED;
+						configured_secondary_address <= NO_ADDRESS_CONFIGURED;
 					end if;
 				when "11" =>
 					-- we don't support address mode 3

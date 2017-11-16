@@ -109,21 +109,21 @@ begin
 	LLO <= '1' when UCG_buffer = '1' and not bus_DIO_inverted(3 downto 0) = "0001" and not bus_ATN_inverted = '1' else
 		'0';
 	MLA <= '1' when LAG_buffer = '1' and 
-		to_bitvector(not bus_DIO_inverted(4 downto 0)) = to_bitvector(configured_primary_address) and
-		to_bitvector(configured_primary_address) /= NO_ADDRESS_CONFIGURED and
+		not bus_DIO_inverted(4 downto 0) = to_X01(configured_primary_address) and
+		to_X01(configured_primary_address) /= NO_ADDRESS_CONFIGURED and
 		not bus_ATN_inverted = '1' else
 		'0';
 
 	MTA_buffer <= '1' when TAG_buffer = '1' and 
-		to_bitvector(not bus_DIO_inverted(4 downto 0)) = to_bitvector(configured_primary_address) and
-		to_bitvector(configured_primary_address) /= NO_ADDRESS_CONFIGURED and
+		not bus_DIO_inverted(4 downto 0) = to_X01(configured_primary_address) and
+		to_X01(configured_primary_address) /= NO_ADDRESS_CONFIGURED and
 		not bus_ATN_inverted = '1' else
 		'0';
 	MTA <= MTA_buffer;
 
 	MSA_buffer <= '1' when SCG_buffer = '1' and 
-		to_bitvector(not bus_DIO_inverted(4 downto 0)) = to_bitvector(configured_secondary_address) and
-		to_bitvector(configured_secondary_address) /= NO_ADDRESS_CONFIGURED and
+		not bus_DIO_inverted(4 downto 0) = to_X01(configured_secondary_address) and
+		to_X01(configured_secondary_address) /= NO_ADDRESS_CONFIGURED and
 		not bus_ATN_inverted = '1' else
 		'0';
 	MSA <= MSA_buffer;

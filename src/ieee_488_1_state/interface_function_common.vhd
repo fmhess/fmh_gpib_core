@@ -31,7 +31,7 @@ package interface_function_common is
 	
 	type RFD_holdoff_enum is (holdoff_normal, holdoff_on_all, holdoff_on_end, continuous_mode);
 
-	constant NO_ADDRESS_CONFIGURED : bit_vector := "11111";
+	constant NO_ADDRESS_CONFIGURED : std_logic_vector := "11111";
 
 	function to_X0Z (mysig : std_logic) return std_logic;
 	function to_X0Z (myvector : std_logic_vector) return std_logic_vector;

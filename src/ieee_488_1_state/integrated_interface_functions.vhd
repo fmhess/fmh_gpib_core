@@ -453,7 +453,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	talker_state_p3 <= talker_state_p3_buffer;
 	
 	enable_secondary_addressing <= '1' when 
-			to_bitvector(configured_secondary_address) /= NO_ADDRESS_CONFIGURED
+			to_X01(configured_secondary_address) /= NO_ADDRESS_CONFIGURED
 		else
 			'0';
 	

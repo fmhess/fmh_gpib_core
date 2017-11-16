@@ -216,6 +216,70 @@ architecture behav of frontend_cb7210p2_testbench is
 	
 		variable primary_address : integer;
 		variable secondary_address : integer;
+		
+		--address chip as listener
+		procedure gpib_address_as_listener is
+		begin
+			assert primary_address /= to_integer(unsigned(NO_ADDRESS_CONFIGURED));
+			wait until rising_edge(clock);	
+			gpib_write_byte(7 downto 5) := "001";
+			gpib_write_byte(4 downto 0) := std_logic_vector(to_unsigned(primary_address, 5));
+			gpib_write(gpib_write_byte, false); -- MLA
+			if secondary_address /= to_integer(unsigned(NO_ADDRESS_CONFIGURED)) then
+				-- if secondary address is enabled, make sure we didn't prematurely become addressed
+				host_read("100", host_read_result); -- address status reg
+				assert host_read_result(2) = '0';
+
+				gpib_write_byte(7 downto 5) := "011";
+				gpib_write_byte(4 downto 0) := std_logic_vector(to_unsigned(secondary_address, 5));
+				gpib_write(gpib_write_byte, false); -- MSA
+			end if;
+			wait until rising_edge(clock);	
+		end gpib_address_as_listener;
+		
+		procedure test_device_clear is
+		begin
+			gpib_setup_bus(true, true);
+			-- unlisten
+			gpib_write_byte := "00111111";
+			gpib_write(gpib_write_byte, false);
+			
+			-- enable DEC interrupts
+			host_write("001", "00001000"); -- interrupt mask register 1
+			host_read("001", host_read_result); -- read clear any pending interrupts
+			assert interrupt = '0';
+
+			-- send DCL
+			gpib_write_byte := "00010100";
+			gpib_write(gpib_write_byte, false);
+			if interrupt /= '1' then
+				wait until interrupt = '1';
+			end if;
+			host_read("001", host_read_result);
+			assert host_read_result(3) = '1';
+			
+			
+			-- send selected device clear, this should produce no effect since chip is not listener
+			gpib_write_byte := "00000100";
+			gpib_write(gpib_write_byte, false);
+			wait_for_ticks(3);
+			assert interrupt = '0';
+
+			-- address as listener then do SDC, this should produce device clear interrupt
+			gpib_address_as_listener;
+			
+			gpib_write_byte := "00000100";
+			gpib_write(gpib_write_byte, false);
+			
+			-- make sure we got a device clear interrupt
+			if interrupt /= '1' then
+				wait until interrupt = '1';
+			end if;
+			host_read("001", host_read_result);
+			assert host_read_result(3) = '1';
+
+		end test_device_clear;
+		
 	begin
 		bus_DIO_inverted <= "HHHHHHHH";
 		bus_REN_inverted <= 'H';
@@ -237,6 +301,8 @@ architecture behav of frontend_cb7210p2_testbench is
 		dma_read_inverted <= '1';
 		dma_write_inverted <= '1';
 		address <= ( others => '0' );
+		primary_address := 0;
+		secondary_address := to_integer(unsigned(NO_ADDRESS_CONFIGURED));
 		
 		wait until rising_edge(clock);	
 		reset <= '1';
@@ -312,16 +378,7 @@ architecture behav of frontend_cb7210p2_testbench is
 		gpib_setup_bus(true, true);
 		
 		--address chip as listener
-		wait until rising_edge(clock);	
-		gpib_write_byte(7 downto 5) := "001";
-		gpib_write_byte(4 downto 0) := std_logic_vector(to_unsigned(primary_address, 5));
-		gpib_write(gpib_write_byte, false); -- MLA
-		-- TODO assert we are not be listener yet
-		gpib_write_byte(7 downto 5) := "011";
-		gpib_write_byte(4 downto 0) := std_logic_vector(to_unsigned(secondary_address, 5));
-		gpib_write(gpib_write_byte, false); -- MSA
-
-		wait until rising_edge(clock);	
+		gpib_address_as_listener;
 
 		-- write some bytes from gpib to host
 		gpib_setup_bus(false, true);
@@ -365,6 +422,8 @@ architecture behav of frontend_cb7210p2_testbench is
 
 		-- write pon to aux command reg
 		host_write("101", X"00");
+		
+		test_device_clear;
 		
 		wait until rising_edge(clock);	
 		assert false report "end of test" severity note;

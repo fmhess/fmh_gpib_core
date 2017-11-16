@@ -255,8 +255,8 @@ architecture behav of integrated_interface_functions_testbench is
 	begin
 		configured_eos_character <= X"00";
 		ignore_eos_bit_7 <= '0';
-		configured_primary_address <= to_stdlogicvector(NO_ADDRESS_CONFIGURED);
-		configured_secondary_address <= to_stdlogicvector(NO_ADDRESS_CONFIGURED);
+		configured_primary_address <= NO_ADDRESS_CONFIGURED;
+		configured_secondary_address <= NO_ADDRESS_CONFIGURED;
 		local_parallel_poll_config <= '0';
 		local_parallel_poll_sense <= '0';
 		local_parallel_poll_response_line <= "000";
