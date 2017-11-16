@@ -11,8 +11,10 @@ entity dma_translator_cb7210p2_to_pl330 is
 		pl330_dma_cs_inverted : in std_logic;
 		pl330_dma_rd_inverted : in std_logic;
 		pl330_dma_wr_inverted : in  std_logic;
+		-- pl330_dma_ack is a logical or of READY or VALID handshake signals coming from pl330
 		pl330_dma_ack : in  std_logic;
 		pl330_dma_single : out std_logic;
+		-- pl330_dma_req is a logical or of READY or VALID handshake signals going to pl330.
 		pl330_dma_req : out std_logic;
 		
 		cb7210p2_dma_in_request : in std_logic;

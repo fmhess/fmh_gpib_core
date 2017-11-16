@@ -783,6 +783,10 @@ begin
 						gpib_to_host_dma_state <= dma_acknowledged;
 					elsif DMA_input_enable = '0' then
 						gpib_to_host_dma_state <= dma_idle;
+						-- we want bus request to go false immediately, since if it
+						-- goes false while dma_read_selected is true it means the 
+						-- transfer went through rather than giving up on it
+						dma_bus_out_request <= '0';
 					end if;
 				when dma_acknowledged =>
 					gpib_to_host_dma_state <= dma_waiting_for_idle;
@@ -1185,6 +1189,10 @@ begin
 						host_to_gpib_dma_state <= dma_acknowledged;
 					elsif DMA_output_enable = '0' then
 						host_to_gpib_dma_state <= dma_idle;
+						-- we want bus request to go false immediately, since if it
+						-- goes false while dma_write_selected is true it means the 
+						-- transfer went through rather than giving up on it
+						dma_bus_in_request <= '0';
 					end if;
 				when dma_acknowledged =>
 					write_host_to_gpib_data_byte(dma_bus_in);
