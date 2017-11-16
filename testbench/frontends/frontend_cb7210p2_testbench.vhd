@@ -280,6 +280,38 @@ architecture behav of frontend_cb7210p2_testbench is
 
 		end test_device_clear;
 		
+		procedure test_device_trigger is
+		begin
+			gpib_setup_bus(true, true);
+			-- unlisten
+			gpib_write_byte := "00111111";
+			gpib_write(gpib_write_byte, false);
+			
+			-- enable DET interrupts
+			host_write("001", "00100000"); -- interrupt mask register 1
+			host_read("001", host_read_result); -- read clear any pending interrupts
+			assert interrupt = '0';
+
+			-- send GET, this should produce no effect since chip is not listener
+			gpib_write_byte := "00001000";
+			gpib_write(gpib_write_byte, false);
+			wait_for_ticks(3);
+			assert interrupt = '0';
+
+			-- address as listener then do GET, this should produce device trigger interrupt
+			gpib_address_as_listener;
+			
+			gpib_write_byte := "00001000";
+			gpib_write(gpib_write_byte, false);
+			
+			-- make sure we got a device trigger interrupt
+			if interrupt /= '1' then
+				wait until interrupt = '1';
+			end if;
+			host_read("001", host_read_result);
+			assert host_read_result(5) = '1';
+
+		end test_device_trigger;
 	begin
 		bus_DIO_inverted <= "HHHHHHHH";
 		bus_REN_inverted <= 'H';
@@ -425,6 +457,8 @@ architecture behav of frontend_cb7210p2_testbench is
 		
 		test_device_clear;
 		
+		test_device_trigger;
+
 		wait until rising_edge(clock);	
 		assert false report "end of test" severity note;
 		test_finished := true;
