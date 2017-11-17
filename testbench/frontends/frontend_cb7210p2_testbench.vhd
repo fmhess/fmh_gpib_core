@@ -220,6 +220,8 @@ architecture behav of frontend_cb7210p2_testbench is
 		--address chip as listener
 		procedure gpib_address_as_listener is
 		begin
+			gpib_setup_bus(true, true);
+
 			assert primary_address /= to_integer(unsigned(NO_ADDRESS_CONFIGURED));
 			wait until rising_edge(clock);	
 			gpib_write_byte(7 downto 5) := "001";
@@ -233,6 +235,24 @@ architecture behav of frontend_cb7210p2_testbench is
 			wait until rising_edge(clock);	
 		end gpib_address_as_listener;
 		
+		--address chip as talker
+		procedure gpib_address_as_talker is
+		begin
+			gpib_setup_bus(true, true);
+
+			assert primary_address /= to_integer(unsigned(NO_ADDRESS_CONFIGURED));
+			wait until rising_edge(clock);	
+			gpib_write_byte(7 downto 5) := "010";
+			gpib_write_byte(4 downto 0) := std_logic_vector(to_unsigned(primary_address, 5));
+			gpib_write(gpib_write_byte, false); -- MTA
+			if secondary_address /= to_integer(unsigned(NO_ADDRESS_CONFIGURED)) then
+				gpib_write_byte(7 downto 5) := "011";
+				gpib_write_byte(4 downto 0) := std_logic_vector(to_unsigned(secondary_address, 5));
+				gpib_write(gpib_write_byte, false); -- MSA
+			end if;
+			wait until rising_edge(clock);	
+		end gpib_address_as_talker;
+
 		procedure test_device_clear is
 		begin
 			gpib_setup_bus(true, true);
@@ -274,6 +294,7 @@ architecture behav of frontend_cb7210p2_testbench is
 			host_read("001", host_read_result);
 			assert host_read_result(3) = '1';
 
+			host_write("001", "00000000"); -- interrupt mask register 1
 		end test_device_clear;
 		
 		procedure test_device_trigger is
@@ -307,6 +328,7 @@ architecture behav of frontend_cb7210p2_testbench is
 			host_read("001", host_read_result);
 			assert host_read_result(5) = '1';
 
+			host_write("001", "00000000"); -- interrupt mask register 1
 		end test_device_trigger;
 
 		procedure test_remote_local is
@@ -346,7 +368,48 @@ architecture behav of frontend_cb7210p2_testbench is
 			assert host_read_result(5) = '1'; -- LOK bit
 			assert interrupt = '0';
 			
+			host_write("010", "00000000"); -- interrupt mask register 2
 		end test_remote_local;
+		
+		procedure test_address_status_change is
+		begin
+			gpib_setup_bus(true, true);
+			-- unlisten
+			gpib_write_byte := "00111111";
+			gpib_write(gpib_write_byte, false);
+		
+			-- untalk
+			gpib_write_byte := "01011111";
+			gpib_write(gpib_write_byte, false);
+			
+			--enable ADSC interrupt
+			host_write("010", "00000001"); -- interrupt mask register 2
+			host_read("010", host_read_result); -- interrupt status 2
+			assert interrupt = '0';
+			
+			gpib_address_as_talker;
+			
+			if interrupt /= '1' then
+				wait until interrupt = '1';
+			end if;
+			host_read("010", host_read_result); -- interrupt status 2
+			assert host_read_result(0) = '1'; -- ADSC bit
+			host_read("100", host_read_result); -- address status register
+			assert host_read_result(1) = '1'; -- talker addressed
+			assert host_read_result(2) = '0'; -- listener addressed
+
+			assert interrupt = '0';
+			gpib_address_as_listener;
+			if interrupt /= '1' then
+				wait until interrupt = '1';
+			end if;
+			host_read("010", host_read_result); -- interrupt status 2
+			assert host_read_result(0) = '1'; -- ADSC bit
+			host_read("100", host_read_result); -- address status register
+			assert host_read_result(1) = '0'; -- talker addressed
+			assert host_read_result(2) = '1'; -- listener addressed
+			
+		end test_address_status_change;
 		
 	begin
 		bus_DIO_inverted <= "HHHHHHHH";
@@ -389,10 +452,7 @@ architecture behav of frontend_cb7210p2_testbench is
 		host_write("110", host_write_byte); --address register 0/1
 
 		--address chip as talker
-		gpib_setup_bus(true, true);
-		gpib_write_byte(7 downto 5) := "010";
-		gpib_write_byte(4 downto 0) := std_logic_vector(to_unsigned(primary_address, 5));
-		gpib_write(gpib_write_byte, false); -- MTA
+		gpib_address_as_talker;
 
 		--send a data byte host to gpib
 
@@ -496,6 +556,8 @@ architecture behav of frontend_cb7210p2_testbench is
 		test_device_trigger;
 
 		test_remote_local;
+		
+		test_address_status_change;
 		
 		wait until rising_edge(clock);	
 		assert false report "end of test" severity note;
