@@ -226,10 +226,6 @@ architecture behav of frontend_cb7210p2_testbench is
 			gpib_write_byte(4 downto 0) := std_logic_vector(to_unsigned(primary_address, 5));
 			gpib_write(gpib_write_byte, false); -- MLA
 			if secondary_address /= to_integer(unsigned(NO_ADDRESS_CONFIGURED)) then
-				-- if secondary address is enabled, make sure we didn't prematurely become addressed
-				host_read("100", host_read_result); -- address status reg
-				assert host_read_result(2) = '0';
-
 				gpib_write_byte(7 downto 5) := "011";
 				gpib_write_byte(4 downto 0) := std_logic_vector(to_unsigned(secondary_address, 5));
 				gpib_write(gpib_write_byte, false); -- MSA
@@ -312,6 +308,46 @@ architecture behav of frontend_cb7210p2_testbench is
 			assert host_read_result(5) = '1';
 
 		end test_device_trigger;
+
+		procedure test_remote_local is
+		begin
+		
+			-- unassert REN, should put us into LOCS
+			bus_REN_inverted <= '1';
+			wait_for_ticks(2);
+			-- enable REMC and LOKC interrupts
+			host_write("010", "00000110"); -- interrupt mask register 2
+			host_read("010", host_read_result); -- interrupt status 2
+			assert host_read_result(4) = '0'; -- REM bit
+			assert host_read_result(5) = '0'; -- LOK bit
+
+			bus_REN_inverted <= '0';
+			gpib_address_as_listener;
+			if interrupt /= '1' then
+				wait until interrupt = '1';
+			end if;
+			host_read("010", host_read_result); -- interrupt status 2
+			assert host_read_result(1) = '1'; -- REMC bit
+			assert host_read_result(2) = '0'; -- LOKC bit
+			assert host_read_result(4) = '1'; -- REM bit
+			assert host_read_result(5) = '0'; -- LOK bit
+			assert interrupt = '0';
+			
+			-- send local lockout
+			gpib_write_byte := "00010001";
+			gpib_write(gpib_write_byte, false);
+			if interrupt /= '1' then
+				wait until interrupt = '1';
+			end if;
+			host_read("010", host_read_result); -- interrupt status 2
+			assert host_read_result(1) = '0'; -- REMC bit
+			assert host_read_result(2) = '1'; -- LOKC bit
+			assert host_read_result(4) = '1'; -- REM bit
+			assert host_read_result(5) = '1'; -- LOK bit
+			assert interrupt = '0';
+			
+		end test_remote_local;
+		
 	begin
 		bus_DIO_inverted <= "HHHHHHHH";
 		bus_REN_inverted <= 'H';
@@ -459,6 +495,8 @@ architecture behav of frontend_cb7210p2_testbench is
 		
 		test_device_trigger;
 
+		test_remote_local;
+		
 		wait until rising_edge(clock);	
 		assert false report "end of test" severity note;
 		test_finished := true;
