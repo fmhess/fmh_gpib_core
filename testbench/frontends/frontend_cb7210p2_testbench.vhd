@@ -369,6 +369,7 @@ architecture behav of frontend_cb7210p2_testbench is
 			assert interrupt = '0';
 			
 			host_write("010", "00000000"); -- interrupt mask register 2
+			bus_REN_inverted <= 'H';
 		end test_remote_local;
 		
 		procedure test_address_status_change is
@@ -410,6 +411,47 @@ architecture behav of frontend_cb7210p2_testbench is
 			assert host_read_result(2) = '1'; -- listener addressed
 			
 		end test_address_status_change;
+		
+		procedure test_interrupt_register_0 is
+		begin
+			bus_ATN_inverted <= 'H';
+			bus_IFC_inverted <= 'H';
+			
+			host_write("101", "01010001"); -- select register page 1
+			host_write("110", "00001100"); -- write to imr 0, enable ATN and IFC interrupts
+			
+			host_write("101", "01010001"); -- select register page 1
+			host_read("110", host_read_result); -- read clear imr 0
+			
+			wait_for_ticks(3);
+			assert interrupt = '0';
+			
+			bus_ATN_inverted <= '0';
+			wait until interrupt = '1';
+			host_write("101", "01010001"); -- select register page 1
+			host_read("110", host_read_result); -- read imr 0
+			assert host_read_result(2) = '1';
+			host_write("101", "01010001"); -- select register page 1
+			host_read("110", host_read_result); -- read imr 0
+			assert host_read_result(2) = '0'; -- should have cleared due to previous read
+		
+			wait_for_ticks(3);
+			assert interrupt = '0';
+
+			bus_ATN_inverted <= 'H';
+			bus_IFC_inverted <= '0';
+			wait until interrupt = '1';
+			host_write("101", "01010001"); -- select register page 1
+			host_read("110", host_read_result); -- read imr 0
+			assert host_read_result(3) = '1';
+			host_write("101", "01010001"); -- select register page 1
+			host_read("110", host_read_result); -- read imr 0
+			assert host_read_result(3) = '0'; -- should have cleared due to previous read
+			
+			host_write("101", "01010001"); -- select register page 1
+			host_write("110", "00000000"); -- write to imr 0, disable ATN and IFC interrupts
+			bus_IFC_inverted <= 'H';
+		end test_interrupt_register_0;
 		
 	begin
 		bus_DIO_inverted <= "HHHHHHHH";
@@ -558,6 +600,8 @@ architecture behav of frontend_cb7210p2_testbench is
 		test_remote_local;
 		
 		test_address_status_change;
+		
+		test_interrupt_register_0;
 		
 		wait until rising_edge(clock);	
 		assert false report "end of test" severity note;
