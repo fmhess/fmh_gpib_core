@@ -458,7 +458,8 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			'0';
 	
 	nba <= '1' when source_handshake_state_buffer = SGNS and
-			to_bit(internal_host_to_gpib_data_byte_latched) = '1' else
+			(to_X01(internal_host_to_gpib_data_byte_latched) = '1' or
+			talker_state_p1_buffer = SPAS) else
 		'0';
 	
 	host_to_gpib_data_byte_latched <= internal_host_to_gpib_data_byte_latched;
@@ -499,9 +500,11 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 		
 			if (source_handshake_state_buffer = SDYS or source_handshake_state_buffer = STRS) and
 				to_X01(ATN) = '0' then
-				bus_DIO_inverted_out_buffer <= not internal_host_to_gpib_data_byte;
-			elsif talker_state_p1_buffer = SPAS then
-				bus_DIO_inverted_out_buffer <= not status_byte_buffer;
+				if talker_state_p1_buffer = TACS then
+					bus_DIO_inverted_out_buffer <= not internal_host_to_gpib_data_byte;
+				elsif talker_state_p1_buffer = SPAS then
+					bus_DIO_inverted_out_buffer <= status_byte_buffer;
+				end if;
 			elsif to_X01(local_TCT) = '1' then
 				bus_DIO_inverted_out_buffer <= not "00001001";
 			elsif parallel_poll_state_p1_buffer = PPAS then

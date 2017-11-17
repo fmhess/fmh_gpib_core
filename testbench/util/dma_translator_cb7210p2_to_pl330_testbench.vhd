@@ -100,7 +100,7 @@ architecture arch of dma_translator_cb7210p2_to_pl330_testbench is
 		wait until cb7210p2_dma_ack_inverted <= '1' or cb7210p2_dma_read_inverted <= '1';
 
 		wait_for_ticks(1);
-		assert false report "end of test" severity note;
+		assert false report "finished cb7210p2 process" severity note;
 		test_finished := true;
 		wait;
 	end process;
@@ -149,6 +149,7 @@ architecture arch of dma_translator_cb7210p2_to_pl330_testbench is
 		pl330_dma_cs_inverted <= '1';
 		pl330_dma_rd_inverted <= '1';
 
+		assert false report "finished pl330 process" severity note;
 		wait;
 	end process;
 	

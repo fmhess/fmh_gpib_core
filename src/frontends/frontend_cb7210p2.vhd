@@ -1335,15 +1335,23 @@ begin
 	end process;
 	
 	process (hard_reset, clock)
+		variable prev_rsv : std_logic;
 	begin
 		if hard_reset = '1' then
 			pending_rsv <= '0';
+			prev_rsv := '0';
 		elsif rising_edge(clock) then
-			if rsv = '1' then
+			-- set pending when rsv is set
+			if prev_rsv = '0' and rsv = '1' then
 				pending_rsv <= '1';
-			elsif service_request_state = NPRS then
+			-- clear pending when we are not requesting service
+			elsif rsv = '0' and service_request_state = NPRS then
 				pending_rsv <= '0';
+			-- clear pending when controller reads serial poll byte
+			elsif talker_state_p1 = SPAS and source_handshake_state = STRS then
+				pending_rsv <= '0'; 
 			end if;
+			prev_rsv := rsv;
 		end if;
 	end process;
 	

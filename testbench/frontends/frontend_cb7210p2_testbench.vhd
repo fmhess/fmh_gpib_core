@@ -453,6 +453,36 @@ architecture behav of frontend_cb7210p2_testbench is
 			bus_IFC_inverted <= 'H';
 		end test_interrupt_register_0;
 		
+		procedure test_serial_poll is
+		begin
+
+		-- configure serial poll response
+		host_write("011", "11010010");
+		wait_for_ticks(2);
+		assert to_X01(bus_SRQ_inverted) = '0';
+		
+		gpib_address_as_talker;
+		gpib_write("00011000", false); -- SPE
+
+		-- read serial poll byte
+		gpib_setup_bus(false, false);
+		gpib_read(gpib_read_result, gpib_read_eoi);
+		assert gpib_read_result = "11010010";
+		
+		gpib_setup_bus(true, true);
+		gpib_write("00011001", false); -- SPD
+
+		gpib_setup_bus(false, true);
+		
+		host_read("011", host_read_result);
+		assert host_read_result = "10010010"; -- "pending" bit should have cleared after serial poll
+
+		host_write("011", "10010010");
+		wait_for_ticks(2);
+		assert to_X01(bus_SRQ_inverted) = '1';
+
+		end test_serial_poll;
+		
 	begin
 		bus_DIO_inverted <= "HHHHHHHH";
 		bus_REN_inverted <= 'H';
@@ -602,6 +632,8 @@ architecture behav of frontend_cb7210p2_testbench is
 		test_address_status_change;
 		
 		test_interrupt_register_0;
+		
+		test_serial_poll;
 		
 		wait until rising_edge(clock);	
 		assert false report "end of test" severity note;
