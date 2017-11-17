@@ -959,6 +959,7 @@ begin
 					-- TODO
 				when "11000" => -- request rsv true
 					rsv <= '1';
+					pending_rsv <= '1';
 				when "11001" => -- request rsv false
 					rsv <= '0';
 				when "10101" => -- request RFD holdoff immediately (extension)
@@ -1020,6 +1021,9 @@ begin
 				when 3 => -- serial poll mode
 					local_STB <= write_data;
 					rsv <= write_data(6);
+					if write_data(6) = '1' then
+						pending_rsv <= '1';
+					end if;
 				when 4 => -- address mode
 					address_mode <= write_data(1 downto 0);
 					transmit_receive_mode <= write_data(5 downto 4);
@@ -1091,6 +1095,7 @@ begin
 				
 				local_STB <= (others => '0');
 				rsv <= '0';
+				pending_rsv <= '0';
 				lon <= '0';
 				lpe <= '0';
 				ltn <= '0';
@@ -1204,6 +1209,13 @@ begin
 						host_to_gpib_dma_state <= dma_idle;
 					end if;
 			end case;
+
+			-- clear pending when we are not requesting service
+			-- or when controller reads serial poll byte
+			if (rsv = '0' and service_request_state = NPRS) or
+				(talker_state_p1 = SPAS and source_handshake_state = STRS) then
+				pending_rsv <= '0'; 
+			end if;
 
 			-- handle pulses
 			if do_pulse_host_to_gpib_data_byte_write then
@@ -1333,28 +1345,7 @@ begin
 			end case;
 		end if;
 	end process;
-	
-	process (hard_reset, clock)
-		variable prev_rsv : std_logic;
-	begin
-		if hard_reset = '1' then
-			pending_rsv <= '0';
-			prev_rsv := '0';
-		elsif rising_edge(clock) then
-			-- set pending when rsv is set
-			if prev_rsv = '0' and rsv = '1' then
-				pending_rsv <= '1';
-			-- clear pending when we are not requesting service
-			elsif rsv = '0' and service_request_state = NPRS then
-				pending_rsv <= '0';
-			-- clear pending when controller reads serial poll byte
-			elsif talker_state_p1 = SPAS and source_handshake_state = STRS then
-				pending_rsv <= '0'; 
-			end if;
-			prev_rsv := rsv;
-		end if;
-	end process;
-	
+		
 	interrupt <= any_interrupt_active xor invert_interrupt;
 	
 	any_interrupt_active <= 
