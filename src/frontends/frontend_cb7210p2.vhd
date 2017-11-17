@@ -1168,6 +1168,7 @@ begin
 					end if;
 				when host_io_active =>
 					-- process write
+					register_page <= (others => '0'); -- clear register page after writes
 					host_write_register(register_page, address, to_X01(host_data_bus_in));
 					host_write_to_bus_state <= host_io_waiting_for_idle;
 				when host_io_waiting_for_idle =>
@@ -1232,8 +1233,8 @@ begin
 				clear_rtl := false;
 			end if;
 			
-			-- clear register page after read or write
-			if host_write_to_bus_state = host_io_active or host_read_from_bus_state = host_io_active then
+			-- clear register page after read (we clear it after writes above)
+			if host_read_from_bus_state = host_io_active then
 				register_page <= (others => '0');
 			end if;
 			handle_soft_reset(soft_reset);
