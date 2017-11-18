@@ -28,6 +28,7 @@
 -- * individually disabling addresses for either talk or listen.  If you try to disable either
 --   talk or listen, the address will be disabled entirely.
 -- * bug-for-bug compatible source handshaking that violates 488.1 or 488.2.
+-- * RFD holdoff immediately
 --
 -- Author: Frank Mori Hess fmh6jj@gmail.com
 -- Copyright 2017 Frank Mori Hess
@@ -743,7 +744,7 @@ begin
 			host_read_from_bus_state <= host_io_idle;
 			host_data_bus_out_buffer <= (others => 'Z');
 			gpib_to_host_dma_state <= dma_idle;
-			dma_bus_out_request <= '0';
+			dma_bus_out_request <= 'L';
 			dma_bus_out_buffer <= (others => 'Z');
 
 			prev_controller_state_p2 := CSNS;
@@ -781,7 +782,7 @@ begin
 			-- gpib to host dma state machine
 			case gpib_to_host_dma_state is
 				when dma_idle =>
-					dma_bus_out_request <= '0';
+					dma_bus_out_request <= 'L';
 					dma_bus_out_buffer <= (others => 'Z');
 					if DMA_input_enable = '1' and 
 						gpib_to_host_byte_latched = '1' then
@@ -796,14 +797,14 @@ begin
 						-- we want bus request to go false immediately, since if it
 						-- goes false while dma_read_selected is true it means the 
 						-- transfer went through rather than giving up on it
-						dma_bus_out_request <= '0';
+						dma_bus_out_request <= 'L';
 					end if;
 				when dma_acknowledged =>
 					gpib_to_host_dma_state <= dma_waiting_for_idle;
 					dma_bus_out_buffer <= gpib_to_host_byte;
 					do_pulse_gpib_to_host_byte_read := true;
 				when dma_waiting_for_idle =>
-					dma_bus_out_request <= '0';
+					dma_bus_out_request <= 'L';
 					if dma_read_selected = '0' then
 						gpib_to_host_dma_state <= dma_idle;
 					end if;
@@ -1169,7 +1170,7 @@ begin
 			pon_pulse <= '0';
 			soft_reset_pulse <= '0';
 			do_pulse_host_to_gpib_data_byte_write := false;
-			dma_bus_in_request <= '0';
+			dma_bus_in_request <= 'L';
 			release_RFD_holdoff_pulse <= '0';
 			trigger_aux_command_pulse <= '0';
 			clear_rtl := false;
@@ -1195,7 +1196,7 @@ begin
 			-- host to gpib dma state machine
 			case host_to_gpib_dma_state is
 				when dma_idle =>
-					dma_bus_in_request <= '0';
+					dma_bus_in_request <= 'L';
 					if DMA_output_enable = '1' and host_to_gpib_data_byte_latched = '0' then
 						host_to_gpib_dma_state <= dma_requesting;
 					end if;
@@ -1208,13 +1209,13 @@ begin
 						-- we want bus request to go false immediately, since if it
 						-- goes false while dma_write_selected is true it means the 
 						-- transfer went through rather than giving up on it
-						dma_bus_in_request <= '0';
+						dma_bus_in_request <= 'L';
 					end if;
 				when dma_acknowledged =>
 					write_host_to_gpib_data_byte(dma_bus_in);
 					host_to_gpib_dma_state <= dma_waiting_for_idle;
 				when dma_waiting_for_idle =>
-					dma_bus_in_request <= '0';
+					dma_bus_in_request <= 'L';
 					if dma_write_selected = '0' then
 						host_to_gpib_dma_state <= dma_idle;
 					end if;

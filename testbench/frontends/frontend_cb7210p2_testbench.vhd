@@ -208,6 +208,28 @@ architecture behav of frontend_cb7210p2_testbench is
 			);
 		end procedure host_read;
 
+		procedure dma_write (byte : in std_logic_vector(7 downto 0)) is
+		begin
+			host_write ("000", byte,
+				clock,
+				dma_bus_ack_inverted,
+				address,
+				dma_write_inverted,
+				dma_bus
+			);
+		end procedure dma_write;
+
+		procedure dma_read (result: out std_logic_vector(7 downto 0)) is
+		begin
+			host_read ("000", result,
+				clock,
+				dma_bus_ack_inverted,
+				address,
+				dma_read_inverted,
+				dma_bus
+			);
+		end procedure dma_read;
+
 		variable gpib_read_result : std_logic_vector(7 downto 0);
 		variable gpib_read_eoi : std_logic;
 		variable gpib_write_byte : std_logic_vector(7 downto 0);
@@ -555,6 +577,101 @@ architecture behav of frontend_cb7210p2_testbench is
 			wait_for_ticks(1);
 	end test_parallel_poll;
 		
+	procedure test_rfd_holdoff is
+	begin
+		host_write("010", "00010000"); -- imr2 register, dma input enable
+		gpib_address_as_listener;
+		gpib_setup_bus(false, true);
+
+		
+		host_write("101", "10000000");  -- Aux A register, normal handshake
+				
+		gpib_write(X"01", false);
+		
+		if to_X01(dma_bus_request) /= '1' then
+			wait until to_X01(dma_bus_request) = '1';
+		end if;
+		
+		assert to_X01(bus_NRFD_inverted) = '0';
+		
+		dma_read(host_read_result);
+		assert host_read_result = X"01";
+		assert to_X01(dma_bus_request) = '0';
+		wait_for_ticks(3);
+		assert to_X01(bus_NRFD_inverted) = '1';
+
+		
+		host_write("101", "10000001");  -- Aux A register, holdoff on all
+		
+		gpib_write(X"02", false);
+		
+		if to_X01(dma_bus_request) /= '1' then
+			wait until to_X01(dma_bus_request) = '1';
+		end if;
+		
+		assert to_X01(bus_NRFD_inverted) = '0';
+		
+		dma_read(host_read_result);
+		assert host_read_result = X"02";
+		wait_for_ticks(3);
+		assert to_X01(bus_NRFD_inverted) = '0';
+	
+		host_write("101", "00000011"); -- release rfd holdoff
+		wait_for_ticks(3);
+		assert to_X01(bus_NRFD_inverted) = '1';
+
+		
+		host_write("101", "10000010");  -- Aux A register, holdoff on end
+
+		gpib_write(X"03", false); -- byte without EOI asserted should not trigger holdoff
+		
+		if to_X01(dma_bus_request) /= '1' then
+			wait until to_X01(dma_bus_request) = '1';
+		end if;
+		
+		assert to_X01(bus_NRFD_inverted) = '0';
+		
+		dma_read(host_read_result);
+		assert host_read_result = X"03";
+		wait_for_ticks(3);
+		assert to_X01(bus_NRFD_inverted) = '1';
+	
+		gpib_write(X"04", true);  -- byte with EOI asserted should trigger holdoff
+		
+		if to_X01(dma_bus_request) /= '1' then
+			wait until to_X01(dma_bus_request) = '1';
+		end if;
+		
+		assert to_X01(bus_NRFD_inverted) = '0';
+		
+		dma_read(host_read_result);
+		assert host_read_result = X"04";
+		wait_for_ticks(3);
+		assert to_X01(bus_NRFD_inverted) = '0';
+
+		host_write("101", "00000011"); -- release rfd holdoff
+		wait_for_ticks(3);
+		assert to_X01(bus_NRFD_inverted) = '1';
+
+		
+		host_write("101", "10000011");  -- Aux A register, continuous mode
+
+		gpib_write(X"05", false); -- byte without EOI asserted should not trigger holdoff
+		
+		wait_for_ticks(4);
+		assert to_X01(bus_NRFD_inverted) = '1';
+	
+		gpib_write(X"06", true);  -- byte with EOI asserted should trigger holdoff
+		
+		wait_for_ticks(4);
+		assert to_X01(bus_NRFD_inverted) = '0';
+
+		host_write("101", "00000011"); -- release rfd holdoff
+		wait_for_ticks(3);
+		assert to_X01(bus_NRFD_inverted) = '1';
+
+	end test_rfd_holdoff;
+	
 	begin
 		bus_DIO_inverted <= "HHHHHHHH";
 		bus_REN_inverted <= 'H';
@@ -568,7 +685,6 @@ architecture behav of frontend_cb7210p2_testbench is
 		reset <= '0';
 		chip_select_inverted <= '1';
 		dma_bus_ack_inverted <= '1';
-		dma_bus_request <= '0';
 		dma_bus <= (others => 'Z');
 		host_data_bus <= (others => '0');
 		read_inverted <= '1';
@@ -708,6 +824,8 @@ architecture behav of frontend_cb7210p2_testbench is
 		test_serial_poll;
 		
 		test_parallel_poll;
+		
+		test_rfd_holdoff;
 		
 		wait until rising_edge(clock);	
 		assert false report "end of test" severity note;
