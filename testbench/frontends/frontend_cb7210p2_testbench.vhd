@@ -483,6 +483,78 @@ architecture behav of frontend_cb7210p2_testbench is
 
 		end test_serial_poll;
 		
+		procedure test_parallel_poll is
+		begin
+		
+			-- remote parallel poll mode
+			host_write("101", "01100000"); -- enabled 
+			host_write("101", "11100000"); -- aux reg I, remote mode 
+			host_write("101", "10100000"); -- don't use SRQ as ist, use parallel poll flag (bit 4)
+			host_write("101", "00001001"); -- set parallel poll flag to 1
+
+			-- remotely configure parallel poll
+			gpib_address_as_listener;
+			gpib_write("00000101", false); -- PPC
+			gpib_write("01101101", false); -- PPE, sense 1, line 5
+			
+			-- do parallel poll
+			bus_ATN_inverted <= '0';
+			bus_EOI_inverted <= '0';
+			wait_for_ticks(3);
+			assert not bus_DIO_inverted = "00100000";
+			
+			bus_ATN_inverted <= 'H';
+			bus_EOI_inverted <= 'H';
+			wait_for_ticks(1);
+			
+			-- remotely deconfigure parallel poll
+			gpib_address_as_listener;
+			gpib_write("00000101", false); -- PPC
+			gpib_write("01110000", false); -- PPD
+
+			-- do parallel poll
+			bus_ATN_inverted <= '0';
+			bus_EOI_inverted <= '0';
+			wait_for_ticks(3);
+			assert not bus_DIO_inverted = "00000000";
+
+			bus_ATN_inverted <= 'H';
+			bus_EOI_inverted <= 'H';
+			wait_for_ticks(1);
+			
+			-- local parallel poll mode
+			host_write("101", "01100111"); -- enabled, sense 0, line 7 
+			host_write("101", "11100100"); -- aux reg I, local mode 
+			host_write("101", "10100000"); -- don't use SRQ as ist, use parallel poll flag (bit 4)
+			host_write("101", "00000001"); -- set parallel poll flag to 0
+			
+			-- do parallel poll
+			bus_ATN_inverted <= '0';
+			bus_EOI_inverted <= '0';
+			wait_for_ticks(3);
+			assert not bus_DIO_inverted = "10000000";
+			
+			bus_ATN_inverted <= 'H';
+			bus_EOI_inverted <= 'H';
+			wait_for_ticks(1);
+
+			-- disable parallel poll 
+			host_write("101", "01110000"); -- disabled
+			host_write("101", "11100000"); -- aux reg I, remote mode 
+			host_write("101", "10100000"); -- don't use SRQ as ist, use parallel poll flag (bit 4)
+			host_write("101", "00000001"); -- set parallel poll flag to 0
+			
+			-- do parallel poll
+			bus_ATN_inverted <= '0';
+			bus_EOI_inverted <= '0';
+			wait_for_ticks(3);
+			assert not bus_DIO_inverted = "00000000";
+			
+			bus_ATN_inverted <= 'H';
+			bus_EOI_inverted <= 'H';
+			wait_for_ticks(1);
+	end test_parallel_poll;
+		
 	begin
 		bus_DIO_inverted <= "HHHHHHHH";
 		bus_REN_inverted <= 'H';
@@ -634,6 +706,8 @@ architecture behav of frontend_cb7210p2_testbench is
 		test_interrupt_register_0;
 		
 		test_serial_poll;
+		
+		test_parallel_poll;
 		
 		wait until rising_edge(clock);	
 		assert false report "end of test" severity note;

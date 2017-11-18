@@ -4,6 +4,8 @@
 -- It has been extended with:
 -- * the addition or a isr0/imr0 register at page 1, offset 6.
 -- * a RFD holdoff immediately auxiliary command
+-- * "Aux reg I" with PPMODE2 bit which properly selects between the remote
+--   or local parallel poll subsets of IEEE 488.1.
 --
 -- Features yet to be implemented:
 -- * Controller support.
@@ -120,6 +122,8 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal local_parallel_poll_config : std_logic;
 	signal local_parallel_poll_sense : std_logic;
 	signal local_parallel_poll_response_line : std_logic_vector(2 downto 0);
+	signal parallel_poll_disable : std_logic;
+	signal local_parallel_poll_config_or_disable : std_logic;
 	signal check_for_listeners : std_logic;
 	signal no_listeners : std_logic;
 	signal first_T1_terminal_count : std_logic_vector(num_counter_bits - 1 downto 0);
@@ -201,7 +205,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal use_SRQS_as_ist : std_logic;
 	signal host_to_gpib_auto_EOI_on_EOS : std_logic;
 	signal end_interrupt_condition : std_logic;
-	
+
 	signal talk_enable_buffer : std_logic;
 	signal controller_in_charge_buffer : std_logic;
 	signal pullup_disable_buffer : std_logic;
@@ -324,7 +328,7 @@ begin
 			ignore_eos_bit_7 => ignore_eos_bit_7,
 			configured_primary_address => configured_primary_address,
 			configured_secondary_address => configured_secondary_address,
-			local_parallel_poll_config => local_parallel_poll_config,
+			local_parallel_poll_config => local_parallel_poll_config_or_disable,
 			local_parallel_poll_sense => local_parallel_poll_sense,
 			local_parallel_poll_response_line => local_parallel_poll_response_line,
 			check_for_listeners => check_for_listeners,
@@ -1036,8 +1040,7 @@ begin
 						when "001" => -- reference clock frequency
 							-- TODO
 						when "011" => -- parallel poll register
-							lpe <= not write_data(4);
-							local_parallel_poll_config <= not write_data(4);
+							parallel_poll_disable <= write_data(4) ;
 							local_parallel_poll_sense <= write_data(3);
 							local_parallel_poll_response_line <= write_data(2 downto 0);
 						when "100" => -- aux A register
@@ -1068,6 +1071,11 @@ begin
 							else
 								ultra_fast_T1_delay <= write_data(0);
 							end if;
+						when "111" =>
+							if write_data(4) = '1' then
+							else -- aux reg I
+								local_parallel_poll_config <= write_data(2);
+							end if;
 						when others =>
 					end case;
 				when 6 => -- address 0/1
@@ -1097,7 +1105,7 @@ begin
 				rsv <= '0';
 				pending_rsv <= '0';
 				lon <= '0';
-				lpe <= '0';
+				parallel_poll_disable <= '0';
 				ltn <= '0';
 				lun <= '0';
 				rtl <= '0';
@@ -1124,7 +1132,7 @@ begin
 				local_parallel_poll_config <= '0';
 				local_parallel_poll_sense <= '0';
 				local_parallel_poll_response_line <= (others => '0');
-
+				
 				-- imr0 enables
 				ATN_interrupt_enable <= '0';
 				IFC_interrupt_enable <= '0';
@@ -1297,19 +1305,21 @@ begin
 		end if;
 	end process;
 
-	talk_enable_buffer <= '1' when talker_state_p1 = TACS or talker_state_p1 = SPAS or 
-			controller_state_p1 = CACS else
+	lpe <= local_parallel_poll_config and not parallel_poll_disable;
+	local_parallel_poll_config_or_disable <= local_parallel_poll_config or parallel_poll_disable;
+	
+	talk_enable_buffer <= '1' when (talker_state_p1 = TACS or talker_state_p1 = SPAS or 
+			controller_state_p1 = CACS) or parallel_poll_state_p1 = PPAS else
 		'0';
 	
 	controller_in_charge_buffer <= '0' when controller_state_p1 = CIDS or controller_state_p1 = CADS else '1';
 	not_controller_in_charge <= not controller_in_charge_buffer;
 
-	pullup_disable_buffer <= '1' when to_X01(not controller_in_charge_buffer) = '1' or 
-		parallel_poll_state_p1 /= PPAS else '0';
+	pullup_disable_buffer <= '1' when parallel_poll_state_p1 /= PPAS else '0';
 	pullup_disable <= pullup_disable_buffer;
 	
 	EOI_output_enable_buffer <= '1' when
-			talk_enable_buffer = '1' or 
+			(talker_state_p1 = TACS or talker_state_p1 = SPAS) or
 			(controller_state_p1 /= CIDS and controller_state_p1 /= CADS and 
 				controller_state_p1 /= CSBS and controller_state_p1 /= CSHS) else
 		'0';
