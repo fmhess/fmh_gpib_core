@@ -883,9 +883,9 @@ begin
 				LOKC_interrupt <= '1';
 			end if;
 
-			if false then -- TODO
-				CO_interrupt <= '1';
-			end if;
+--			if false then -- TODO
+--				CO_interrupt <= '1';
+--			end if;
 			
 			if controller_state_p2 = CSRS then
 				if prev_controller_state_p2 /= CSRS then

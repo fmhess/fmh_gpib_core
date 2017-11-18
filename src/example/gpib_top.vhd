@@ -101,7 +101,7 @@ architecture structural of gpib_top is
 	signal ungated_ATN_inverted_out : std_logic;
 	signal ungated_DAV_inverted_out : std_logic;
 	signal ungated_EOI_inverted_out : std_logic;
-	signal ungated__IFCinverted_out : std_logic;
+	signal ungated_IFC_inverted_out : std_logic;
 	signal ungated_NDAC_inverted_out : std_logic;
 	signal ungated_NRFD_inverted_out : std_logic;
 	signal ungated_REN_inverted_out : std_logic;
@@ -193,7 +193,7 @@ begin
 			gpib_ATN_inverted_out => ungated_ATN_inverted_out,
 			gpib_DAV_inverted_out => ungated_DAV_inverted_out,
 			gpib_EOI_inverted_out => ungated_EOI_inverted_out,
-			gpib_IFC_inverted_out => ungated__IFCinverted_out,
+			gpib_IFC_inverted_out => ungated_IFC_inverted_out,
 			gpib_NDAC_inverted_out => ungated_NDAC_inverted_out,
 			gpib_NRFD_inverted_out => ungated_NRFD_inverted_out,
 			gpib_REN_inverted_out => ungated_REN_inverted_out,
@@ -305,7 +305,7 @@ begin
 				gpib_atn <= ungated_ATN_inverted_out;
 				gpib_dav <= ungated_DAV_inverted_out;
 				gpib_eoi <= ungated_EOI_inverted_out;
-				gpib_ifc <= ungated__IFCinverted_out;
+				gpib_ifc <= ungated_IFC_inverted_out;
 				gpib_ndac <= ungated_NDAC_inverted_out;
 				gpib_nrfd <= ungated_NRFD_inverted_out;
 				gpib_ren <= ungated_REN_inverted_out;

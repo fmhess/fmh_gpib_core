@@ -38,10 +38,30 @@ architecture arch of gpib_control_debounce_filter is
 	signal rising_inputs_history : inputs_history_type;
 	signal falling_inputs_history : inputs_history_type;
 	signal outputs_buffer : std_logic_vector(num_inputs - 1 downto 0);
+	signal safe_output_reset : std_logic;
+	signal safe_input_reset : std_logic;
 begin
 	process (reset, input_clock)
 	begin
 		if to_X01(reset) = '1' then
+			safe_input_reset <= '1';
+		elsif rising_edge(input_clock) then
+			safe_input_reset <= '0';
+		end if;
+	end process;
+	
+	process (reset, output_clock)
+	begin
+		if to_X01(reset) = '1' then
+			safe_output_reset <= '1';
+		elsif rising_edge(output_clock) then
+			safe_output_reset <= '0';
+		end if;
+	end process;
+
+	process (safe_input_reset, input_clock)
+	begin
+		if to_X01(safe_input_reset) = '1' then
 			for i in 0 to half_length - 1 loop
 				for j in 0 to num_inputs - 1 loop
 					rising_inputs_history(i)(j) <= '1';
@@ -61,10 +81,10 @@ begin
 		end if;
 	end process;
 	
-	process (reset, output_clock)
+	process (safe_output_reset, output_clock)
 	variable input_sum : integer;
 	begin
-		if to_X01(reset) = '1' then
+		if to_X01(safe_output_reset) = '1' then
 			outputs_buffer <= (others => '1');
 		elsif rising_edge(output_clock) then
 			for j in 0 to num_inputs - 1 loop

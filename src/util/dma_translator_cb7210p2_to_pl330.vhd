@@ -33,10 +33,20 @@ architecture arch of dma_translator_cb7210p2_to_pl330 is
 		transfer_awaiting_completion);
 	signal dma_transfer_state : dma_transfer_state_enum;
 	signal pl330_dma_req_buffer : std_logic;
+	signal safe_reset : std_logic;
 begin
 	process (reset, clock)
 	begin
 		if to_X01(reset) = '1' then
+			safe_reset <= '1';
+		elsif rising_edge(clock) then
+			safe_reset <= '0';
+		end if;
+	end process;
+	
+	process (safe_reset, clock)
+	begin
+		if to_X01(safe_reset) = '1' then
 			dma_transfer_state <= transfer_idle;
 			pl330_dma_req_buffer <= '0';
 			pl330_dma_single <= '0';
