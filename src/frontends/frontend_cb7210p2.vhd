@@ -3,7 +3,6 @@
 --
 -- It has been extended with:
 -- * the addition or a isr0/imr0 register at page 1, offset 6.
--- * a RFD holdoff immediately auxiliary command
 -- * "Aux reg I" with PPMODE2 bit which properly selects between the remote
 --   or local parallel poll subsets of IEEE 488.1.
 --
@@ -199,7 +198,6 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal high_speed_T1_delay : std_logic;
 	signal generate_END_interrupt_on_EOS : std_logic;
 	signal RFD_holdoff_mode : RFD_holdoff_enum;
-	signal RFD_holdoff_immediately_pulse : std_logic;
 	signal release_RFD_holdoff_pulse : std_logic;
 	signal parallel_poll_flag : std_logic;
 	signal use_SRQS_as_ist : std_logic;
@@ -365,7 +363,6 @@ begin
 			talker_state_p3 => talker_state_p3,
 			local_STB => local_STB,
 			RFD_holdoff_mode => RFD_holdoff_mode,
-			RFD_holdoff_immediately_pulse => RFD_holdoff_immediately_pulse,
 			release_RFD_holdoff_pulse => release_RFD_holdoff_pulse
 		);
 
@@ -966,8 +963,6 @@ begin
 					pending_rsv <= '1';
 				when "11001" => -- request rsv false
 					rsv <= '0';
-				when "10101" => -- request RFD holdoff immediately (extension)
-					RFD_holdoff_immediately_pulse <= '1';
 				when "11011" => -- listen with continuous mode
 					-- TODO
 				when "11100" => -- local unlisten (pulse)
@@ -1167,7 +1162,6 @@ begin
 			soft_reset_pulse <= '0';
 			do_pulse_host_to_gpib_data_byte_write := false;
 			dma_bus_in_request <= '0';
-			RFD_holdoff_immediately_pulse <= '0';
 			release_RFD_holdoff_pulse <= '0';
 			trigger_aux_command_pulse <= '0';
 			clear_rtl := false;
@@ -1240,9 +1234,6 @@ begin
 			end if;
 			if release_RFD_holdoff_pulse /= '0' then
 				release_RFD_holdoff_pulse <= '0';
-			end if;
-			if RFD_holdoff_immediately_pulse /= '0' then
-				RFD_holdoff_immediately_pulse <= '0';
 			end if;
 			if trigger_aux_command_pulse /= '0' then
 				trigger_aux_command_pulse <= '0';

@@ -66,8 +66,6 @@ entity integrated_interface_functions is
 		host_to_gpib_data_byte_write : in std_logic;
 		local_STB : in std_logic_vector(7 downto 0);
 		RFD_holdoff_mode : in RFD_holdoff_enum;
-		-- pulse to put acceptor handshake into rfd holdoff
-		RFD_holdoff_immediately_pulse : in std_logic;
 		-- pulse to release rfd holdoff
 		release_RFD_holdoff_pulse : in std_logic;
 		
@@ -561,9 +559,6 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			end if;
 			if to_X01(release_RFD_holdoff_pulse) = '1' then
 				RFD_holdoff <= '0';
-			end if;
-			if to_X01(RFD_holdoff_immediately_pulse) = '1' then
-				RFD_holdoff <= '1';
 			end if;
 			prev_acceptor_handshake_state := acceptor_handshake_state_buffer;
 		end if;
