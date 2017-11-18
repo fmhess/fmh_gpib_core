@@ -103,7 +103,8 @@ entity integrated_interface_functions is
 		-- gpib_to_host_data_byte_latched true means a new gpib to host byte is available to be read by host
 		gpib_to_host_byte_latched : out std_logic;
 		-- host_to_gpib_data_byte_latched false means a new host to gpib byte can be written by host
-		host_to_gpib_data_byte_latched : out std_logic
+		host_to_gpib_data_byte_latched : out std_logic;
+		host_to_gpib_command_byte_latched : out std_logic
 	);
  
 end integrated_interface_functions;
@@ -462,7 +463,8 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 		'0';
 	
 	host_to_gpib_data_byte_latched <= internal_host_to_gpib_data_byte_latched;
-
+	host_to_gpib_command_byte_latched <= '0';
+	
 	local_NUL <= talker_NUL_buffer or controller_NUL_buffer;
 
 	local_EOI <= local_END or local_IDY;

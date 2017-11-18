@@ -5,6 +5,9 @@
 -- * the addition or a isr0/imr0 register at page 1, offset 6.
 -- * "Aux reg I" with PPMODE2 bit which properly selects between the remote
 --   or local parallel poll subsets of IEEE 488.1.
+-- * status bits at register page 1, offset 1 which indicate clearly
+--   whether a byte may currently be written into or read out of the chip
+--   independently of interrupt clearing logic.
 --
 -- Features yet to be implemented:
 -- * Controller support.
@@ -135,6 +138,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal host_to_gpib_data_byte_end : std_logic;
 	signal host_to_gpib_data_byte_write : std_logic;
 	signal host_to_gpib_data_byte_latched : std_logic;
+	signal host_to_gpib_command_byte_latched : std_logic;
 	signal acceptor_handshake_state : AH_state;
 	signal controller_state_p1 : C_state_p1;
 	signal controller_state_p2 : C_state_p2;
@@ -343,6 +347,7 @@ begin
 			host_to_gpib_auto_EOI_on_EOS => host_to_gpib_auto_EOI_on_EOS,
 			host_to_gpib_data_byte_write => host_to_gpib_data_byte_write,
 			host_to_gpib_data_byte_latched => host_to_gpib_data_byte_latched,
+			host_to_gpib_command_byte_latched => host_to_gpib_command_byte_latched,
 			acceptor_handshake_state => acceptor_handshake_state,
 			controller_state_p1 => controller_state_p1,
 			controller_state_p2 => controller_state_p2,
@@ -519,6 +524,10 @@ begin
 					host_data_bus_out_buffer(5) <= not enable_listener_gpib_address_1;
 					host_data_bus_out_buffer(6) <= not enable_talker_gpib_address_1;
 					host_data_bus_out_buffer(7) <= gpib_to_host_byte_end;
+				when 9 => -- state of input/output data latches free from interrupt clearing logic
+					host_data_bus_out_buffer(0) <= gpib_to_host_byte_latched;
+					host_data_bus_out_buffer(1) <= not host_to_gpib_data_byte_latched;
+					host_data_bus_out_buffer(2) <= not host_to_gpib_command_byte_latched;
 				when 16#b# => -- revision register
 					host_data_bus_out_buffer <= X"ff";
 				when 16#c# => -- state 1 register
