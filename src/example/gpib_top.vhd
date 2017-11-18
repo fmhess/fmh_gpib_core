@@ -67,6 +67,8 @@ entity gpib_top is
 end gpib_top;
 
 architecture structural of gpib_top is
+	signal safe_reset : std_logic;
+	
 	signal cb7210p2_dma_bus_in_request : std_logic;
 	signal cb7210p2_dma_bus_out_request : std_logic;
 	signal cb7210p2_dma_read_inverted : std_logic;
@@ -201,18 +203,28 @@ begin
 			gpib_DIO_inverted_out => ungated_DIO_inverted_out
 		);
 
-	gpib_reset <= not reset;
+	gpib_reset <= not safe_reset;
 
 	dma_count_dout <= std_logic_vector(dma_count);
 
 	dma_req <= dma_req_buffer;
 
+	-- sync reset deassertion
+	process (reset, clk)
+	begin
+		if to_X01(reset) = '0' then
+			safe_reset <= '0';
+		elsif rising_edge(clk) then
+			safe_reset <= '1';
+		end if;
+	end process;
+	
 	-- dma transfer counter
-	process(reset, clk) is
+	process(safe_reset, clk) is
 		variable dma_transfer_active : std_logic;
 		variable prev_dma_transfer_active : std_logic;
 	begin
-		if reset = '0' then
+		if safe_reset = '0' then
 			dma_count <= (others => '0');
 			dma_transfer_active := '0';
 			prev_dma_transfer_active := '0';
@@ -235,9 +247,9 @@ begin
 	end process;
 
 	-- handle gating by gpib_disable
-	process (reset, clk)
+	process (safe_reset, clk)
 	begin
-		if to_X01(reset) = '0' then
+		if to_X01(safe_reset) = '0' then
 			-- inputs
 			gated_ATN <= 'H';
 			gated_DAV <= 'H';
