@@ -100,9 +100,9 @@ entity integrated_interface_functions is
 		gpib_to_host_byte : out std_logic_vector(7 downto 0);
 		gpib_to_host_byte_eos : out std_logic;
 		gpib_to_host_byte_end : out std_logic;
-		-- rdy false means there is a gpib to host byte waiting to be read out
-		rdy : out std_logic;
-		-- host_to_gpib_data_byte_latched false means a new host to gpib byte can be written in
+		-- gpib_to_host_data_byte_latched true means a new gpib to host byte is available to be read by host
+		gpib_to_host_byte_latched : out std_logic;
+		-- host_to_gpib_data_byte_latched false means a new host to gpib byte can be written by host
 		host_to_gpib_data_byte_latched : out std_logic
 	);
  
@@ -110,7 +110,8 @@ end integrated_interface_functions;
  
 architecture integrated_interface_functions_arch of integrated_interface_functions is
 	signal nba : std_logic;
-	signal rdy_buffer : std_logic;
+	signal rdy : std_logic;
+	signal gpib_to_host_byte_latched_buffer : std_logic;
 	signal internal_host_to_gpib_data_byte_latched : std_logic;
 	signal internal_host_to_gpib_data_byte : std_logic_vector(7 downto 0);
 	signal internal_host_to_gpib_data_byte_end : std_logic;
@@ -266,7 +267,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			ATN => ATN,
 			DAV => DAV,
 			pon => pon,
-			rdy => rdy_buffer,
+			rdy => rdy,
 			tcs => tcs,
 			RFD_holdoff => RFD_holdoff,
 			acceptor_handshake_state => acceptor_handshake_state_buffer,
@@ -523,7 +524,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 		variable prev_acceptor_handshake_state : AH_state;
 	begin
 		if to_bit(pon) = '1' then
-			rdy_buffer <= '1';
+			gpib_to_host_byte_latched_buffer <= '0';
 			gpib_to_host_byte <= X"00";
 			gpib_to_host_byte_end <= '0';
 			gpib_to_host_byte_eos <= '0';
@@ -533,8 +534,8 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			if prev_acceptor_handshake_state /= ACDS and 
 				acceptor_handshake_state_buffer = ACDS and
 				to_bit(ATN) = '0' then
-				rdy_buffer <= '0';
 				if RFD_holdoff_mode /= continuous_mode then
+					gpib_to_host_byte_latched_buffer <= '1';
 					gpib_to_host_byte <= not bus_DIO_inverted_in;
 					gpib_to_host_byte_end <= END_msg;
 					gpib_to_host_byte_eos <= EOS;
@@ -552,18 +553,30 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 							RFD_holdoff <= '1';
 						end if;
 				end case;
-			elsif acceptor_handshake_state_buffer /= ACDS and RFD_holdoff_mode = continuous_mode then
-				rdy_buffer <= '1';
 			elsif to_X01(gpib_to_host_byte_read) = '1' then
-				rdy_buffer <= '1';
+				gpib_to_host_byte_latched_buffer <= '0';
 			end if;
+
 			if to_X01(release_RFD_holdoff_pulse) = '1' then
 				RFD_holdoff <= '0';
 			end if;
+			
+			if RFD_holdoff_mode = continuous_mode then
+				if acceptor_handshake_state_buffer = ACDS then
+					rdy <= '0';
+				else
+					rdy <= '1';
+				end if;
+			else
+				rdy <= not gpib_to_host_byte_latched_buffer;
+			end if;
+			
 			prev_acceptor_handshake_state := acceptor_handshake_state_buffer;
 		end if;
 	end process;
 
+	gpib_to_host_byte_latched <= gpib_to_host_byte_latched_buffer;
+	
 	-- deal with byte written by host to gpib bus
 	process(pon, clock)
 		variable prev_source_handshake_state  : SH_state;
@@ -615,5 +628,4 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 		end if;
 	end process;
 	
-	rdy <= rdy_buffer;
 end integrated_interface_functions_arch;

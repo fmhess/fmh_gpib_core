@@ -167,7 +167,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal lun : std_logic;
 	signal ltn : std_logic;
 	signal pon : std_logic;
-	signal rdy : std_logic;
+	signal gpib_to_host_byte_latched : std_logic;
 	signal rsv : std_logic;
 	signal rtl : std_logic;
 	signal ton : std_logic;
@@ -337,7 +337,7 @@ begin
 			gpib_to_host_byte => gpib_to_host_byte,
 			gpib_to_host_byte_end => gpib_to_host_byte_end,
 			gpib_to_host_byte_eos => gpib_to_host_byte_eos,
-			rdy => rdy,
+			gpib_to_host_byte_latched => gpib_to_host_byte_latched,
 			host_to_gpib_data_byte => host_to_gpib_data_byte,
 			host_to_gpib_data_byte_end => host_to_gpib_data_byte_end,
 			host_to_gpib_auto_EOI_on_EOS => host_to_gpib_auto_EOI_on_EOS,
@@ -440,7 +440,7 @@ begin
 		variable prev_in_TIDS : std_logic;
 		variable prev_LADS_or_LACS : std_logic;
 		variable prev_controller_in_charge : std_logic;
-		variable prev_rdy : std_logic;
+		variable prev_gpib_to_host_byte_latched : std_logic;
 		variable prev_end_interrupt_condition : std_logic;
 		
 		-- process a read from the host
@@ -746,7 +746,7 @@ begin
 			prev_in_TIDS := '1';
 			prev_LADS_or_LACS := '0';
 			prev_controller_in_charge := '0';
-			prev_rdy := '1';
+			prev_gpib_to_host_byte_latched := '0';
 			prev_end_interrupt_condition := '0';
 		
 			do_pulse_gpib_to_host_byte_read := false;
@@ -775,7 +775,7 @@ begin
 					dma_bus_out_request <= '0';
 					dma_bus_out_buffer <= (others => 'Z');
 					if DMA_input_enable = '1' and 
-						rdy = '0' then
+						gpib_to_host_byte_latched = '1' then
 						gpib_to_host_dma_state <= dma_requesting;
 					end if;
 				when dma_requesting =>
@@ -822,13 +822,12 @@ begin
 				DO_interrupt <= '0';
 			end if;
 
-			if rdy = '0' and prev_rdy = '1' then
-				if acceptor_handshake_state = ACDS and listener_state_p1 = LACS and
-					RFD_holdoff_mode /= continuous_mode then
+			if gpib_to_host_byte_latched = '1' and prev_gpib_to_host_byte_latched = '0' then
+				if acceptor_handshake_state = ACDS and listener_state_p1 = LACS then
 					DI_interrupt <= '1';
 				end if;
 			end if;
-			if rdy = '1' then
+			if gpib_to_host_byte_latched = '0' then
 				DI_interrupt <= '0';
 			end if;
 
@@ -907,7 +906,7 @@ begin
 			prev_in_TIDS := in_TIDS;
 			prev_LADS_or_LACS := LADS_or_LACS;
 			prev_controller_in_charge := controller_in_charge_buffer;
-			prev_rdy := rdy;
+			prev_gpib_to_host_byte_latched := gpib_to_host_byte_latched;
 			prev_end_interrupt_condition := end_interrupt_condition;
 			
 			handle_soft_reset(soft_reset);

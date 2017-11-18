@@ -69,7 +69,7 @@ architecture behav of integrated_interface_functions_testbench is
 	signal lun : std_logic;
 	signal ltn : std_logic;
 	signal pon : std_logic;
-	signal rdy : std_logic;
+	signal gpib_to_host_byte_latched : std_logic;
 	signal rsv : std_logic;
 	signal rtl : std_logic;
 	signal ton : std_logic;
@@ -135,7 +135,7 @@ architecture behav of integrated_interface_functions_testbench is
 			gpib_to_host_byte => gpib_to_host_byte,
 			gpib_to_host_byte_end => gpib_to_host_byte_end,
 			gpib_to_host_byte_eos => gpib_to_host_byte_eos,
-			rdy => rdy,
+			gpib_to_host_byte_latched => gpib_to_host_byte_latched,
 			host_to_gpib_data_byte => host_to_gpib_data_byte,
 			host_to_gpib_data_byte_end => host_to_gpib_data_byte_end,
 			host_to_gpib_data_byte_write => host_to_gpib_data_byte_write,
@@ -297,7 +297,7 @@ architecture behav of integrated_interface_functions_testbench is
 		gpib_write(X"01", false);
 
 		wait until rising_edge(clock);	
-		assert rdy = '0';
+		assert gpib_to_host_byte_latched = '1';
 		assert gpib_to_host_byte = X"01";
 		assert gpib_to_host_byte_end = '0';
 		assert gpib_to_host_byte_eos = '0';
@@ -305,7 +305,7 @@ architecture behav of integrated_interface_functions_testbench is
 		wait until rising_edge(clock);	
 		gpib_to_host_byte_read <= '0';
 		wait until rising_edge(clock);	
-		assert rdy = '1';
+		assert gpib_to_host_byte_latched = '0';
 
 		gpib_write(X"00", false);
 		wait until rising_edge(clock);	
