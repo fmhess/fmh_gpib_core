@@ -478,7 +478,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	bus_DAV_inverted_out <= not local_DAV when
 		source_handshake_state_buffer /= SIDS and source_handshake_state_buffer /= SIWS else 'Z';
 	bus_EOI_inverted_out <= not (local_EOI) when
-		talker_state_p1_buffer = TACS or 
+		talker_state_p1_buffer = TACS or talker_state_p1_buffer = SPAS or 
 		(
 			controller_state_p1_buffer /= CIDS and 
 			controller_state_p1_buffer /= CADS and 
