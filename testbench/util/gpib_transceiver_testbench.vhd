@@ -134,7 +134,7 @@ architecture behav of gpib_transceiver_testbench is
 		bus_SRQ <= '0';
 		wait until rising_edge(clock);
 		assert bus_ATN = '0';
-		assert device_SRQ = '0';
+		assert to_X01(device_SRQ) = '0';
 
 		bus_REN <= '0';
 		bus_IFC <= '1';
@@ -162,7 +162,7 @@ architecture behav of gpib_transceiver_testbench is
 		bus_NRFD <= '1';
 		wait until rising_edge(clock);
 		assert bus_DAV = '0';
-		assert device_NDAC = '0';
+		assert to_X01(device_NDAC) = '0';
 		assert to_X01(device_NRFD) = '1';
 
 		talk_enable <= '0';

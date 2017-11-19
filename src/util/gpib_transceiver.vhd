@@ -45,20 +45,15 @@ architecture gpib_transceiver_arch of gpib_transceiver is
 	signal device_is_asserting_NRFD : std_logic;
 	signal device_is_asserting_SRQ : std_logic;
 
-	function open_collector_sync_to_bus(device_value : in std_logic; 
-		transmit : in std_logic) return std_logic is
+	function open_collector_sync_to_bus(device_value : in std_logic) return std_logic is
 	begin
-		if to_X01(transmit) = '1' then
-			case device_value is
-				when '0' => return '0';
-				when '1' => return 'Z';
-				when 'L' => return 'Z';
-				when 'H' => return 'Z';
-				when others => return 'Z';
-			end case;
-		else
-			return 'Z';
-		end if;
+		case device_value is
+			when '0' => return '0';
+			when '1' => return 'Z';
+			when 'L' => return 'Z';
+			when 'H' => return 'Z';
+			when others => return 'Z';
+		end case;
 	end open_collector_sync_to_bus;
 
 	function tristate_sync(source_value : in std_logic; 
@@ -77,26 +72,15 @@ architecture gpib_transceiver_arch of gpib_transceiver is
 		end if;
 	end tristate_sync;
 
-	function open_collector_sync_to_device(bus_value : in std_logic; 
-		transmit : in std_logic) return std_logic is
+	function open_collector_sync_to_device(bus_value : in std_logic) return std_logic is
 	begin
-		if to_X01(transmit) = '1' then
-			case bus_value is
-				when '0' => return '0';
-				when '1' => return 'H';
-				when 'L' => return '0';
-				when 'H' => return 'H';
-				when others => return 'Z';
-			end case;
-		else
-			case bus_value is
-				when '0' => return 'L';
-				when '1' => return 'H';
-				when 'L' => return 'L';
-				when 'H' => return 'H';
-				when others => return 'Z';
-			end case;
-		end if;
+		case bus_value is
+			when '0' => return 'L';
+			when '1' => return 'H';
+			when 'L' => return 'L';
+			when 'H' => return 'H';
+			when others => return 'Z';
+		end case;
 	end open_collector_sync_to_device;
 
 	function sync_dio_to_bus(source : in std_logic; transmit : in std_logic; 
@@ -105,7 +89,7 @@ architecture gpib_transceiver_arch of gpib_transceiver is
 		if to_X01(pullup_disable) = '1' then
 			return tristate_sync(source, transmit);
 		else
-			return open_collector_sync_to_bus(source, transmit);
+			return open_collector_sync_to_bus(source);
 		end if;
 	end sync_dio_to_bus;
 
@@ -126,7 +110,7 @@ architecture gpib_transceiver_arch of gpib_transceiver is
 		if to_X01(pullup_disable) = '1' then
 			return tristate_sync(source, transmit);
 		else
-			return open_collector_sync_to_device(source, transmit);
+			return open_collector_sync_to_device(source);
 		end if;
 	end sync_dio_to_device;
 
@@ -148,8 +132,8 @@ begin
 	device_ATN <= tristate_sync(bus_ATN, not_controller_in_charge);
 	bus_ATN <= tristate_sync(device_ATN, not not_controller_in_charge);
 
-	device_SRQ <= open_collector_sync_to_device(bus_SRQ, not not_controller_in_charge);
-	bus_SRQ <= open_collector_sync_to_bus(device_SRQ, not_controller_in_charge);
+	device_SRQ <= open_collector_sync_to_device(bus_SRQ);
+	bus_SRQ <= open_collector_sync_to_bus(device_SRQ);
 
 	device_IFC <= tristate_sync(bus_IFC, not system_controller);
 	device_REN <= tristate_sync(bus_REN, not system_controller);
@@ -158,11 +142,11 @@ begin
 	
 
 	device_DAV <= tristate_sync(bus_DAV, not talk_enable);
-	device_NDAC <= open_collector_sync_to_device(bus_NDAC, talk_enable);
-	device_NRFD <= open_collector_sync_to_device(bus_NRFD, talk_enable);
+	device_NDAC <= open_collector_sync_to_device(bus_NDAC);
+	device_NRFD <= open_collector_sync_to_device(bus_NRFD);
 	bus_DAV <= tristate_sync(device_DAV, talk_enable);
-	bus_NDAC <= open_collector_sync_to_bus(device_NDAC, not talk_enable);
-	bus_NRFD <= open_collector_sync_to_bus(device_NRFD, not talk_enable);
+	bus_NDAC <= open_collector_sync_to_bus(device_NDAC);
+	bus_NRFD <= open_collector_sync_to_bus(device_NRFD);
 	
 
 	eoi_transmit <= '1' when (to_bit(talk_enable) = '1' and to_bit(not_controller_in_charge) = '0') or

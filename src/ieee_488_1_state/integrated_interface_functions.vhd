@@ -476,7 +476,8 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	bus_ATN_inverted_out <= not local_ATN when
 		controller_state_p1_buffer /= CIDS and controller_state_p1_buffer /= CADS else 'Z';
 	bus_DAV_inverted_out <= not local_DAV when
-		source_handshake_state_buffer /= SIDS and source_handshake_state_buffer /= SIWS else 'Z';
+		(source_handshake_state_buffer /= SIDS and source_handshake_state_buffer /= SIWS) or
+		(controller_state_p1_buffer = CPPS or controller_state_p1_buffer = CPWS) else 'Z';
 	bus_EOI_inverted_out <= not (local_EOI) when
 		talker_state_p1_buffer = TACS or talker_state_p1_buffer = SPAS or 
 		(
@@ -510,7 +511,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 				bus_DIO_inverted_out_buffer <= not "00001001";
 			elsif parallel_poll_state_p1_buffer = PPAS then
 				bus_DIO_inverted_out_buffer <= to_X0Z(not local_PPR);
-			elsif (talker_state_p1_buffer = TACS or controller_state_p1_buffer = CACS) then
+			elsif (talker_state_p1_buffer = TACS or talker_state_p1_buffer = SPAS or controller_state_p1_buffer = CACS) then
 				if to_X01(local_NUL) = '1' then
 					bus_DIO_inverted_out_buffer <= (others => '1');
 				end if;

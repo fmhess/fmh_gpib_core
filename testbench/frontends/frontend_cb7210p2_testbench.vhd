@@ -507,7 +507,7 @@ architecture behav of frontend_cb7210p2_testbench is
 		
 		procedure test_parallel_poll is
 		begin
-		
+			
 			-- remote parallel poll mode
 			host_write("101", "01100000"); -- enabled 
 			host_write("101", "11100000"); -- aux reg I, remote mode 

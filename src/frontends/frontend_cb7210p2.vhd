@@ -1416,7 +1416,7 @@ begin
 	local_parallel_poll_config_or_disable <= local_parallel_poll_config or parallel_poll_disable;
 	
 	talk_enable_buffer <= '1' when (talker_state_p1 = TACS or talker_state_p1 = SPAS or 
-			controller_state_p1 = CACS) or parallel_poll_state_p1 = PPAS else
+			controller_state_p1 = CACS or controller_state_p1 = CPPS or controller_state_p1 = CPWS) else
 		'0';
 	
 	controller_in_charge_buffer <= '0' when controller_state_p1 = CIDS or controller_state_p1 = CADS else '1';
