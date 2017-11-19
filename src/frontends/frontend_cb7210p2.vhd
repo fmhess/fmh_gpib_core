@@ -5,7 +5,7 @@
 -- * the addition or a isr0/imr0 register at page 1, offset 6.
 -- * "Aux reg I" with PPMODE2 bit which properly selects between the remote
 --   or local parallel poll subsets of IEEE 488.1.
--- * status bits at register page 1, offset 1 which indicate clearly
+-- * status bits at register page 1, offset 1 and 2 which indicate clearly
 --   whether a byte may currently be written into or read out of the chip
 --   independently of interrupt clearing logic.
 --
@@ -14,8 +14,6 @@
 --
 -- Features we don't implement, because they are nearly useless, but could be implemented
 -- if anyone cares:
--- * command pass through (although the command pass through register will let you read the
---   state of the DIO lines).
 -- * configuring whether to assert END while in SPAS.
 -- * DAC holdoff on DTAS or DCAS
 -- * Setting clock frequency by writing to the auxiliary mode register.  It is done
@@ -23,10 +21,6 @@
 --   wanted to produce this as an ASIC rather than burning it into an FPGA.
 --
 -- Features we don't implement, because they are standards violating:
--- * minor addresses
--- * address mode 3 and address pass through
--- * individually disabling addresses for either talk or listen.  If you try to disable either
---   talk or listen, the address will be disabled entirely.
 -- * bug-for-bug compatible source handshaking that violates 488.1 or 488.2.
 -- * RFD holdoff immediately
 --
@@ -120,8 +114,6 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 
 	signal configured_eos_character : std_logic_vector(7 downto 0);
 	signal ignore_eos_bit_7 : std_logic;
-	signal configured_primary_address : std_logic_vector(4 downto 0);
-	signal configured_secondary_address :std_logic_vector(4 downto 0);
 	signal local_parallel_poll_config : std_logic;
 	signal local_parallel_poll_sense : std_logic;
 	signal local_parallel_poll_response_line : std_logic_vector(2 downto 0);
@@ -208,7 +200,14 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal use_SRQS_as_ist : std_logic;
 	signal host_to_gpib_auto_EOI_on_EOS : std_logic;
 	signal end_interrupt_condition : std_logic;
-
+	signal command_valid : std_logic;
+	signal command_invalid : std_logic;
+	signal APT_needs_host_response : std_logic;
+	signal CPT_needs_host_response : std_logic;
+	signal enable_secondary_addressing : std_logic;
+	signal DAC_holdoff : std_logic;
+	signal last_primary_command_was_passthrough : std_logic;
+	
 	signal talk_enable_buffer : std_logic;
 	signal controller_in_charge_buffer : std_logic;
 	signal pullup_disable_buffer : std_logic;
@@ -329,8 +328,9 @@ begin
 			ton => ton,
 			configured_eos_character => configured_eos_character,
 			ignore_eos_bit_7 => ignore_eos_bit_7,
-			configured_primary_address => configured_primary_address,
-			configured_secondary_address => configured_secondary_address,
+			command_valid => command_valid,
+			command_invalid => command_invalid,
+			enable_secondary_addressing => enable_secondary_addressing,
 			local_parallel_poll_config => local_parallel_poll_config_or_disable,
 			local_parallel_poll_sense => local_parallel_poll_sense,
 			local_parallel_poll_response_line => local_parallel_poll_response_line,
@@ -369,13 +369,15 @@ begin
 			talker_state_p3 => talker_state_p3,
 			local_STB => local_STB,
 			RFD_holdoff_mode => RFD_holdoff_mode,
-			release_RFD_holdoff_pulse => release_RFD_holdoff_pulse
+			release_RFD_holdoff_pulse => release_RFD_holdoff_pulse,
+			DAC_holdoff => DAC_holdoff,
+			last_primary_command_was_passthrough => last_primary_command_was_passthrough
 		);
 
-	-- latch external gpib signals on falling clock edge
+	-- latch external gpib signals on clock edge
 	process (clock)
 	begin
-		if falling_edge(clock) then
+		if rising_edge(clock) then
 			bus_ATN_inverted_in <= to_X01(gpib_ATN_inverted_in);
 			bus_DAV_inverted_in <= to_X01(gpib_DAV_inverted_in);
 			bus_EOI_inverted_in <= to_X01(gpib_EOI_inverted_in);
@@ -448,6 +450,8 @@ begin
 		variable prev_controller_in_charge : std_logic;
 		variable prev_gpib_to_host_byte_latched : std_logic;
 		variable prev_end_interrupt_condition : std_logic;
+		variable prev_APT_needs_host_response : std_logic;
+		variable prev_CPT_needs_host_response : std_logic;
 		
 		-- process a read from the host
 		procedure host_read_register (page : in std_logic_vector(3 downto 0);
@@ -525,10 +529,12 @@ begin
 					host_data_bus_out_buffer(5) <= not enable_listener_gpib_address_1;
 					host_data_bus_out_buffer(6) <= not enable_talker_gpib_address_1;
 					host_data_bus_out_buffer(7) <= gpib_to_host_byte_end;
-				when 9 => -- state of input/output data latches free from interrupt clearing logic
+				when 16#9# => -- state of isr1 related states free from interrupt clearing logic
 					host_data_bus_out_buffer(0) <= gpib_to_host_byte_latched;
 					host_data_bus_out_buffer(1) <= not host_to_gpib_data_byte_latched;
-					host_data_bus_out_buffer(2) <= not host_to_gpib_command_byte_latched;
+					host_data_bus_out_buffer(4) <= gpib_to_host_byte_end;
+				when 16#a# => -- state of isr2 related states free from interrupt clearing logic
+					host_data_bus_out_buffer(3) <= not host_to_gpib_command_byte_latched;
 				when 16#b# => -- revision register
 					host_data_bus_out_buffer <= X"ff";
 				when 16#c# => -- state 1 register
@@ -758,6 +764,8 @@ begin
 			prev_controller_in_charge := '0';
 			prev_gpib_to_host_byte_latched := '0';
 			prev_end_interrupt_condition := '0';
+			prev_APT_needs_host_response := '0';
+			prev_CPT_needs_host_response := '0';
 		
 			do_pulse_gpib_to_host_byte_read := false;
 			handle_soft_reset('1');
@@ -858,13 +866,21 @@ begin
 				DET_interrupt <= '1';
 			end if;
 
--- 			if false then
--- 				APT_interrupt <= '1'; --TODO
--- 			end if;
--- 			
--- 			if false then
--- 				CPT_interrupt <= '1'; --TODO
--- 			end if;
+			if APT_needs_host_response = '1' then
+				if prev_APT_needs_host_response = '0' then
+					APT_interrupt <= '1';
+				end if;
+			else
+				APT_interrupt <= '0';
+			end if;
+			
+			if CPT_needs_host_response = '1' then
+				if prev_CPT_needs_host_response = '0' then
+					CPT_interrupt <= '1';
+				end if;
+			else
+				CPT_interrupt <= '0';
+			end if;
 
 			if to_X01(no_listeners) = '1' then
 				ERR_interrupt <= '1';
@@ -918,6 +934,8 @@ begin
 			prev_controller_in_charge := controller_in_charge_buffer;
 			prev_gpib_to_host_byte_latched := gpib_to_host_byte_latched;
 			prev_end_interrupt_condition := end_interrupt_condition;
+			prev_APT_needs_host_response := APT_needs_host_response;
+			prev_CPT_needs_host_response := CPT_needs_host_response;
 			
 			handle_soft_reset(soft_reset);
 		end if;
@@ -950,9 +968,9 @@ begin
 				when "00110" => -- send EOI on next byte 
 					send_eoi := '1';
 				when "00111" => -- non-valid pass through secondary address 
-					-- unsupported
+					command_invalid <= '1';
 				when "01111" => -- valid pass through secondary address 
-					-- unsupported
+					command_valid <= '1';
 				when "00001" => -- clear parallel poll flag 
 					parallel_poll_flag <= '0';
 				when "01001" => -- set parallel poll flag 
@@ -1101,6 +1119,103 @@ begin
 			end case;
 		end host_write_register;
 		
+		procedure handle_command_pass_through is
+			variable bus_DIO : std_logic_vector(7 downto 0);
+		begin
+			bus_DIO := not bus_DIO_inverted_in;
+			if acceptor_handshake_state = ACDS then
+				if DAC_holdoff = '1' then
+					if is_passthrough_primary_command(bus_DIO) or
+						(bus_DIO(6 downto 5) = "11" and last_primary_command_was_passthrough = '1') 
+					then
+						CPT_needs_host_response <= '1';
+					end if;
+					
+					case bus_DIO(6 downto 5) is
+						when "10" => -- primary talk address
+							case address_mode is
+								when "00" =>
+									command_invalid <= '1';
+								when "01" =>
+									if (enable_talker_gpib_address_0 = '1' and gpib_address_0 = not bus_DIO_inverted_in(4 downto 0)) or
+										(enable_talker_gpib_address_1 = '1' and gpib_address_1 = not bus_DIO_inverted_in(4 downto 0)) then
+										command_valid <= '1';
+									else
+										command_invalid <= '1';
+									end if;
+								when "10" =>
+									if enable_talker_gpib_address_0 = '1' and gpib_address_0 = not bus_DIO_inverted_in(4 downto 0) then
+										command_valid <= '1';
+									else
+										command_invalid <= '1';
+									end if;
+								when "11" =>
+									if (enable_talker_gpib_address_0 = '1' and gpib_address_0 = not bus_DIO_inverted_in(4 downto 0)) or
+										(enable_talker_gpib_address_1 = '1' and gpib_address_1 = not bus_DIO_inverted_in(4 downto 0)) then
+										command_valid <= '1';
+									else
+										command_invalid <= '1';
+									end if;
+								when others =>
+							end case;
+						when "01" => -- primary listen address
+							case address_mode is
+								when "00" =>
+									command_invalid <= '1';
+								when "01" =>
+									if (enable_listener_gpib_address_0 = '1' and gpib_address_0 = not bus_DIO_inverted_in(4 downto 0)) or
+										(enable_listener_gpib_address_1 = '1' and gpib_address_1 = not bus_DIO_inverted_in(4 downto 0)) then
+										command_valid <= '1';
+									else
+										command_invalid <= '1';
+									end if;
+								when "10" =>
+									if enable_listener_gpib_address_0 = '1' and gpib_address_0 = not bus_DIO_inverted_in(4 downto 0) then
+										command_valid <= '1';
+									else
+										command_invalid <= '1';
+									end if;
+								when "11" =>
+									if (enable_listener_gpib_address_0 = '1' and gpib_address_0 = not bus_DIO_inverted_in(4 downto 0)) or
+										(enable_listener_gpib_address_1 = '1' and gpib_address_1 = not bus_DIO_inverted_in(4 downto 0)) then
+										command_valid <= '1';
+									else
+										command_invalid <= '1';
+									end if;
+								when others =>
+							end case;
+						when "11" => -- secondary address
+							if talker_state_p2 = TPAS or listener_state_p2 = LPAS then
+								case address_mode is
+									when "00" =>
+										command_invalid <= '1';
+									when "01" =>
+										command_invalid <= '1';
+									when "10" =>
+										if gpib_address_1 = not bus_DIO_inverted_in(4 downto 0) then
+											command_valid <= '1';
+										else
+											command_invalid <= '1';
+										end if;
+									when "11" =>
+										APT_needs_host_response <= '1';
+									when others =>
+								end case;
+							else
+								command_invalid <= '1';
+							end if;
+						when others =>
+					end case;
+				end if;
+			else -- not ACDS
+				command_valid <= '0';
+				command_invalid <= '0';
+				APT_needs_host_response <= '0';
+				CPT_needs_host_response <= '0';
+			end if;
+			
+		end handle_command_pass_through;
+		
 		procedure handle_soft_reset( do_reset : std_logic )is
 		begin
 			if do_reset = '1' then
@@ -1136,7 +1251,11 @@ begin
 				local_parallel_poll_config <= '0';
 				local_parallel_poll_sense <= '0';
 				local_parallel_poll_response_line <= (others => '0');
-				
+				command_valid <= '0';
+				command_invalid <= '0';
+				APT_needs_host_response <= '0';
+				CPT_needs_host_response <= '0';
+
 				-- imr0 enables
 				ATN_interrupt_enable <= '0';
 				IFC_interrupt_enable <= '0';
@@ -1228,6 +1347,8 @@ begin
 				pending_rsv <= '0'; 
 			end if;
 
+			handle_command_pass_through;
+			
 			-- handle pulses
 			if do_pulse_host_to_gpib_data_byte_write then
 				host_to_gpib_data_byte_write <= '1';
@@ -1268,38 +1389,21 @@ begin
 		T1_clock_ticks_500ns when high_speed_T1_delay = '1' else
 		T1_clock_ticks_2us;
 	
-	-- figure out configured primary/secondary addresses based on settings written
-	-- to chip registers
+	-- enable_secondary_addressing as appropriate
 	process (hard_reset, clock)
 	begin
 		if hard_reset = '1' then
-			configured_primary_address <= NO_ADDRESS_CONFIGURED;
-			configured_secondary_address <= NO_ADDRESS_CONFIGURED;
+			enable_secondary_addressing <= '0';
 		elsif rising_edge(clock) then
 			case address_mode is
 				when "00" =>
-					configured_primary_address <= NO_ADDRESS_CONFIGURED;
-					configured_secondary_address <= NO_ADDRESS_CONFIGURED;
+					enable_secondary_addressing <= '0';
 				when "01" =>
-					-- we don't support disabling one or the other of talker/listener address,
-					-- it's all or nothing.
-					if (enable_listener_gpib_address_0  and enable_talker_gpib_address_0) = '1' then
-						configured_primary_address <= gpib_address_0;
-					else
-						configured_primary_address <= NO_ADDRESS_CONFIGURED;
-					end if;
-					configured_secondary_address <= NO_ADDRESS_CONFIGURED;
+					enable_secondary_addressing <= '0';
 				when "10" =>
-					if (enable_listener_gpib_address_0 and enable_talker_gpib_address_0 and
-						enable_listener_gpib_address_1 and enable_talker_gpib_address_1) = '1' then
-						configured_primary_address <= gpib_address_0;
-						configured_secondary_address <= gpib_address_1;
-					else
-						configured_primary_address <= NO_ADDRESS_CONFIGURED;
-						configured_secondary_address <= NO_ADDRESS_CONFIGURED;
-					end if;
+					enable_secondary_addressing <= '1';
 				when "11" =>
-					-- we don't support address mode 3
+					enable_secondary_addressing <= '1';
 				when others =>
 			end case;
 		end if;

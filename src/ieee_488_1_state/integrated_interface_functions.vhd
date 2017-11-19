@@ -50,8 +50,9 @@ entity integrated_interface_functions is
 
 		configured_eos_character : in std_logic_vector(7 downto 0);
 		ignore_eos_bit_7 : in std_logic;
-		configured_primary_address : std_logic_vector(4 downto 0);
-		configured_secondary_address : in std_logic_vector(4 downto 0);
+		command_valid : in std_logic;
+		command_invalid : in std_logic;
+		enable_secondary_addressing : in std_logic;
 		local_parallel_poll_config : in std_logic;
 		local_parallel_poll_sense : in std_logic;
 		local_parallel_poll_response_line : in std_logic_vector(2 downto 0);
@@ -69,6 +70,7 @@ entity integrated_interface_functions is
 		-- pulse to release rfd holdoff
 		release_RFD_holdoff_pulse : in std_logic;
 		
+		DAC_holdoff : out std_logic; 
 		bus_DIO_inverted_out : out std_logic_vector(7 downto 0);
 		bus_REN_inverted_out : out std_logic;
 		bus_IFC_inverted_out : out std_logic;
@@ -104,7 +106,8 @@ entity integrated_interface_functions is
 		gpib_to_host_byte_latched : out std_logic;
 		-- host_to_gpib_data_byte_latched false means a new host to gpib byte can be written by host
 		host_to_gpib_data_byte_latched : out std_logic;
-		host_to_gpib_command_byte_latched : out std_logic
+		host_to_gpib_command_byte_latched : out std_logic;
+		last_primary_command_was_passthrough : out std_logic
 	);
  
 end integrated_interface_functions;
@@ -117,6 +120,8 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	signal internal_host_to_gpib_data_byte : std_logic_vector(7 downto 0);
 	signal internal_host_to_gpib_data_byte_end : std_logic;
 	signal RFD_holdoff : std_logic;
+	signal DAC_holdoff_buffer : std_logic;
+	signal passthrough_primary_command : std_logic;
 	
 	signal ACG : std_logic;
 	signal ATN : std_logic;
@@ -198,7 +203,6 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	
 	signal status_byte_buffer : std_logic_vector(7 downto 0);
 	
-	signal enable_secondary_addressing : std_logic;
 	signal parallel_poll_sense : std_logic;
 	signal parallel_poll_response_line : std_logic_vector(2 downto 0);
 
@@ -216,8 +220,8 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			bus_DAV_inverted => bus_DAV_inverted_in,
 			configured_eos_character => configured_eos_character,
 			ignore_eos_bit_7 => ignore_eos_bit_7,
-			configured_primary_address => configured_primary_address,
-			configured_secondary_address => configured_secondary_address,
+			command_valid => command_valid,
+			command_invalid => command_invalid,
 			ACG => ACG,
 			ATN => ATN,
 			DAC => DAC,
@@ -258,7 +262,8 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			UNL => UNL,
 			UNT => UNT,
 			NIC => NIC,
-			CFE => CFE
+			CFE => CFE,
+			passthrough_primary_command
 		);
 
 	my_AH: entity work.interface_function_AH 
@@ -271,6 +276,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			rdy => rdy,
 			tcs => tcs,
 			RFD_holdoff => RFD_holdoff,
+			DAC_holdoff => DAC_holdoff,
 			acceptor_handshake_state => acceptor_handshake_state_buffer,
 			RFD => local_RFD,
 			DAC => local_DAC
@@ -452,11 +458,6 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	talker_state_p2 <= talker_state_p2_buffer;
 	talker_state_p3 <= talker_state_p3_buffer;
 	
-	enable_secondary_addressing <= '1' when 
-			to_X01(configured_secondary_address) /= NO_ADDRESS_CONFIGURED
-		else
-			'0';
-	
 	nba <= '1' when source_handshake_state_buffer = SGNS and
 			(to_X01(internal_host_to_gpib_data_byte_latched) = '1' or
 			talker_state_p1_buffer = SPAS) else
@@ -614,20 +615,54 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	-- update parallel poll sense and line
 	process(pon, clock) 
 	begin
-		if to_bit(pon) = '1' then
+		if to_X01(pon) = '1' then
 			parallel_poll_sense <= '1';
 			parallel_poll_response_line <= "000";
 		elsif rising_edge(clock) then
-			if to_bit(local_parallel_poll_config) = '1' then
+			if to_X01(local_parallel_poll_config) = '1' then
 				parallel_poll_sense <= local_parallel_poll_sense;
 				parallel_poll_response_line <= local_parallel_poll_response_line;
 			else
-				if to_bit(PPE) = '1' then
+				if to_X01(PPE) = '1' then
 					parallel_poll_sense <= PPE_sense;
 					parallel_poll_response_line <= PPE_response_line;
 				end if;
 			end if;
 		end if;
 	end process;
+	
+	-- update DAC_holdoff
+	process(pon, clock)
+	begin
+		if to_X01(pon) = '1' then
+			DAC_holdoff_buffer <= '0';
+			last_primary_command_was_passthrough <= '0';
+		elsif rising_edge(clock) then
+			if ATN = '1' then
+				if acceptor_handshake_state_buffer = ACDS then
+					if (command_valid or command_invalid) = '1' then
+						DAC_holdoff_buffer <= '0';
+					end if;
+					if passthrough_primary_command = '1' then
+						last_primary_command_was_passthrough <= '1';
+					else
+						last_primary_command_was_passthrough <= '0';
+					end if;
+				elsif acceptor_handshake_state_buffer = ACRS then
+					if ((LAG or TAG) and not UNT and not UNL) = '1' or
+						(SCG = '1' and parallel_poll_state_p2_buffer /= PACS) or 
+						passthrough_primary_command = '1' then
+						DAC_holdoff_buffer <= '1';
+					else
+						DAC_holdoff_buffer <= '0';
+					end if;
+				end if;
+			else
+				DAC_holdoff_buffer <= '0';
+			end if;
+		end if;
+	end process;
+	
+	DAC_holdoff <= DAC_holdoff_buffer;
 	
 end integrated_interface_functions_arch;

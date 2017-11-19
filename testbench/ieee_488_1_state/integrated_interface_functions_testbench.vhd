@@ -38,8 +38,9 @@ architecture behav of integrated_interface_functions_testbench is
 
 	signal configured_eos_character : std_logic_vector(7 downto 0);
 	signal ignore_eos_bit_7 : std_logic;
-	signal configured_primary_address : std_logic_vector(4 downto 0);
-	signal configured_secondary_address :std_logic_vector(4 downto 0);
+	signal command_valid : std_logic;
+	signal command_invalid : std_logic;
+	signal enable_secondary_addressing : std_logic;
 	signal local_parallel_poll_config : std_logic;
 	signal local_parallel_poll_sense : std_logic;
 	signal local_parallel_poll_response_line : std_logic_vector(2 downto 0);
@@ -62,6 +63,7 @@ architecture behav of integrated_interface_functions_testbench is
 	signal RFD_holdoff_mode : RFD_holdoff_enum;
 	signal release_RFD_holdoff_pulse : std_logic;
 	signal host_to_gpib_auto_EOI_on_EOS : std_logic;
+	signal DAC_holdoff : std_logic;
 	
 	signal ist : std_logic;
 	signal lon : std_logic;	
@@ -122,8 +124,9 @@ architecture behav of integrated_interface_functions_testbench is
 			ton => ton,
 			configured_eos_character => configured_eos_character,
 			ignore_eos_bit_7 => ignore_eos_bit_7,
-			configured_primary_address => configured_primary_address,
-			configured_secondary_address => configured_secondary_address,
+			command_valid => command_valid,
+			command_invalid => command_invalid,
+			enable_secondary_addressing => enable_secondary_addressing,
 			local_parallel_poll_config => local_parallel_poll_config,
 			local_parallel_poll_sense => local_parallel_poll_sense,
 			local_parallel_poll_response_line => local_parallel_poll_response_line,
@@ -146,7 +149,8 @@ architecture behav of integrated_interface_functions_testbench is
 			parallel_poll_state_p1 => parallel_poll_state_p1,
 			local_STB => local_STB,
 			RFD_holdoff_mode => RFD_holdoff_mode,
-			release_RFD_holdoff_pulse => release_RFD_holdoff_pulse
+			release_RFD_holdoff_pulse => release_RFD_holdoff_pulse,
+			DAC_holdoff => DAC_holdoff
 		);
 
 	my_gpib_transceiver: entity work.gpib_transceiver
@@ -205,7 +209,20 @@ architecture behav of integrated_interface_functions_testbench is
 			end if;
 		end if;
 	end process;
-	
+
+	process (clock)
+	begin
+		if rising_edge(clock) then
+			if DAC_holdoff = '1' then
+				command_valid <= '1';
+				command_invalid <= '0';
+			else
+				command_valid <= '0';
+				command_invalid <= '0';
+			end if;
+		end if;
+	end process;
+
 	process
 		procedure wait_for_ticks (num_clock_cycles : in integer) is
 		begin
@@ -253,8 +270,7 @@ architecture behav of integrated_interface_functions_testbench is
 	begin
 		configured_eos_character <= X"00";
 		ignore_eos_bit_7 <= '0';
-		configured_primary_address <= NO_ADDRESS_CONFIGURED;
-		configured_secondary_address <= NO_ADDRESS_CONFIGURED;
+		enable_secondary_addressing <= '0';
 		local_parallel_poll_config <= '0';
 		local_parallel_poll_sense <= '0';
 		local_parallel_poll_response_line <= "000";
@@ -287,7 +303,6 @@ architecture behav of integrated_interface_functions_testbench is
 		wait until rising_edge(clock);	
 		
 		-- address device as listener
-		configured_primary_address <= "00001";
 		gpib_setup_bus(true, true);
 		gpib_write("00100001", false); -- MLA
 

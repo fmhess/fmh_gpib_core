@@ -38,18 +38,18 @@ package interface_function_common is
 	function EOS_match (byte_A : std_logic_vector(7 downto 0); 
 		byte_B : std_logic_vector(7 downto 0);
 		ignore_eos_bit_7 : std_logic) return boolean;
+	function is_passthrough_primary_command (byte : std_logic_vector) return boolean;
 
 end interface_function_common;
 
 package body interface_function_common is
 	function to_X0Z (mysig : std_logic) return std_logic is
+		variable mysig_X01 : std_logic;
 	begin
-		case mysig is
+		mysig_X01 := to_X01(mysig);
+		case mysig_X01 is
 			when '0' => return '0';
-			when 'L' => return '0';
 			when '1' => return 'Z';
-			when 'H' => return 'Z';
-			when 'Z' => return 'Z';
 			when others => return 'X';
 		end case;
 	end to_X0Z;
@@ -70,5 +70,21 @@ package body interface_function_common is
 		return to_X01(byte_A(6 downto 0)) = to_X01(byte_B(6 downto 0)) and
 		(ignore_eos_bit_7 = '1' or to_X01(byte_A(7)) = to_X01(byte_B(7)));
 	end EOS_match;
+	
+	function is_passthrough_primary_command (byte : std_logic_vector(7 downto 0)) return boolean is
+	begin
+		return byte(6 downto 0) = X"00" or
+				byte(6 downto 0) = X"02" or
+				byte(6 downto 0) = X"03" or
+				byte(6 downto 0) = X"06" or
+				byte(6 downto 0) = X"07" or
+				(byte(6 downto 0) >= X"0a" and byte(7 downto 0) <= X"0f") or
+				byte(6 downto 0) = X"10" or
+				byte(6 downto 0) = X"12" or
+				byte(6 downto 0) = X"13" or
+				byte(6 downto 0) = X"16" or
+				byte(6 downto 0) = X"17" or
+				(byte(6 downto 0) >= X"1a" and byte(7 downto 0) <= X"1f");
+	end is_passthrough_primary_command;
 	
 end package body interface_function_common;

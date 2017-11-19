@@ -23,8 +23,8 @@ architecture behav of remote_message_decoder_testbench is
 	signal bus_DAV_inverted : std_logic;
 	signal configured_eos_character : std_logic_vector(7 downto 0);
 	signal ignore_eos_bit_7 : std_logic;
-	signal configured_primary_address : std_logic_vector(4 downto 0);
-	signal configured_secondary_address :std_logic_vector(4 downto 0);
+	signal command_valid : std_logic;
+	signal command_invalid : std_logic;
 	signal ACG : std_logic;
 	signal ATN : std_logic;
 	signal DAC : std_logic;
@@ -82,8 +82,8 @@ architecture behav of remote_message_decoder_testbench is
 			bus_DAV_inverted => bus_DAV_inverted,
 			configured_eos_character => configured_eos_character,
 			ignore_eos_bit_7 => ignore_eos_bit_7,
-			configured_primary_address => configured_primary_address,
-			configured_secondary_address => configured_secondary_address,
+			command_valid => command_valid,
+			command_invalid => command_invalid,
 			ACG => ACG,
 			ATN => ATN,
 			DAC => DAC,
@@ -139,8 +139,8 @@ architecture behav of remote_message_decoder_testbench is
 		bus_DAV_inverted <= 'H';
 		configured_eos_character <= X"00";
 		ignore_eos_bit_7 <= '0';
-		configured_primary_address <= "11111";
-		configured_secondary_address <= "11111";
+		command_valid <= '0';
+		command_invalid <= '0';
 				
 		wait for 100ns;	
 

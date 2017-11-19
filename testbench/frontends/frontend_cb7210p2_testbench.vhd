@@ -522,7 +522,7 @@ architecture behav of frontend_cb7210p2_testbench is
 			-- do parallel poll
 			bus_ATN_inverted <= '0';
 			bus_EOI_inverted <= '0';
-			wait_for_ticks(3);
+			wait_for_ticks(4);
 			assert not bus_DIO_inverted = "00100000";
 			
 			bus_ATN_inverted <= 'H';
@@ -553,7 +553,7 @@ architecture behav of frontend_cb7210p2_testbench is
 			-- do parallel poll
 			bus_ATN_inverted <= '0';
 			bus_EOI_inverted <= '0';
-			wait_for_ticks(3);
+			wait_for_ticks(4);
 			assert not bus_DIO_inverted = "10000000";
 			
 			bus_ATN_inverted <= 'H';
@@ -569,7 +569,7 @@ architecture behav of frontend_cb7210p2_testbench is
 			-- do parallel poll
 			bus_ATN_inverted <= '0';
 			bus_EOI_inverted <= '0';
-			wait_for_ticks(3);
+			wait_for_ticks(4);
 			assert not bus_DIO_inverted = "00000000";
 			
 			bus_ATN_inverted <= 'H';

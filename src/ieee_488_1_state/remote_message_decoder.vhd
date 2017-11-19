@@ -21,8 +21,8 @@ entity remote_message_decoder is
 		bus_DAV_inverted : in std_logic;
 		configured_eos_character : in std_logic_vector(7 downto 0);
 		ignore_eos_bit_7 : in std_logic;
-		configured_primary_address : in std_logic_vector(4 downto 0);
-		configured_secondary_address : in std_logic_vector(4 downto 0);
+		command_valid : in std_logic; -- pulsed
+		command_invalid : in std_logic; -- pulsed
 		
 		ACG : out std_logic;
 		ATN : out std_logic;
@@ -64,7 +64,9 @@ entity remote_message_decoder is
 		UNL : out std_logic;
 		UNT : out std_logic;
 		NIC : out std_logic;
-		CFE : out std_logic
+		CFE : out std_logic;
+		CFGn : out std_logic;
+		passthrough_primary_command : out std_logic
 	);
  
 end remote_message_decoder;
@@ -109,32 +111,26 @@ begin
 	LLO <= '1' when UCG_buffer = '1' and not bus_DIO_inverted(3 downto 0) = "0001" and not bus_ATN_inverted = '1' else
 		'0';
 	MLA <= '1' when LAG_buffer = '1' and 
-		not bus_DIO_inverted(4 downto 0) = to_X01(configured_primary_address) and
-		to_X01(configured_primary_address) /= NO_ADDRESS_CONFIGURED and
-		not bus_ATN_inverted = '1' else
+		command_valid = '1' else
 		'0';
 
 	MTA_buffer <= '1' when TAG_buffer = '1' and 
-		not bus_DIO_inverted(4 downto 0) = to_X01(configured_primary_address) and
-		to_X01(configured_primary_address) /= NO_ADDRESS_CONFIGURED and
-		not bus_ATN_inverted = '1' else
+		command_valid = '1' else
 		'0';
 	MTA <= MTA_buffer;
 
 	MSA_buffer <= '1' when SCG_buffer = '1' and 
-		not bus_DIO_inverted(4 downto 0) = to_X01(configured_secondary_address) and
-		to_X01(configured_secondary_address) /= NO_ADDRESS_CONFIGURED and
-		not bus_ATN_inverted = '1' else
+		command_valid = '1' else
 		'0';
 	MSA <= MSA_buffer;
 
-	OSA <= SCG_buffer and not MSA_buffer;
-	OTA <= TAG_buffer and not MTA_buffer;
+	OSA <= SCG_buffer and command_invalid;
+	OTA <= TAG_buffer and command_invalid;
 	PCG <= ACG_buffer or UCG_buffer or LAG_buffer or TAG_buffer;
 	PPC <= '1' when ACG_buffer = '1' and not bus_DIO_inverted(3 downto 0) = "0101" and not bus_ATN_inverted = '1' else
 		'0';
 
-	PPE_buffer <= '1' when not bus_DIO_inverted(6 downto 4) = "110" and not bus_ATN_inverted = '1' else
+	PPE_buffer <= '1' when SCG_buffer = '1' and not bus_DIO_inverted(4) = '0' and not bus_ATN_inverted = '1' else
 		'0';
 	PPE <= PPE_buffer;
 	
@@ -142,7 +138,7 @@ begin
 		'L';
 	PPE_response_line <= not bus_DIO_inverted(2 downto 0) when PPE_buffer = '1' and not bus_ATN_inverted = '1' else
 		"LLL";
-	PPD <= '1' when not bus_DIO_inverted(6 downto 4) = "111" and not bus_ATN_inverted = '1' else
+	PPD <= '1' when SCG_buffer = '1' and not bus_DIO_inverted(4) = '1' and not bus_ATN_inverted = '1' else
 		'0';
 	PPU <= '1' when UCG_buffer = '1' and not bus_DIO_inverted(3 downto 0) = "0101" and not bus_ATN_inverted = '1' else
 		'0';
@@ -179,6 +175,13 @@ begin
 	NIC <= not bus_NRFD_inverted;
 	CFE <= '1' when UCG_buffer = '1' and not bus_DIO_inverted(3 downto 0) = "1111" and not bus_ATN_inverted = '1' else
 		'0';
+	CFGn <= '1' when SCG_buffer = '1' and not bus_DIO_inverted(4) = '0' and not bus_ATN_inverted = '1' else
+		'0';
 	NUL <= '1' when not bus_DIO_inverted = X"00" else '0';
+	
+	passthrough_primary_command <= '1' when not bus_ATN_inverted = '1' and
+			is_passthrough_primary_command(not bus_DIO_inverted) else
+		'0';
+	
 	
 end remote_message_decoder_arch;
