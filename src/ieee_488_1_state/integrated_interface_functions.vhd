@@ -106,8 +106,7 @@ entity integrated_interface_functions is
 		gpib_to_host_byte_latched : out std_logic;
 		-- host_to_gpib_data_byte_latched false means a new host to gpib byte can be written by host
 		host_to_gpib_data_byte_latched : out std_logic;
-		host_to_gpib_command_byte_latched : out std_logic;
-		last_primary_command_was_passthrough : out std_logic
+		host_to_gpib_command_byte_latched : out std_logic
 	);
  
 end integrated_interface_functions;
@@ -636,17 +635,11 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	begin
 		if to_X01(pon) = '1' then
 			DAC_holdoff_buffer <= '0';
-			last_primary_command_was_passthrough <= '0';
 		elsif rising_edge(clock) then
 			if ATN = '1' then
 				if acceptor_handshake_state_buffer = ACDS then
 					if (command_valid or command_invalid) = '1' then
 						DAC_holdoff_buffer <= '0';
-					end if;
-					if passthrough_primary_command = '1' then
-						last_primary_command_was_passthrough <= '1';
-					else
-						last_primary_command_was_passthrough <= '0';
 					end if;
 				elsif acceptor_handshake_state_buffer = ACRS then
 					if ((LAG or TAG) and not UNT and not UNL) = '1' or

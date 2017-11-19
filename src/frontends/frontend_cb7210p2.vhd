@@ -204,9 +204,9 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal command_invalid : std_logic;
 	signal APT_needs_host_response : std_logic;
 	signal CPT_needs_host_response : std_logic;
+	signal CPT_enabled : std_logic;
 	signal enable_secondary_addressing : std_logic;
 	signal DAC_holdoff : std_logic;
-	signal last_primary_command_was_passthrough : std_logic;
 	
 	signal talk_enable_buffer : std_logic;
 	signal controller_in_charge_buffer : std_logic;
@@ -370,8 +370,7 @@ begin
 			local_STB => local_STB,
 			RFD_holdoff_mode => RFD_holdoff_mode,
 			release_RFD_holdoff_pulse => release_RFD_holdoff_pulse,
-			DAC_holdoff => DAC_holdoff,
-			last_primary_command_was_passthrough => last_primary_command_was_passthrough
+			DAC_holdoff => DAC_holdoff
 		);
 
 	-- latch external gpib signals on clock edge
@@ -1081,7 +1080,8 @@ begin
 							host_to_gpib_auto_EOI_on_EOS <= write_data(3);
 							ignore_eos_bit_7 <= not write_data(4);
 						when "101" => -- aux B register
-							-- bits 0 and 1 not supported
+							CPT_enabled <= write_data(0);
+							-- bit 1 not supported
 							high_speed_T1_delay <= write_data(2);
 							invert_interrupt <= write_data(3);
 							use_SRQS_as_ist <= write_data(4);
@@ -1126,9 +1126,13 @@ begin
 			if acceptor_handshake_state = ACDS then
 				if DAC_holdoff = '1' then
 					if is_passthrough_primary_command(bus_DIO) or
-						(bus_DIO(6 downto 5) = "11" and last_primary_command_was_passthrough = '1') 
+						(bus_DIO(6 downto 5) = "11" and talker_state_p2 /= TPAS and listener_state_p2 /= LPAS) 
 					then
-						CPT_needs_host_response <= '1';
+						if CPT_enabled = '1' then
+							CPT_needs_host_response <= '1';
+						else
+							command_invalid <= '1';
+						end if;
 					end if;
 					
 					case bus_DIO(6 downto 5) is
@@ -1201,8 +1205,6 @@ begin
 										APT_needs_host_response <= '1';
 									when others =>
 								end case;
-							else
-								command_invalid <= '1';
 							end if;
 						when others =>
 					end case;
@@ -1255,7 +1257,8 @@ begin
 				command_invalid <= '0';
 				APT_needs_host_response <= '0';
 				CPT_needs_host_response <= '0';
-
+				CPT_enabled <= '0';
+				
 				-- imr0 enables
 				ATN_interrupt_enable <= '0';
 				IFC_interrupt_enable <= '0';
