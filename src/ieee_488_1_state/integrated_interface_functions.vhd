@@ -467,8 +467,6 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	
 	local_NUL <= talker_NUL_buffer or controller_NUL_buffer;
 
-	local_EOI <= local_END or local_IDY;
-	
 	status_byte_buffer(7) <= not local_STB(7); 
 	status_byte_buffer(6) <= not local_RQS; 
 	status_byte_buffer(5 downto 0) <= not local_STB(5 downto 0);
@@ -478,14 +476,16 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	bus_DAV_inverted_out <= not local_DAV when
 		(source_handshake_state_buffer /= SIDS and source_handshake_state_buffer /= SIWS) or
 		(controller_state_p1_buffer = CPPS or controller_state_p1_buffer = CPWS) else 'Z';
-	bus_EOI_inverted_out <= not (local_EOI) when
-		talker_state_p1_buffer = TACS or talker_state_p1_buffer = SPAS or 
-		(
-			controller_state_p1_buffer /= CIDS and 
-			controller_state_p1_buffer /= CADS and 
-			controller_state_p1_buffer /= CSBS and 
-			controller_state_p1_buffer /= CSHS 
-		) else 'Z';
+	bus_EOI_inverted_out <= not (local_END) when
+			talker_state_p1_buffer = TACS or talker_state_p1_buffer = SPAS else
+		not local_IDY when 
+			(
+				controller_state_p1_buffer /= CIDS and 
+				controller_state_p1_buffer /= CADS and 
+				controller_state_p1_buffer /= CSBS and 
+				controller_state_p1_buffer /= CSHS 
+			) else 
+		'Z';
 	bus_IFC_inverted_out <= not local_IFC when
 		controller_state_p5_buffer /= SIIS else 'Z';
 	bus_NDAC_inverted_out <= to_X0Z(local_DAC);
