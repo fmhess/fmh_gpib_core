@@ -240,41 +240,116 @@ architecture behav of frontend_cb7210p2_testbench is
 		variable secondary_address : integer;
 		
 		--address chip as listener
-		procedure gpib_address_as_listener is
+		procedure gpib_address_as_listener(listener_primary_address : integer;
+			listener_secondary_address : integer) is
 		begin
 			gpib_setup_bus(true, true);
 
-			assert primary_address /= to_integer(unsigned(NO_ADDRESS_CONFIGURED));
+			assert listener_primary_address /= to_integer(unsigned(NO_ADDRESS_CONFIGURED));
 			wait until rising_edge(clock);	
 			gpib_write_byte(7 downto 5) := "001";
-			gpib_write_byte(4 downto 0) := std_logic_vector(to_unsigned(primary_address, 5));
+			gpib_write_byte(4 downto 0) := std_logic_vector(to_unsigned(listener_primary_address, 5));
 			gpib_write(gpib_write_byte, false); -- MLA
-			if secondary_address /= to_integer(unsigned(NO_ADDRESS_CONFIGURED)) then
+			if listener_secondary_address /= to_integer(unsigned(NO_ADDRESS_CONFIGURED)) then
 				gpib_write_byte(7 downto 5) := "011";
-				gpib_write_byte(4 downto 0) := std_logic_vector(to_unsigned(secondary_address, 5));
+				gpib_write_byte(4 downto 0) := std_logic_vector(to_unsigned(listener_secondary_address, 5));
 				gpib_write(gpib_write_byte, false); -- MSA
 			end if;
 			wait until rising_edge(clock);	
 		end gpib_address_as_listener;
+
+		procedure gpib_address_as_listener is
+		begin
+			gpib_address_as_listener(primary_address, secondary_address);
+		end gpib_address_as_listener;
 		
 		--address chip as talker
-		procedure gpib_address_as_talker is
+		procedure gpib_address_as_talker(talker_primary_address : integer;
+			talker_secondary_address : integer) is
 		begin
 			gpib_setup_bus(true, true);
 
-			assert primary_address /= to_integer(unsigned(NO_ADDRESS_CONFIGURED));
+			assert talker_primary_address /= to_integer(unsigned(NO_ADDRESS_CONFIGURED));
 			wait until rising_edge(clock);	
 			gpib_write_byte(7 downto 5) := "010";
-			gpib_write_byte(4 downto 0) := std_logic_vector(to_unsigned(primary_address, 5));
+			gpib_write_byte(4 downto 0) := std_logic_vector(to_unsigned(talker_primary_address, 5));
 			gpib_write(gpib_write_byte, false); -- MTA
-			if secondary_address /= to_integer(unsigned(NO_ADDRESS_CONFIGURED)) then
+			if talker_secondary_address /= to_integer(unsigned(NO_ADDRESS_CONFIGURED)) then
 				gpib_write_byte(7 downto 5) := "011";
-				gpib_write_byte(4 downto 0) := std_logic_vector(to_unsigned(secondary_address, 5));
+				gpib_write_byte(4 downto 0) := std_logic_vector(to_unsigned(talker_secondary_address, 5));
 				gpib_write(gpib_write_byte, false); -- MSA
 			end if;
 			wait until rising_edge(clock);	
 		end gpib_address_as_talker;
 
+		procedure gpib_address_as_talker is
+		begin
+			gpib_address_as_talker(primary_address, secondary_address);
+		end gpib_address_as_talker;
+
+		procedure test_addressing is
+		begin
+
+			-- set primary address
+			primary_address := 5;
+			secondary_address := to_integer(unsigned(NO_ADDRESS_CONFIGURED));
+			host_write_byte(7 downto 5) := "000";
+			host_write_byte(4 downto 0) := std_logic_vector(to_unsigned(primary_address, 5));
+			host_write("110", host_write_byte); --address register 0/1
+			host_write("100", X"31"); -- address mode register, transmit/receive mode 0x3 address mode 1
+
+			--address chip as talker
+			gpib_address_as_talker;
+
+			host_read("100", host_read_result); -- address status register
+			assert host_read_result(1) = '1'; -- talker addressed
+			assert host_read_result(2) = '0'; -- listener addressed
+
+			-- make sure we don't pay attention to other addresses
+			gpib_address_as_talker(17, to_integer(unsigned(NO_ADDRESS_CONFIGURED)));
+			host_read("100", host_read_result); -- address status register
+			assert host_read_result(1) = '0'; -- talker addressed
+			assert host_read_result(2) = '0'; -- listener addressed
+			
+			-- turn on secondary addressing
+			secondary_address := 10;
+			host_write_byte(7 downto 5) := "100";
+			host_write_byte(4 downto 0) := std_logic_vector(to_unsigned(secondary_address, 5));
+			host_write("110", host_write_byte); --address register 0/1
+			host_write("100", X"32"); -- address mode register, transmit/receive mode 0x3 address mode 2
+
+			gpib_address_as_listener;
+			host_read("100", host_read_result); -- address status register
+			assert host_read_result(1) = '0'; -- talker addressed
+			assert host_read_result(2) = '1'; -- listener addressed
+
+			-- make sure we don't pay attention to other addresses
+
+			gpib_write("00111111", false); -- UNL
+			
+			gpib_address_as_listener(3, to_integer(unsigned(NO_ADDRESS_CONFIGURED)));
+			host_read("100", host_read_result); -- address status register
+			assert host_read_result(1) = '0'; -- talker addressed
+			assert host_read_result(2) = '0'; -- listener addressed
+
+			gpib_address_as_listener(primary_address, to_integer(unsigned(NO_ADDRESS_CONFIGURED)));
+			host_read("100", host_read_result); -- address status register
+			assert host_read_result(1) = '0'; -- talker addressed
+			assert host_read_result(2) = '0'; -- listener addressed
+			
+			gpib_address_as_listener(primary_address, 18);
+			host_read("100", host_read_result); -- address status register
+			assert host_read_result(1) = '0'; -- talker addressed
+			assert host_read_result(2) = '0'; -- listener addressed
+
+			-- check secondary addressing works
+			gpib_address_as_listener(primary_address, secondary_address);
+			host_read("100", host_read_result); -- address status register
+			assert host_read_result(1) = '0'; -- talker addressed
+			assert host_read_result(2) = '1'; -- listener addressed
+			
+		end test_addressing;
+		
 		procedure test_device_clear is
 		begin
 			gpib_setup_bus(true, true);
@@ -701,15 +776,7 @@ architecture behav of frontend_cb7210p2_testbench is
 		reset <= '0';
 		wait until rising_edge(clock);	
 		
-		-- initialize chip
-
-		host_write("100", X"31"); -- address mode register, transmit/receive mode 0x3 address mode 1
-
-		-- set primary address
-		primary_address := 5;
-		host_write_byte(7 downto 5) := "000";
-		host_write_byte(4 downto 0) := std_logic_vector(to_unsigned(primary_address, 5));
-		host_write("110", host_write_byte); --address register 0/1
+		test_addressing;
 
 		--address chip as talker
 		gpib_address_as_talker;
@@ -756,15 +823,6 @@ architecture behav of frontend_cb7210p2_testbench is
 		assert gpib_read_result = X"03";
 		assert gpib_read_eoi = '0';
 
-		-- turn on secondary addressing
-		secondary_address := 10;
-		host_write_byte(7 downto 5) := "100";
-		host_write_byte(4 downto 0) := std_logic_vector(to_unsigned(secondary_address, 5));
-		host_write("110", host_write_byte); --address register 0/1
-		host_write("100", X"32"); -- address mode register, transmit/receive mode 0x3 address mode 2
-
-		gpib_setup_bus(true, true);
-		
 		--address chip as listener
 		gpib_address_as_listener;
 
