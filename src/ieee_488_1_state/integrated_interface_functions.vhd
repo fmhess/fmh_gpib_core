@@ -275,7 +275,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			rdy => rdy,
 			tcs => tcs,
 			RFD_holdoff => RFD_holdoff,
-			DAC_holdoff => DAC_holdoff,
+			DAC_holdoff => DAC_holdoff_buffer,
 			acceptor_handshake_state => acceptor_handshake_state_buffer,
 			RFD => local_RFD,
 			DAC => local_DAC
