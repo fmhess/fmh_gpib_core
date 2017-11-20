@@ -1125,7 +1125,7 @@ begin
 			bus_DIO := not bus_DIO_inverted_in;
 			if acceptor_handshake_state = ACDS then
 				if DAC_holdoff = '1' then
-					if is_passthrough_primary_command(bus_DIO) or
+					if is_passthrough_primary_command(bus_DIO, listener_state_p1) or
 						(bus_DIO(6 downto 5) = "11" and talker_state_p2 /= TPAS and listener_state_p2 /= LPAS) 
 					then
 						if CPT_enabled = '1' then
@@ -1196,7 +1196,8 @@ begin
 									when "01" =>
 										command_invalid <= '1';
 									when "10" =>
-										if gpib_address_1 = not bus_DIO_inverted_in(4 downto 0) then
+										if gpib_address_1 = not bus_DIO_inverted_in(4 downto 0) and
+											gpib_address_1 /= NO_ADDRESS_CONFIGURED then
 											command_valid <= '1';
 										else
 											command_invalid <= '1';

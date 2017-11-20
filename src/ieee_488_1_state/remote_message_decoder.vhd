@@ -66,7 +66,7 @@ entity remote_message_decoder is
 		NIC : out std_logic;
 		CFE : out std_logic;
 		CFGn : out std_logic;
-		passthrough_primary_command : out std_logic
+		unrecognized_primary_command : out std_logic
 	);
  
 end remote_message_decoder;
@@ -179,8 +179,8 @@ begin
 		'0';
 	NUL <= '1' when not bus_DIO_inverted = X"00" else '0';
 	
-	passthrough_primary_command <= '1' when not bus_ATN_inverted = '1' and
-			is_passthrough_primary_command(not bus_DIO_inverted) else
+	unrecognized_primary_command <= '1' when not bus_ATN_inverted = '1' and
+			is_unrecognized_primary_command(not bus_DIO_inverted) else
 		'0';
 	
 	

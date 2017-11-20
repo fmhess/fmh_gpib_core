@@ -120,7 +120,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	signal internal_host_to_gpib_data_byte_end : std_logic;
 	signal RFD_holdoff : std_logic;
 	signal DAC_holdoff_buffer : std_logic;
-	signal passthrough_primary_command : std_logic;
+	signal unrecognized_primary_command : std_logic;
 	
 	signal ACG : std_logic;
 	signal ATN : std_logic;
@@ -262,7 +262,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			UNT => UNT,
 			NIC => NIC,
 			CFE => CFE,
-			passthrough_primary_command
+			unrecognized_primary_command => unrecognized_primary_command
 		);
 
 	my_AH: entity work.interface_function_AH 
@@ -645,7 +645,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 				elsif acceptor_handshake_state_buffer = ACRS then
 					if ((LAG or TAG) and not UNT and not UNL) = '1' or
 						(SCG = '1' and parallel_poll_state_p2_buffer /= PACS) or 
-						passthrough_primary_command = '1' then
+						unrecognized_primary_command = '1' then
 						DAC_holdoff_buffer <= '1';
 					else
 						DAC_holdoff_buffer <= '0';
@@ -657,6 +657,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 		end if;
 	end process;
 	
-	DAC_holdoff <= DAC_holdoff_buffer;
+	DAC_holdoff <= DAC_holdoff_buffer when acceptor_handshake_state_buffer = ACDS else
+		'0';
 	
 end integrated_interface_functions_arch;

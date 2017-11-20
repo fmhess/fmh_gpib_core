@@ -38,7 +38,9 @@ package interface_function_common is
 	function EOS_match (byte_A : std_logic_vector(7 downto 0); 
 		byte_B : std_logic_vector(7 downto 0);
 		ignore_eos_bit_7 : std_logic) return boolean;
-	function is_passthrough_primary_command (byte : std_logic_vector) return boolean;
+	function is_passthrough_primary_command (byte : std_logic_vector; listener_state : LE_state_p1) return boolean;
+	function is_unrecognized_primary_command (byte : std_logic_vector) return boolean;
+	function is_addressed_command (byte : std_logic_vector(7 downto 0)) return boolean;
 
 end interface_function_common;
 
@@ -71,20 +73,52 @@ package body interface_function_common is
 		(ignore_eos_bit_7 = '1' or to_X01(byte_A(7)) = to_X01(byte_B(7)));
 	end EOS_match;
 	
-	function is_passthrough_primary_command (byte : std_logic_vector(7 downto 0)) return boolean is
+	
+	function is_passthrough_primary_command (byte : std_logic_vector(7 downto 0);
+		listener_state : LE_state_p1) return boolean is
+		variable unsigned_stripped_byte : unsigned(6 downto 0);
 	begin
-		return byte(6 downto 0) = X"00" or
-				byte(6 downto 0) = X"02" or
-				byte(6 downto 0) = X"03" or
-				byte(6 downto 0) = X"06" or
-				byte(6 downto 0) = X"07" or
-				(byte(6 downto 0) >= X"0a" and byte(7 downto 0) <= X"0f") or
-				byte(6 downto 0) = X"10" or
-				byte(6 downto 0) = X"12" or
-				byte(6 downto 0) = X"13" or
-				byte(6 downto 0) = X"16" or
-				byte(6 downto 0) = X"17" or
-				(byte(6 downto 0) >= X"1a" and byte(7 downto 0) <= X"1f");
+		unsigned_stripped_byte := to_01(unsigned(byte(6 downto 0)));
+		if is_addressed_command(byte) and listener_state /= LIDS then
+			-- these are addressed commands and should be ignored if they were
+			-- not directed at us.
+			return unsigned_stripped_byte = X"00" or
+				unsigned_stripped_byte = X"02" or
+				unsigned_stripped_byte = X"03" or
+				unsigned_stripped_byte = X"06" or
+				unsigned_stripped_byte = X"07" or
+				(unsigned_stripped_byte >= X"0a" and unsigned_stripped_byte <= X"0f");
+		else
+			return 
+				unsigned_stripped_byte = X"10" or
+				unsigned_stripped_byte = X"12" or
+				unsigned_stripped_byte = X"13" or
+				unsigned_stripped_byte = X"16" or
+				unsigned_stripped_byte = X"17" or
+				(unsigned_stripped_byte >= X"1a" and unsigned_stripped_byte <= X"1f");
+		end if;
 	end is_passthrough_primary_command;
 	
+	function is_unrecognized_primary_command (byte : std_logic_vector(7 downto 0)) return boolean is
+		variable unsigned_stripped_byte : unsigned(6 downto 0);
+	begin
+		unsigned_stripped_byte := to_01(unsigned(byte(6 downto 0)));
+		return unsigned_stripped_byte = X"00" or
+			unsigned_stripped_byte = X"02" or
+			unsigned_stripped_byte = X"03" or
+			unsigned_stripped_byte = X"06" or
+			unsigned_stripped_byte = X"07" or
+			(unsigned_stripped_byte >= X"0a" and unsigned_stripped_byte <= X"0f") or
+			unsigned_stripped_byte = X"10" or
+			unsigned_stripped_byte = X"12" or
+			unsigned_stripped_byte = X"13" or
+			unsigned_stripped_byte = X"16" or
+			unsigned_stripped_byte = X"17" or
+			(unsigned_stripped_byte >= X"1a" and unsigned_stripped_byte <= X"1f");
+	end is_unrecognized_primary_command;
+
+	function is_addressed_command (byte : std_logic_vector(7 downto 0)) return boolean is
+	begin
+		return byte(6 downto 4) = "000";
+	end is_addressed_command;
 end package body interface_function_common;
