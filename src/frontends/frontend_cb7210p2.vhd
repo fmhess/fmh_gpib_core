@@ -1423,7 +1423,8 @@ begin
 	controller_in_charge_buffer <= '0' when controller_state_p1 = CIDS or controller_state_p1 = CADS else '1';
 	not_controller_in_charge <= not controller_in_charge_buffer;
 
-	pullup_disable_buffer <= '1' when parallel_poll_state_p1 /= PPAS else '0';
+	pullup_disable_buffer <= '1' when parallel_poll_state_p1 /= PPAS and controller_state_p1 /= CPPS and 
+		controller_state_p1 /= CPWS else '0';
 	pullup_disable <= pullup_disable_buffer;
 	
 	EOI_output_enable_buffer <= '1' when
