@@ -886,7 +886,7 @@ begin
 
 			if (prev_in_TIDS /= in_TIDS or prev_LADS_or_LACS /= LADS_or_LACS or
 				prev_controller_in_charge /= controller_in_charge_buffer) and 
-				ADSC_interrupt_enable then
+				ADSC_interrupt_enable = '1' then
 				ADSC_interrupt <= '1';
 			end if;
 				
