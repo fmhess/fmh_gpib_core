@@ -462,14 +462,14 @@ begin
 					host_data_bus_out_buffer <= gpib_to_host_byte;
 					do_pulse_gpib_to_host_byte_read := true;
 				when 1 => -- interrupt status 1
-					host_data_bus_out_buffer(0) <= DI_interrupt;
-					host_data_bus_out_buffer(1) <= DO_interrupt;
-					host_data_bus_out_buffer(2) <= ERR_interrupt;
-					host_data_bus_out_buffer(3) <= DEC_interrupt;
-					host_data_bus_out_buffer(4) <= END_interrupt;
-					host_data_bus_out_buffer(5) <= DET_interrupt;
-					host_data_bus_out_buffer(6) <= APT_interrupt;
-					host_data_bus_out_buffer(7) <= CPT_interrupt;
+					host_data_bus_out_buffer(0) <= DI_interrupt and DI_interrupt_enable;
+					host_data_bus_out_buffer(1) <= DO_interrupt and DO_interrupt_enable;
+					host_data_bus_out_buffer(2) <= ERR_interrupt and ERR_interrupt_enable;
+					host_data_bus_out_buffer(3) <= DEC_interrupt and DEC_interrupt_enable;
+					host_data_bus_out_buffer(4) <= END_interrupt and END_interrupt_enable;
+					host_data_bus_out_buffer(5) <= DET_interrupt and DET_interrupt_enable;
+					host_data_bus_out_buffer(6) <= APT_interrupt and APT_interrupt_enable;
+					host_data_bus_out_buffer(7) <= CPT_interrupt and CPT_interrupt_enable;
 					DI_interrupt <= '0';
 					DO_interrupt <= '0';
 					ERR_interrupt <= '0';
@@ -479,13 +479,13 @@ begin
 					APT_interrupt <= '0';
 					CPT_interrupt <= '0';
 				when 2 => -- interrupt status 2
-					host_data_bus_out_buffer(0) <= ADSC_interrupt;
-					host_data_bus_out_buffer(1) <= REMC_interrupt;
-					host_data_bus_out_buffer(2) <= LOKC_interrupt;
-					host_data_bus_out_buffer(3) <= CO_interrupt;
+					host_data_bus_out_buffer(0) <= ADSC_interrupt and ADSC_interrupt_enable;
+					host_data_bus_out_buffer(1) <= REMC_interrupt and REMC_interrupt_enable;
+					host_data_bus_out_buffer(2) <= LOKC_interrupt and LOKC_interrupt_enable;
+					host_data_bus_out_buffer(3) <= CO_interrupt and CO_interrupt_enable;
 					host_data_bus_out_buffer(4) <= in_remote_state;
 					host_data_bus_out_buffer(5) <= in_lockout_state;
-					host_data_bus_out_buffer(6) <= SRQ_interrupt;
+					host_data_bus_out_buffer(6) <= SRQ_interrupt and SRQ_interrupt_enable;
 					host_data_bus_out_buffer(7) <= any_interrupt_active;
 					ADSC_interrupt <= '0';
 					REMC_interrupt <= '0';
@@ -574,8 +574,8 @@ begin
 				when 16#e# => -- interrupt status 0
 					host_data_bus_out_buffer <= 
 						(
-							2 => ATN_interrupt,
-							3 => IFC_interrupt,
+							2 => ATN_interrupt and ATN_interrupt_enable,
+							3 => IFC_interrupt and IFC_interrupt_enable,
 							others => '0'
 						);
 					ATN_interrupt <= '0';
