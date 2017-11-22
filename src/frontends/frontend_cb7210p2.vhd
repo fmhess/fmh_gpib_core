@@ -830,10 +830,11 @@ begin
 					if talker_state_p1 = TACS then
 						DO_interrupt <= '1';
 					elsif controller_state_p1 = CACS then
-						--TODO
+						CO_interrupt <= '1';
 					end if;
 				end if;
 			else
+				CO_interrupt <= '1';
 				DO_interrupt <= '0';
 			end if;
 
@@ -855,11 +856,11 @@ begin
 				END_interrupt <= '0';
 			end if;
 
-			if entered_DCAS = '1' then
+			if entered_DCAS = '1' and DEC_interrupt_enable = '1' then
 				DEC_interrupt <= '1';
 			end if;
 			
-			if entered_DTAS = '1' then
+			if entered_DTAS = '1' and DET_interrupt_enable = '1' then
 				DET_interrupt <= '1';
 			end if;
 
@@ -879,27 +880,24 @@ begin
 				CPT_interrupt <= '0';
 			end if;
 
-			if to_X01(no_listeners) = '1' then
+			if to_X01(no_listeners) = '1' and ERR_interrupt_enable = '1' then
 				ERR_interrupt <= '1';
 			end if;
 
-			if prev_in_TIDS /= in_TIDS or prev_LADS_or_LACS /= LADS_or_LACS or
-				prev_controller_in_charge /= controller_in_charge_buffer then
+			if (prev_in_TIDS /= in_TIDS or prev_LADS_or_LACS /= LADS_or_LACS or
+				prev_controller_in_charge /= controller_in_charge_buffer) and 
+				ADSC_interrupt_enable then
 				ADSC_interrupt <= '1';
 			end if;
 				
-			if prev_in_remote_state /= in_remote_state then
+			if prev_in_remote_state /= in_remote_state and REMC_interrupt_enable = '1' then
 				REMC_interrupt <= '1';
 			end if;
 			
-			if prev_in_lockout_state /= in_lockout_state then
+			if prev_in_lockout_state /= in_lockout_state and LOKC_interrupt_enable = '1' then
 				LOKC_interrupt <= '1';
 			end if;
 
---			if false then -- TODO
---				CO_interrupt <= '1';
---			end if;
-			
 			if controller_state_p2 = CSRS then
 				if prev_controller_state_p2 /= CSRS then
 					SRQ_interrupt <= '1';
@@ -916,7 +914,7 @@ begin
 				ATN_interrupt <= '0';
 			end if;
 			
-			if to_X01(prev_IFC_inverted) = '1' and to_X01(bus_IFC_inverted_in) = '0' then
+			if to_X01(prev_IFC_inverted) = '1' and to_X01(bus_IFC_inverted_in) = '0' and IFC_interrupt_enable = '1' then
 				IFC_interrupt <= '1';
 			end if;
 
