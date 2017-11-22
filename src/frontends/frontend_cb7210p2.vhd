@@ -5,7 +5,7 @@
 -- * the addition or a isr0/imr0 register at page 1, offset 6.
 -- * "Aux reg I" with PPMODE2 bit which properly selects between the remote
 --   or local parallel poll subsets of IEEE 488.1.
--- * status bits at register page 1, offset 1 and 2 which indicate clearly
+-- * status bits at register page 1, offset 1 which indicate clearly
 --   whether a byte may currently be written into or read out of the chip
 --   independently of interrupt clearing logic.
 --
@@ -528,12 +528,10 @@ begin
 					host_data_bus_out_buffer(5) <= not enable_listener_gpib_address_1;
 					host_data_bus_out_buffer(6) <= not enable_talker_gpib_address_1;
 					host_data_bus_out_buffer(7) <= gpib_to_host_byte_end;
-				when 16#9# => -- state of isr1 related states free from interrupt clearing logic
+				when 16#9# => -- state of interrupt status register related states free from interrupt clearing logic
 					host_data_bus_out_buffer(0) <= gpib_to_host_byte_latched;
 					host_data_bus_out_buffer(1) <= not host_to_gpib_data_byte_latched;
-					host_data_bus_out_buffer(4) <= gpib_to_host_byte_end;
-				when 16#a# => -- state of isr2 related states free from interrupt clearing logic
-					host_data_bus_out_buffer(3) <= not host_to_gpib_command_byte_latched;
+					host_data_bus_out_buffer(2) <= not host_to_gpib_command_byte_latched;
 				when 16#b# => -- revision register
 					host_data_bus_out_buffer <= X"ff";
 				when 16#c# => -- state 1 register
