@@ -30,7 +30,7 @@ entity interface_function_C is
 		talker_state_p1 : in TE_state_p1;
 		T6_terminal_count : in unsigned(num_counter_bits - 1 downto 0);
 		T7_terminal_count : in unsigned(num_counter_bits - 1 downto 0);
-		T8_terminal_count : in unsigned(num_counter_bits - 1 downto 0);
+		T8_count_per_us : in unsigned(num_counter_bits - 1 downto 0);
 		T9_terminal_count : in unsigned(num_counter_bits - 1 downto 0);
 		T10_terminal_count : in unsigned(num_counter_bits - 1 downto 0);
 		
@@ -65,6 +65,8 @@ begin
 	begin
 		if to_X01(pon) = '1' then
 			controller_state_p1_buffer <= CIDS;
+			counter_done := false;
+			current_count := (others => '0');
 		elsif rising_edge(clock) then
 			case controller_state_p1_buffer is
 				when CIDS =>
@@ -182,39 +184,134 @@ begin
 	
 	-- controller state part 1 outputs
 	
-	-- constroller state part 2
-	process(pon, clock)
-	begin
-		if to_X01(pon) = '1' then
-			controller_state_p2_buffer <= CSNS;
-		elsif rising_edge(clock) then
-		end if;
-	end process;
+	-- controller state part 2
+	controller_state_p2_buffer <= CSRS when SRQ_in = '1' else CSNS;
 
-	-- constroller state part 3
-	process(pon, clock)
-	begin
-		if to_X01(pon) = '1' then
-			controller_state_p3_buffer <= SNAS;
-		elsif rising_edge(clock) then
-		end if;
-	end process;
+	-- controller state part 3
+	controller_state_p3_buffer <= SACS when rsc = '1' else SNAS;
 	
-	-- constroller state part 4
+	-- controller state part 4
 	process(pon, clock)
+		variable T8_counter_done : boolean;
+		variable T8_current_count : unsigned(num_counter_bits - 1 downto 0);
+		variable microseconds : unsigned(6 downto 0);
+
+		procedure increment_T8_count is
+		begin
+			if T8_counter_done = false then
+				if T8_current_count < T8_count_per_us then
+					T8_current_count := T8_current_count + 1;
+				else
+					microseconds := microseconds + 1;
+					T8_current_count := (others => '0');
+				end if;
+				if microseconds >= to_unsigned(100, microseconds'LENGTH) then
+					T8_counter_done := true;
+				end if;
+			end if;
+		end increment_T8_count;
+
+		procedure init_T8_count is
+		begin
+			T8_counter_done := false;
+			T8_current_count := (others => '0');
+			microseconds := (others => '0');
+		end init_T8_count;
 	begin
 		if to_X01(pon) = '1' then
+			init_T8_count;
 			controller_state_p4_buffer <= SRIS;
 		elsif rising_edge(clock) then
+			case controller_state_p4_buffer is
+				when SRIS =>
+					increment_T8_count;
+					--transitions
+					if controller_state_p3_buffer = SACS then
+						if sre = '0' then
+							controller_state_p4_buffer <= SRNS;
+							init_T8_count;
+						elsif T8_counter_done then
+							controller_state_p4_buffer <= SRAS;
+						end if;
+					end if;
+				when SRAS =>
+					if sre = '0' then
+						controller_state_p4_buffer <= SRNS;
+						init_T8_count;
+					end if;
+				when SRNS =>
+					if sre = '1' then
+						increment_t8_count;
+						if T8_counter_done then
+							controller_state_p4_buffer <= SRAS;
+						end if;
+					else
+						init_T8_count;
+					end if;
+			end case;
+			if controller_state_p3_buffer /= SACS then
+				controller_state_p4_buffer <= SRIS;
+				init_T8_count;
+			end if;
 		end if;
 	end process;
 
-	-- constroller state part 5
+	-- controller state part 5
 	process(pon, clock)
+		variable T8_counter_done : boolean;
+		variable T8_current_count : unsigned(num_counter_bits - 1 downto 0);
+		variable microseconds : unsigned(6 downto 0);
+
+		procedure increment_T8_count is
+		begin
+			if T8_counter_done = false then
+				if T8_current_count < T8_count_per_us then
+					T8_current_count := T8_current_count + 1;
+				else
+					microseconds := microseconds + 1;
+					T8_current_count := (others => '0');
+				end if;
+				if microseconds >= to_unsigned(100, microseconds'LENGTH) then
+					T8_counter_done := true;
+				end if;
+			end if;
+		end increment_T8_count;
+
+		procedure init_T8_count is
+		begin
+			T8_counter_done := false;
+			T8_current_count := (others => '0');
+			microseconds := (others => '0');
+		end init_T8_count;
 	begin
 		if to_X01(pon) = '1' then
+			init_T8_count;
 			controller_state_p5_buffer <= SIIS;
 		elsif rising_edge(clock) then
+			case controller_state_p5_buffer is
+				when SIIS =>
+					if controller_state_p3_buffer = SACS then
+						if sic = '1' then
+							controller_state_p5_buffer <= SIAS;
+							init_T8_count;
+						else
+							controller_state_p5_buffer <= SINS;
+						end if;
+					end if;
+				when SIAS =>
+					increment_T8_count;
+					if sic = '0' and T8_counter_done then
+						controller_state_p5_buffer <= SINS;
+					end if;
+				when SINS =>
+					if sic = '1' then
+						controller_state_p5_buffer <= SIAS;
+						init_T8_count;
+					end if;
+			end case;
+			if controller_state_p3_buffer /= SACS then
+				controller_state_p5_buffer <= SIIS;
+			end if;
 		end if;
 	end process;
 

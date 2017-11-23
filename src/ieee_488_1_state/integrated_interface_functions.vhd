@@ -67,7 +67,7 @@ entity integrated_interface_functions is
 		T1_terminal_count : in unsigned(num_counter_bits - 1 downto 0);
 		T6_terminal_count : in unsigned(num_counter_bits - 1 downto 0);
 		T7_terminal_count : in unsigned(num_counter_bits - 1 downto 0);
-		T8_terminal_count : in unsigned(num_counter_bits - 1 downto 0);
+		T8_count_per_us : in unsigned(num_counter_bits - 1 downto 0);
 		T9_terminal_count : in unsigned(num_counter_bits - 1 downto 0);
 		T10_terminal_count : in unsigned(num_counter_bits - 1 downto 0);
 		check_for_listeners : in std_logic;
@@ -460,7 +460,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			TCT_out => local_TCT,
 			T6_terminal_count => T6_terminal_count,
 			T7_terminal_count => T7_terminal_count,
-			T8_terminal_count => T8_terminal_count,
+			T8_count_per_us => T8_count_per_us,
 			T9_terminal_count => T9_terminal_count,
 			T10_terminal_count => T10_terminal_count,
 			acceptor_handshake_state => acceptor_handshake_state_buffer,

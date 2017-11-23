@@ -757,7 +757,6 @@ architecture behav of frontend_cb7210p2_testbench is
 		bus_NDAC_inverted <= 'H';
 		bus_NRFD_inverted <= 'H';
 		bus_DAV_inverted <= 'H';
-		reset <= '0';
 		chip_select_inverted <= '1';
 		dma_bus_ack_inverted <= '1';
 		dma_bus <= (others => 'Z');
@@ -770,7 +769,6 @@ architecture behav of frontend_cb7210p2_testbench is
 		primary_address := 0;
 		secondary_address := to_integer(unsigned(NO_ADDRESS_CONFIGURED));
 		
-		wait until rising_edge(clock);	
 		reset <= '1';
 		wait until rising_edge(clock);	
 		reset <= '0';

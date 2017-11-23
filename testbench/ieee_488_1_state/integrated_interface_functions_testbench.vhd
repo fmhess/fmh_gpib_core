@@ -50,7 +50,7 @@ architecture behav of integrated_interface_functions_testbench is
 	signal T1_terminal_count : unsigned(7 downto 0);
 	signal T6_terminal_count : unsigned(7 downto 0);
 	signal T7_terminal_count : unsigned(7 downto 0);
-	signal T8_terminal_count : unsigned(7 downto 0);
+	signal T8_count_per_us : unsigned(7 downto 0);
 	signal T9_terminal_count : unsigned(7 downto 0);
 	signal T10_terminal_count : unsigned(7 downto 0);
 	signal gpib_to_host_byte : std_logic_vector(7 downto 0);
@@ -154,7 +154,7 @@ architecture behav of integrated_interface_functions_testbench is
 			T1_terminal_count => T1_terminal_count,
 			T6_terminal_count => T6_terminal_count,
 			T7_terminal_count => T7_terminal_count,
-			T8_terminal_count => T8_terminal_count,
+			T8_count_per_us => T8_count_per_us,
 			T9_terminal_count => T9_terminal_count,
 			T10_terminal_count => T10_terminal_count,
 			no_listeners => no_listeners,
@@ -303,7 +303,7 @@ architecture behav of integrated_interface_functions_testbench is
 		T1_terminal_count <= X"02";
 		T6_terminal_count <= X"06";
 		T7_terminal_count <= X"07";
-		T8_terminal_count <= X"08";
+		T8_count_per_us <= X"01";
 		T9_terminal_count <= X"09";
 		T10_terminal_count <= X"0a";
 		gpib_to_host_byte_read <= '0';
@@ -317,7 +317,6 @@ architecture behav of integrated_interface_functions_testbench is
 		lpe <= '0';
 		lun <= '0';
 		ltn <= '0';
-		pon <= '0';
 		rpp <= '0';
 		rsc <= '0';
 		rsv <= '0';
@@ -331,7 +330,6 @@ architecture behav of integrated_interface_functions_testbench is
 		RFD_holdoff_mode <= holdoff_normal;
 		release_RFD_holdoff_pulse <= '0';
 		
-		wait until rising_edge(clock);	
 		pon <= '1';
 		wait until rising_edge(clock);	
 		pon <= '0';

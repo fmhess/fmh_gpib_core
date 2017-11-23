@@ -123,11 +123,6 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal no_listeners : std_logic;
 	signal first_T1_terminal_count : unsigned(num_counter_bits - 1 downto 0);
 	signal T1_terminal_count : unsigned(num_counter_bits - 1 downto 0);
-	signal T6_terminal_count : unsigned(num_counter_bits - 1 downto 0);
-	signal T7_terminal_count : unsigned(num_counter_bits - 1 downto 0);
-	signal T8_terminal_count : unsigned(num_counter_bits - 1 downto 0);
-	signal T9_terminal_count : unsigned(num_counter_bits - 1 downto 0);
-	signal T10_terminal_count : unsigned(num_counter_bits - 1 downto 0);
 	signal gpib_to_host_byte : std_logic_vector(7 downto 0);
 	signal gpib_to_host_byte_read : std_logic;
 	signal gpib_to_host_byte_end : std_logic;
@@ -286,6 +281,11 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	constant T1_clock_ticks_1100ns : unsigned(T1_terminal_count'RANGE) := to_clock_ticks(1100, 2);
 	constant T1_clock_ticks_500ns : unsigned(T1_terminal_count'RANGE) := to_clock_ticks(500, 2);
 	constant T1_clock_ticks_350ns : unsigned(T1_terminal_count'RANGE) := to_clock_ticks(350, 2);
+	constant T6_clock_ticks_2us : unsigned(num_counter_bits - 1 downto 0) := to_clock_ticks(2000, 2);
+	constant T7_clock_ticks_500ns : unsigned(num_counter_bits - 1 downto 0) := to_clock_ticks(500, 2);
+	constant T8_clock_ticks_per_us : unsigned(num_counter_bits - 1 downto 0) := to_clock_ticks(1000, 2);
+	constant T9_clock_ticks_1500ns : unsigned(num_counter_bits - 1 downto 0) := to_clock_ticks(1500, 2);
+	constant T10_clock_ticks_1500ns : unsigned(num_counter_bits - 1 downto 0) := to_clock_ticks(1500, 2);
 	
 	function flat_address (page : in std_logic_vector(3 downto 0);
 		raw_address : in std_logic_vector(num_address_lines - 1 downto 0)) 
@@ -356,11 +356,11 @@ begin
 			gpib_to_host_byte_read => gpib_to_host_byte_read,
 			first_T1_terminal_count => first_T1_terminal_count,
 			T1_terminal_count => T1_terminal_count,
-			T6_terminal_count => T6_terminal_count,
-			T7_terminal_count => T7_terminal_count,
-			T8_terminal_count => T8_terminal_count,
-			T9_terminal_count => T9_terminal_count,
-			T10_terminal_count => T10_terminal_count,
+			T6_terminal_count => T6_clock_ticks_2us,
+			T7_terminal_count => T7_clock_ticks_500ns,
+			T8_count_per_us => T8_clock_ticks_per_us,
+			T9_terminal_count => T9_clock_ticks_1500ns,
+			T10_terminal_count => T10_clock_ticks_1500ns,
 			no_listeners => no_listeners,
 			gpib_to_host_byte => gpib_to_host_byte,
 			gpib_to_host_byte_end => gpib_to_host_byte_end,

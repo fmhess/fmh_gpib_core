@@ -76,9 +76,9 @@ begin
 				when SDYS =>
 					-- check if T1 delay is done
 					if (first_cycle and T1_current_count >= 
-						unsigned(first_T1_terminal_count)) or
+						first_T1_terminal_count) or
 						(first_cycle = false and T1_current_count >= 
-							unsigned(T1_terminal_count)) then
+							T1_terminal_count) then
 						T1_counter_done <= true;
 					else
 						T1_current_count <= T1_current_count + 1;
