@@ -206,7 +206,8 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal CPT_needs_host_response : std_logic;
 	signal CPT_enabled : std_logic;
 	signal enable_secondary_addressing : std_logic;
-	signal DAC_holdoff : std_logic;
+	signal address_passthrough_active : std_logic;
+	signal command_passthrough_active : std_logic;
 	
 	signal talk_enable_buffer : std_logic;
 	signal controller_in_charge_buffer : std_logic;
@@ -370,7 +371,8 @@ begin
 			local_STB => local_STB,
 			RFD_holdoff_mode => RFD_holdoff_mode,
 			release_RFD_holdoff_pulse => release_RFD_holdoff_pulse,
-			DAC_holdoff => DAC_holdoff
+			address_passthrough => address_passthrough_active,
+			command_passthrough => command_passthrough_active
 		);
 
 	-- latch external gpib signals on clock edge
@@ -1120,17 +1122,15 @@ begin
 		begin
 			bus_DIO := not bus_DIO_inverted_in;
 			if acceptor_handshake_state = ACDS then
-				if DAC_holdoff = '1' then
-					if is_passthrough_primary_command(bus_DIO, listener_state_p1) or
-						(bus_DIO(6 downto 5) = "11" and talker_state_p2 /= TPAS and listener_state_p2 /= LPAS) 
-					then
-						if CPT_enabled = '1' then
-							CPT_needs_host_response <= '1';
-						else
-							command_invalid <= '1';
-						end if;
+				if command_passthrough_active = '1' then
+					if CPT_enabled = '1' then
+						CPT_needs_host_response <= '1';
+					else
+						command_invalid <= '1';
 					end if;
-					
+				end if;
+				
+				if address_passthrough_active = '1' then
 					case bus_DIO(6 downto 5) is
 						when "10" => -- primary talk address
 							case address_mode is
@@ -1185,24 +1185,22 @@ begin
 								when others =>
 							end case;
 						when "11" => -- secondary address
-							if talker_state_p2 = TPAS or listener_state_p2 = LPAS then
-								case address_mode is
-									when "00" =>
+							case address_mode is
+								when "00" =>
+									command_invalid <= '1';
+								when "01" =>
+									command_invalid <= '1';
+								when "10" =>
+									if gpib_address_1 = not bus_DIO_inverted_in(4 downto 0) and
+										gpib_address_1 /= NO_ADDRESS_CONFIGURED then
+										command_valid <= '1';
+									else
 										command_invalid <= '1';
-									when "01" =>
-										command_invalid <= '1';
-									when "10" =>
-										if gpib_address_1 = not bus_DIO_inverted_in(4 downto 0) and
-											gpib_address_1 /= NO_ADDRESS_CONFIGURED then
-											command_valid <= '1';
-										else
-											command_invalid <= '1';
-										end if;
-									when "11" =>
-										APT_needs_host_response <= '1';
-									when others =>
-								end case;
-							end if;
+									end if;
+								when "11" =>
+									APT_needs_host_response <= '1';
+								when others =>
+							end case;
 						when others =>
 					end case;
 				end if;

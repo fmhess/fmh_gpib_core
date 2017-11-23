@@ -70,7 +70,8 @@ entity integrated_interface_functions is
 		-- pulse to release rfd holdoff
 		release_RFD_holdoff_pulse : in std_logic;
 		
-		DAC_holdoff : out std_logic; 
+		address_passthrough : out std_logic; 
+		command_passthrough : out std_logic; 
 		bus_DIO_inverted_out : out std_logic_vector(7 downto 0);
 		bus_REN_inverted_out : out std_logic;
 		bus_IFC_inverted_out : out std_logic;
@@ -119,8 +120,10 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	signal internal_host_to_gpib_data_byte : std_logic_vector(7 downto 0);
 	signal internal_host_to_gpib_data_byte_end : std_logic;
 	signal RFD_holdoff : std_logic;
-	signal DAC_holdoff_buffer : std_logic;
+	signal DAC_holdoff : std_logic;
 	signal unrecognized_primary_command : std_logic;
+	signal address_passthrough_buffer : std_logic;
+	signal command_passthrough_buffer : std_logic;
 	
 	signal ACG : std_logic;
 	signal ATN : std_logic;
@@ -275,7 +278,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			rdy => rdy,
 			tcs => tcs,
 			RFD_holdoff => RFD_holdoff,
-			DAC_holdoff => DAC_holdoff_buffer,
+			DAC_holdoff => DAC_holdoff,
 			acceptor_handshake_state => acceptor_handshake_state_buffer,
 			RFD => local_RFD,
 			DAC => local_DAC
@@ -633,31 +636,70 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	
 	-- update DAC_holdoff
 	process(pon, clock)
+		variable last_primary_command_unrecognized : std_logic;
 	begin
 		if to_X01(pon) = '1' then
-			DAC_holdoff_buffer <= '0';
+			DAC_holdoff <= '0';
+			address_passthrough_buffer <= '0';
+			command_passthrough_buffer <= '0';
+			last_primary_command_unrecognized := '0';
 		elsif rising_edge(clock) then
 			if ATN = '1' then
 				if acceptor_handshake_state_buffer = ACDS then
 					if (command_valid or command_invalid) = '1' then
-						DAC_holdoff_buffer <= '0';
+						DAC_holdoff <= '0';
+					end if;
+					if PCG = '1' then
+						if unrecognized_primary_command = '1' then
+							last_primary_command_unrecognized := '1';
+						else
+							last_primary_command_unrecognized := '0';
+						end if;
 					end if;
 				elsif acceptor_handshake_state_buffer = ACRS then
-					if ((LAG or TAG) and not UNT and not UNL) = '1' or
-						(SCG = '1' and parallel_poll_state_p2_buffer /= PACS) or 
-						unrecognized_primary_command = '1' then
-						DAC_holdoff_buffer <= '1';
+					if ((LAG or TAG) and not UNT and not UNL) = '1' then
+						address_passthrough_buffer <= '1';
+						command_passthrough_buffer <= '0';
+						DAC_holdoff <= '1';
+					elsif SCG = '1' then
+						if talker_state_p2_buffer = TPAS or listener_state_p2_buffer = LPAS then
+							address_passthrough_buffer <= '1';
+							command_passthrough_buffer <= '0';
+							DAC_holdoff <= '1';
+						elsif parallel_poll_state_p2_buffer /= PACS and last_primary_command_unrecognized = '1' then
+							address_passthrough_buffer <= '0';
+							command_passthrough_buffer <= '1';
+							DAC_holdoff <= '1';
+						end if;
+					elsif unrecognized_primary_command = '1' then
+						address_passthrough_buffer <= '0';
+						if is_addressed_command(not bus_DIO_inverted_in) then
+							if listener_state_p2_buffer = LPAS then
+								command_passthrough_buffer <= '1';
+								DAC_holdoff <= '1';
+							else
+								command_passthrough_buffer <= '0';
+								DAC_holdoff <= '0';
+							end if;
+						else
+							command_passthrough_buffer <= '1';
+							DAC_holdoff <= '1';
+						end if;
 					else
-						DAC_holdoff_buffer <= '0';
+						address_passthrough_buffer <= '0';
+						command_passthrough_buffer <= '0';
+						DAC_holdoff <= '0';
 					end if;
 				end if;
 			else
-				DAC_holdoff_buffer <= '0';
+				address_passthrough_buffer <= '0';
+				command_passthrough_buffer <= '0';
+				DAC_holdoff <= '0';
 			end if;
 		end if;
 	end process;
-	
-	DAC_holdoff <= DAC_holdoff_buffer when acceptor_handshake_state_buffer = ACDS else
-		'0';
-	
+
+	address_passthrough <= address_passthrough_buffer when acceptor_handshake_state_buffer = ACDS else '0';
+	command_passthrough <= command_passthrough_buffer when acceptor_handshake_state_buffer = ACDS else '0';
+
 end integrated_interface_functions_arch;

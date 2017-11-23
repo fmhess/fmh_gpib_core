@@ -63,7 +63,8 @@ architecture behav of integrated_interface_functions_testbench is
 	signal RFD_holdoff_mode : RFD_holdoff_enum;
 	signal release_RFD_holdoff_pulse : std_logic;
 	signal host_to_gpib_auto_EOI_on_EOS : std_logic;
-	signal DAC_holdoff : std_logic;
+	signal address_passthrough : std_logic;
+	signal command_passthrough : std_logic;
 	
 	signal ist : std_logic;
 	signal lon : std_logic;	
@@ -150,7 +151,8 @@ architecture behav of integrated_interface_functions_testbench is
 			local_STB => local_STB,
 			RFD_holdoff_mode => RFD_holdoff_mode,
 			release_RFD_holdoff_pulse => release_RFD_holdoff_pulse,
-			DAC_holdoff => DAC_holdoff
+			address_passthrough => address_passthrough,
+			command_passthrough => command_passthrough
 		);
 
 	my_gpib_transceiver: entity work.gpib_transceiver
@@ -213,7 +215,7 @@ architecture behav of integrated_interface_functions_testbench is
 	process (clock)
 	begin
 		if rising_edge(clock) then
-			if DAC_holdoff = '1' then
+			if address_passthrough = '1' or command_passthrough = '1' then
 				command_valid <= '1';
 				command_invalid <= '0';
 			else
