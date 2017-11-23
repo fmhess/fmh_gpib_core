@@ -46,8 +46,13 @@ architecture behav of integrated_interface_functions_testbench is
 	signal local_parallel_poll_response_line : std_logic_vector(2 downto 0);
 	signal check_for_listeners : std_logic;
 	signal no_listeners : std_logic;
-	signal first_T1_terminal_count : std_logic_vector(7 downto 0);
-	signal T1_terminal_count : std_logic_vector(7 downto 0);
+	signal first_T1_terminal_count : unsigned(7 downto 0);
+	signal T1_terminal_count : unsigned(7 downto 0);
+	signal T6_terminal_count : unsigned(7 downto 0);
+	signal T7_terminal_count : unsigned(7 downto 0);
+	signal T8_terminal_count : unsigned(7 downto 0);
+	signal T9_terminal_count : unsigned(7 downto 0);
+	signal T10_terminal_count : unsigned(7 downto 0);
 	signal gpib_to_host_byte : std_logic_vector(7 downto 0);
 	signal gpib_to_host_byte_read : std_logic;
 	signal gpib_to_host_byte_end : std_logic;
@@ -66,6 +71,7 @@ architecture behav of integrated_interface_functions_testbench is
 	signal address_passthrough : std_logic;
 	signal command_passthrough : std_logic;
 	
+	signal gts : std_logic;
 	signal ist : std_logic;
 	signal lon : std_logic;	
 	signal lpe : std_logic;
@@ -73,9 +79,14 @@ architecture behav of integrated_interface_functions_testbench is
 	signal ltn : std_logic;
 	signal pon : std_logic;
 	signal gpib_to_host_byte_latched : std_logic;
+	signal rpp : std_logic;
+	signal rsc : std_logic;
 	signal rsv : std_logic;
 	signal rtl : std_logic;
+	signal sre : std_logic;
+	signal sic : std_logic;
 	signal ton : std_logic;
+	signal tca : std_logic;
 	signal tcs : std_logic;
 
 	signal device_clear_seen : boolean;
@@ -113,14 +124,20 @@ architecture behav of integrated_interface_functions_testbench is
 			bus_NDAC_inverted_out => device_NDAC_inverted,
 			bus_NRFD_inverted_out => device_NRFD_inverted,
 			bus_DAV_inverted_out => device_DAV_inverted,
+			gts => gts,
 			ist => ist,
 			lon => lon,
 			lpe => lpe,
 			lun => lun,
 			ltn => ltn,
 			pon => pon,
+			rpp => rpp,
+			rsc => rsc,
 			rsv => rsv,
 			rtl => rtl,
+			sre => sre,
+			sic => sic,
+			tca => tca,
 			tcs => tcs,
 			ton => ton,
 			configured_eos_character => configured_eos_character,
@@ -135,6 +152,11 @@ architecture behav of integrated_interface_functions_testbench is
 			gpib_to_host_byte_read => gpib_to_host_byte_read,
 			first_T1_terminal_count => first_T1_terminal_count,
 			T1_terminal_count => T1_terminal_count,
+			T6_terminal_count => T6_terminal_count,
+			T7_terminal_count => T7_terminal_count,
+			T8_terminal_count => T8_terminal_count,
+			T9_terminal_count => T9_terminal_count,
+			T10_terminal_count => T10_terminal_count,
 			no_listeners => no_listeners,
 			gpib_to_host_byte => gpib_to_host_byte,
 			gpib_to_host_byte_end => gpib_to_host_byte_end,
@@ -279,20 +301,31 @@ architecture behav of integrated_interface_functions_testbench is
 		check_for_listeners <= '1';
 		first_T1_terminal_count <= X"04";
 		T1_terminal_count <= X"02";
+		T6_terminal_count <= X"06";
+		T7_terminal_count <= X"07";
+		T8_terminal_count <= X"08";
+		T9_terminal_count <= X"09";
+		T10_terminal_count <= X"0a";
 		gpib_to_host_byte_read <= '0';
 		host_to_gpib_data_byte <= X"00";
 		host_to_gpib_data_byte_end <= '0';
 		host_to_gpib_data_byte_write <= '0'; 
 		host_to_gpib_auto_EOI_on_EOS <= '0';
+		gts <= '0';
 		ist <= '0';
 		lon <= '0';
 		lpe <= '0';
 		lun <= '0';
 		ltn <= '0';
 		pon <= '0';
+		rpp <= '0';
+		rsc <= '0';
 		rsv <= '0';
 		rtl <= '0';
+		sre <= '0';
+		sic <= '0';
 		ton <= '0';
+		tca <= '0';
 		tcs <= '0';
 		local_STB <= (others => '0');
 		RFD_holdoff_mode <= holdoff_normal;

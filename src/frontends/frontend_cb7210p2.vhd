@@ -121,8 +121,13 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal local_parallel_poll_config_or_disable : std_logic;
 	signal check_for_listeners : std_logic;
 	signal no_listeners : std_logic;
-	signal first_T1_terminal_count : std_logic_vector(num_counter_bits - 1 downto 0);
-	signal T1_terminal_count : std_logic_vector(num_counter_bits - 1 downto 0);
+	signal first_T1_terminal_count : unsigned(num_counter_bits - 1 downto 0);
+	signal T1_terminal_count : unsigned(num_counter_bits - 1 downto 0);
+	signal T6_terminal_count : unsigned(num_counter_bits - 1 downto 0);
+	signal T7_terminal_count : unsigned(num_counter_bits - 1 downto 0);
+	signal T8_terminal_count : unsigned(num_counter_bits - 1 downto 0);
+	signal T9_terminal_count : unsigned(num_counter_bits - 1 downto 0);
+	signal T10_terminal_count : unsigned(num_counter_bits - 1 downto 0);
 	signal gpib_to_host_byte : std_logic_vector(7 downto 0);
 	signal gpib_to_host_byte_read : std_logic;
 	signal gpib_to_host_byte_end : std_logic;
@@ -158,6 +163,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal entered_DTAS : std_logic;
 	signal entered_DCAS : std_logic;
 	
+	signal gts : std_logic;
 	signal ist : std_logic;
 	signal lon : std_logic;	
 	signal lpe : std_logic;
@@ -165,9 +171,14 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal ltn : std_logic;
 	signal pon : std_logic;
 	signal gpib_to_host_byte_latched : std_logic;
+	signal rpp : std_logic;
+	signal rsc : std_logic;
 	signal rsv : std_logic;
 	signal rtl : std_logic;
+	signal sre : std_logic;
+	signal sic : std_logic;
 	signal ton : std_logic;
+	signal tca : std_logic;
 	signal tcs : std_logic;
 	signal local_STB : std_logic_vector(7 downto 0);
 	
@@ -261,7 +272,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	constant minor_addressed : std_logic := '0';
 
 	-- overhead parameter is fixed number of clock ticks of overhead even when using a timing delay of zero
-	function to_clock_ticks (nanoseconds : in integer; overhead : in integer) return std_logic_vector is
+	function to_clock_ticks (nanoseconds : in integer; overhead : in integer) return unsigned is
 		constant nanos_per_milli : integer := 1000000;
 		variable ticks : integer;
 	begin
@@ -269,12 +280,12 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 		if ticks < 0 then
 			ticks := 0;
 		end if;
-		return std_logic_vector(to_unsigned(ticks, T1_terminal_count'LENGTH));
+		return to_unsigned(ticks, num_counter_bits);
 	end to_clock_ticks;
-	constant T1_clock_ticks_2us : std_logic_vector(T1_terminal_count'RANGE) := to_clock_ticks(2000, 2);
-	constant T1_clock_ticks_1100ns : std_logic_vector(T1_terminal_count'RANGE) := to_clock_ticks(1100, 2);
-	constant T1_clock_ticks_500ns : std_logic_vector(T1_terminal_count'RANGE) := to_clock_ticks(500, 2);
-	constant T1_clock_ticks_350ns : std_logic_vector(T1_terminal_count'RANGE) := to_clock_ticks(350, 2);
+	constant T1_clock_ticks_2us : unsigned(T1_terminal_count'RANGE) := to_clock_ticks(2000, 2);
+	constant T1_clock_ticks_1100ns : unsigned(T1_terminal_count'RANGE) := to_clock_ticks(1100, 2);
+	constant T1_clock_ticks_500ns : unsigned(T1_terminal_count'RANGE) := to_clock_ticks(500, 2);
+	constant T1_clock_ticks_350ns : unsigned(T1_terminal_count'RANGE) := to_clock_ticks(350, 2);
 	
 	function flat_address (page : in std_logic_vector(3 downto 0);
 		raw_address : in std_logic_vector(num_address_lines - 1 downto 0)) 
@@ -317,14 +328,20 @@ begin
 			bus_NDAC_inverted_out => gpib_NDAC_inverted_out,
 			bus_NRFD_inverted_out => gpib_NRFD_inverted_out,
 			bus_DAV_inverted_out => gpib_DAV_inverted_out,
+			gts => gts,
 			ist => ist,
 			lon => lon,
 			lpe => lpe,
 			lun => lun,
 			ltn => ltn,
 			pon => pon,
+			rpp => rpp,
+			rsc => rsc,
 			rsv => rsv,
 			rtl => rtl,
+			sre => sre,
+			sic => sic,
+			tca => tca,
 			tcs => tcs,
 			ton => ton,
 			configured_eos_character => configured_eos_character,
@@ -339,6 +356,11 @@ begin
 			gpib_to_host_byte_read => gpib_to_host_byte_read,
 			first_T1_terminal_count => first_T1_terminal_count,
 			T1_terminal_count => T1_terminal_count,
+			T6_terminal_count => T6_terminal_count,
+			T7_terminal_count => T7_terminal_count,
+			T8_terminal_count => T8_terminal_count,
+			T9_terminal_count => T9_terminal_count,
+			T10_terminal_count => T10_terminal_count,
 			no_listeners => no_listeners,
 			gpib_to_host_byte => gpib_to_host_byte,
 			gpib_to_host_byte_end => gpib_to_host_byte_end,

@@ -21,8 +21,8 @@ architecture behav of interface_function_SH_testbench is
 	signal RFD : std_logic;
 	signal nba : std_logic;
 	signal pon : std_logic;
-	signal first_T1_terminal_count : std_logic_vector (7 downto 0);
-	signal T1_terminal_count : std_logic_vector (7 downto 0);
+	signal first_T1_terminal_count : unsigned (7 downto 0);
+	signal T1_terminal_count : unsigned (7 downto 0);
 	signal check_for_listeners : std_logic;
 
 	signal source_handshake_state : SH_state;

@@ -37,14 +37,21 @@ entity integrated_interface_functions is
 		bus_NRFD_inverted_in : in std_logic;
 		bus_DAV_inverted_in : in std_logic;
 
+		-- IEEE 488.1 local messages
 		ist : in std_logic;
+		gts : in std_logic;
 		lon : in std_logic;
 		lpe : in std_logic;
 		lun : in std_logic;
 		ltn : in std_logic;
 		pon : in std_logic;
+		rpp : in std_logic;
+		rsc : in std_logic;
 		rsv : in std_logic;
 		rtl : in std_logic;
+		sre : in std_logic;
+		sic : in std_logic;
+		tca : in std_logic;
 		tcs : in std_logic;
 		ton : in std_logic;
 
@@ -56,8 +63,13 @@ entity integrated_interface_functions is
 		local_parallel_poll_config : in std_logic;
 		local_parallel_poll_sense : in std_logic;
 		local_parallel_poll_response_line : in std_logic_vector(2 downto 0);
-		first_T1_terminal_count : in std_logic_vector(num_counter_bits - 1 downto 0);
-		T1_terminal_count : in std_logic_vector(num_counter_bits - 1 downto 0);
+		first_T1_terminal_count : in unsigned(num_counter_bits - 1 downto 0);
+		T1_terminal_count : in unsigned(num_counter_bits - 1 downto 0);
+		T6_terminal_count : in unsigned(num_counter_bits - 1 downto 0);
+		T7_terminal_count : in unsigned(num_counter_bits - 1 downto 0);
+		T8_terminal_count : in unsigned(num_counter_bits - 1 downto 0);
+		T9_terminal_count : in unsigned(num_counter_bits - 1 downto 0);
+		T10_terminal_count : in unsigned(num_counter_bits - 1 downto 0);
 		check_for_listeners : in std_logic;
 		-- host should set gpib_to_host_byte_read high for a clock when it reads gpib_to_host_byte
 		gpib_to_host_byte_read : in std_logic;
@@ -425,15 +437,35 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 		);
 		
 	my_C: entity work.interface_function_C
+		generic map (num_counter_bits => num_counter_bits)
 		port map (
 			clock => clock,
 			pon => pon,
-			ATN => local_ATN,
-			IDY => local_IDY,
-			IFC => local_IFC,
-			REN => local_REN,
-			NUL => controller_NUL_buffer,
-			TCT => local_TCT,
+			gts => gts,
+			rpp => rpp,
+			rsc => rsc,
+			sre => sre,
+			sic => sic,
+			tca => tca,
+			tcs => tcs,
+			ATN_in => ATN,
+			IFC_in => IFC,
+			SRQ_in => SRQ,
+			TCT_in => TCT,
+			ATN_out => local_ATN,
+			IDY_out => local_IDY,
+			IFC_out => local_IFC,
+			REN_out => local_REN,
+			NUL_out => controller_NUL_buffer,
+			TCT_out => local_TCT,
+			T6_terminal_count => T6_terminal_count,
+			T7_terminal_count => T7_terminal_count,
+			T8_terminal_count => T8_terminal_count,
+			T9_terminal_count => T9_terminal_count,
+			T10_terminal_count => T10_terminal_count,
+			acceptor_handshake_state => acceptor_handshake_state_buffer,
+			source_handshake_state => source_handshake_state_buffer,
+			talker_state_p1 => talker_state_p1_buffer,
 			controller_state_p1 => controller_state_p1_buffer,
 			controller_state_p2 => controller_state_p2_buffer,
 			controller_state_p3 => controller_state_p3_buffer,
