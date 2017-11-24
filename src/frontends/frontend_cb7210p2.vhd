@@ -19,7 +19,6 @@
 --
 -- Features we don't implement, because they are standards violating:
 -- * bug-for-bug compatible source handshaking that violates 488.1 or 488.2.
--- * RFD holdoff immediately
 --
 -- Author: Frank Mori Hess fmh6jj@gmail.com
 -- Copyright 2017 Frank Mori Hess
@@ -1000,12 +999,12 @@ begin
 					parallel_poll_flag <= '0';
 				when "01001" => -- set parallel poll flag 
 					parallel_poll_flag <= '1';
-				when "10000" => -- go to standby 
-					-- TODO
-				when "10001" => -- take control asynchronously
-					-- TODO
+				when "10000" => -- go to standby
+					gts <= '1';
+				when "10001" => -- take control asynchronousll
+					tca <= '1';
 				when "10010" => -- take control synchronously
-					-- TODO
+					tcs <= '1';
 				when "11010" => -- take control synchronously on end
 					-- TODO
 				when "10011" => -- listen (pulse)
@@ -1020,17 +1019,19 @@ begin
 				when "11100" => -- local unlisten (pulse)
 					-- TODO
 				when "11101" => -- execute parallel poll
-					-- TODO
+					rpp <= '1';
 				when "10110" => -- clear IFC 
-					-- TODO
+					sic <= '0';
 				when "11110" => -- set IFC 
-					-- TODO
+					rsc <= '1';
+					sic <= '1';
 				when "10111" => -- clear REN 
-					-- TODO
+					sre <= '0';
 				when "11111" => -- set REN
-					-- TODO
+					rsc <= '1';
+					sre <= '1';
 				when "10100" => -- disable system control (wrong in cb7210 user manual)
-					-- TODO
+					rsc <= '0';
 				when others =>
 			end case;
 		end execute_auxiliary_command;
@@ -1246,6 +1247,8 @@ begin
 			if do_reset = '1' then
 				
 				local_STB <= (others => '0');
+				gts <= '0';
+				rsc <= '0';
 				rsv <= '0';
 				pending_rsv <= '0';
 				lon <= '0';
@@ -1253,6 +1256,9 @@ begin
 				ltn <= '0';
 				lun <= '0';
 				rtl <= '0';
+				sre <= '0';
+				sic <= '0';
+				tca <= '0';
 				tcs <= '0';
 				ton <= '0';
 				transmit_receive_mode <= "00";
@@ -1399,6 +1405,13 @@ begin
 			if rtl /= '0' and clear_rtl then
 				rtl <= '0';
 				clear_rtl := false;
+			end if;
+			
+			if controller_state_p1 = CACS then
+				tca <= '0';
+				tcs <= '0';
+			else
+				gts <= '0';
 			end if;
 			
 			-- clear register page after read (we clear it after writes above)
