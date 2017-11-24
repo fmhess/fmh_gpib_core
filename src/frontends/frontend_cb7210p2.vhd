@@ -852,13 +852,20 @@ begin
 				if prev_source_handshake_state /= SGNS and source_handshake_state = SGNS then
 					if talker_state_p1 = TACS then
 						DO_interrupt <= '1';
-					elsif controller_state_p1 = CACS then
+					end if;
+				end if;
+			else
+				DO_interrupt <= '0';
+			end if;
+
+			if host_to_gpib_command_byte_latched = '0' then
+				if prev_source_handshake_state /= SGNS and source_handshake_state = SGNS then
+					if controller_state_p1 = CACS then
 						CO_interrupt <= '1';
 					end if;
 				end if;
 			else
-				CO_interrupt <= '1';
-				DO_interrupt <= '0';
+				CO_interrupt <= '0';
 			end if;
 
 			if gpib_to_host_byte_latched = '1' and prev_gpib_to_host_byte_latched = '0' then
