@@ -3,14 +3,11 @@
 --
 -- It has been extended with:
 -- * the addition or a isr0/imr0 register at page 1, offset 6.
--- * "Aux reg I" with PPMODE2 bit which properly selects between the remote
+-- * added "Aux reg I" with PPMODE2 bit which properly selects between the remote
 --   or local parallel poll subsets of IEEE 488.1.
 -- * status bits at register page 1, offset 1 which indicate clearly
 --   whether a byte may currently be written into or read out of the chip
 --   independently of interrupt clearing logic.
---
--- Features yet to be implemented:
--- * Controller support.
 --
 -- Features we don't implement, because they are nearly useless, but could be implemented
 -- if anyone cares:
@@ -127,10 +124,11 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal gpib_to_host_byte_read : std_logic;
 	signal gpib_to_host_byte_end : std_logic;
 	signal gpib_to_host_byte_eos : std_logic;
-	signal host_to_gpib_data_byte : std_logic_vector(7 downto 0);
+	signal host_to_gpib_byte : std_logic_vector(7 downto 0);
 	signal host_to_gpib_data_byte_end : std_logic;
 	signal host_to_gpib_data_byte_write : std_logic;
 	signal host_to_gpib_data_byte_latched : std_logic;
+	signal host_to_gpib_command_byte_write : std_logic;
 	signal host_to_gpib_command_byte_latched : std_logic;
 	signal acceptor_handshake_state : AH_state;
 	signal controller_state_p1 : C_state_p1;
@@ -366,11 +364,12 @@ begin
 			gpib_to_host_byte_end => gpib_to_host_byte_end,
 			gpib_to_host_byte_eos => gpib_to_host_byte_eos,
 			gpib_to_host_byte_latched => gpib_to_host_byte_latched,
-			host_to_gpib_data_byte => host_to_gpib_data_byte,
+			host_to_gpib_byte => host_to_gpib_byte,
 			host_to_gpib_data_byte_end => host_to_gpib_data_byte_end,
 			host_to_gpib_auto_EOI_on_EOS => host_to_gpib_auto_EOI_on_EOS,
 			host_to_gpib_data_byte_write => host_to_gpib_data_byte_write,
 			host_to_gpib_data_byte_latched => host_to_gpib_data_byte_latched,
+			host_to_gpib_command_byte_write => host_to_gpib_command_byte_write,
 			host_to_gpib_command_byte_latched => host_to_gpib_command_byte_latched,
 			acceptor_handshake_state => acceptor_handshake_state,
 			controller_state_p1 => controller_state_p1,
@@ -1031,7 +1030,7 @@ begin
 		
 		procedure write_host_to_gpib_data_byte (write_data : in std_logic_vector(7 downto 0)) is
 		begin
-			host_to_gpib_data_byte <= write_data;
+			host_to_gpib_byte <= write_data;
 			host_to_gpib_data_byte_end <= send_eoi;
 			send_eoi := '0';
 			do_pulse_host_to_gpib_data_byte_write := true;
@@ -1260,6 +1259,7 @@ begin
 				enable_talker_gpib_address_1 <= '0';
 				enable_listener_gpib_address_1 <= '0';
 				host_to_gpib_data_byte_write <= '0';
+				host_to_gpib_command_byte_write <= '0';
 				send_eoi := '0';
 				invert_interrupt <= '0';
 				ignore_eos_bit_7 <= '0';

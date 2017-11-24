@@ -57,10 +57,11 @@ architecture behav of integrated_interface_functions_testbench is
 	signal gpib_to_host_byte_read : std_logic;
 	signal gpib_to_host_byte_end : std_logic;
 	signal gpib_to_host_byte_eos : std_logic;
-	signal host_to_gpib_data_byte : std_logic_vector(7 downto 0);
+	signal host_to_gpib_byte : std_logic_vector(7 downto 0);
 	signal host_to_gpib_data_byte_end : std_logic;
 	signal host_to_gpib_data_byte_write : std_logic;
 	signal host_to_gpib_data_byte_latched : std_logic;
+	signal host_to_gpib_command_byte_write : std_logic;
 	signal local_STB : std_logic_vector(7 downto 0);
 	signal device_clear_state : DC_state;
 	signal source_handshake_state : SH_state;
@@ -162,10 +163,11 @@ architecture behav of integrated_interface_functions_testbench is
 			gpib_to_host_byte_end => gpib_to_host_byte_end,
 			gpib_to_host_byte_eos => gpib_to_host_byte_eos,
 			gpib_to_host_byte_latched => gpib_to_host_byte_latched,
-			host_to_gpib_data_byte => host_to_gpib_data_byte,
+			host_to_gpib_byte => host_to_gpib_byte,
 			host_to_gpib_data_byte_end => host_to_gpib_data_byte_end,
 			host_to_gpib_data_byte_write => host_to_gpib_data_byte_write,
 			host_to_gpib_data_byte_latched => host_to_gpib_data_byte_latched,
+			host_to_gpib_command_byte_write => host_to_gpib_command_byte_write,
 			host_to_gpib_auto_EOI_on_EOS => host_to_gpib_auto_EOI_on_EOS,
 			device_clear_state => device_clear_state,
 			source_handshake_state => source_handshake_state,
@@ -307,7 +309,7 @@ architecture behav of integrated_interface_functions_testbench is
 		T9_terminal_count <= X"09";
 		T10_terminal_count <= X"0a";
 		gpib_to_host_byte_read <= '0';
-		host_to_gpib_data_byte <= X"00";
+		host_to_gpib_byte <= X"00";
 		host_to_gpib_data_byte_end <= '0';
 		host_to_gpib_data_byte_write <= '0'; 
 		host_to_gpib_auto_EOI_on_EOS <= '0';
@@ -384,7 +386,7 @@ architecture behav of integrated_interface_functions_testbench is
 		gpib_setup_bus(false, false);
 
 		wait until rising_edge(clock);	
-		host_to_gpib_data_byte <= X"b3";
+		host_to_gpib_byte <= X"b3";
 		host_to_gpib_data_byte_end <= '0';
 		host_to_gpib_data_byte_write <= '1';
 		wait until rising_edge(clock);	
@@ -396,7 +398,7 @@ architecture behav of integrated_interface_functions_testbench is
 		
 		-- now try a sending a byte with end asserted
 		wait until rising_edge(clock);	
-		host_to_gpib_data_byte <= X"c4";
+		host_to_gpib_byte <= X"c4";
 		host_to_gpib_data_byte_end <= '1';
 		host_to_gpib_data_byte_write <= '1';
 		wait until rising_edge(clock);	

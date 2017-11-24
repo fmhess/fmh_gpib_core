@@ -73,10 +73,11 @@ entity integrated_interface_functions is
 		check_for_listeners : in std_logic;
 		-- host should set gpib_to_host_byte_read high for a clock when it reads gpib_to_host_byte
 		gpib_to_host_byte_read : in std_logic;
-		host_to_gpib_data_byte : in std_logic_vector(7 downto 0);
+		host_to_gpib_byte : in std_logic_vector(7 downto 0);
 		host_to_gpib_data_byte_end : in std_logic;
 		host_to_gpib_auto_EOI_on_EOS : in std_logic;
 		host_to_gpib_data_byte_write : in std_logic;
+		host_to_gpib_command_byte_write : in std_logic;
 		local_STB : in std_logic_vector(7 downto 0);
 		RFD_holdoff_mode : in RFD_holdoff_enum;
 		-- pulse to release rfd holdoff
@@ -131,6 +132,8 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	signal internal_host_to_gpib_data_byte_latched : std_logic;
 	signal internal_host_to_gpib_data_byte : std_logic_vector(7 downto 0);
 	signal internal_host_to_gpib_data_byte_end : std_logic;
+	signal internal_host_to_gpib_command_byte_latched : std_logic;
+	signal internal_host_to_gpib_command_byte : std_logic_vector(7 downto 0);
 	signal RFD_holdoff : std_logic;
 	signal DAC_holdoff : std_logic;
 	signal unrecognized_primary_command : std_logic;
@@ -493,12 +496,13 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	talker_state_p3 <= talker_state_p3_buffer;
 	
 	nba <= '1' when source_handshake_state_buffer = SGNS and
-			(to_X01(internal_host_to_gpib_data_byte_latched) = '1' or
+			(internal_host_to_gpib_data_byte_latched = '1' or
+			internal_host_to_gpib_command_byte_latched = '1' or
 			talker_state_p1_buffer = SPAS) else
 		'0';
 	
 	host_to_gpib_data_byte_latched <= internal_host_to_gpib_data_byte_latched;
-	host_to_gpib_command_byte_latched <= '0';
+	host_to_gpib_command_byte_latched <= internal_host_to_gpib_command_byte_latched;
 	
 	local_NUL <= talker_NUL_buffer or controller_NUL_buffer;
 
@@ -539,6 +543,8 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 				to_X01(ATN) = '0' then
 				if talker_state_p1_buffer = TACS then
 					bus_DIO_inverted_out_buffer <= not internal_host_to_gpib_data_byte;
+				elsif controller_state_p1_buffer = CACS then
+					bus_DIO_inverted_out_buffer <= not internal_host_to_gpib_command_byte;
 				elsif talker_state_p1_buffer = SPAS then
 					bus_DIO_inverted_out_buffer <= status_byte_buffer;
 				end if;
@@ -621,19 +627,24 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	begin
 		if to_bit(pon) = '1' then
 			internal_host_to_gpib_data_byte_latched <= '0';
-			internal_host_to_gpib_data_byte <= X"00";
+			internal_host_to_gpib_data_byte <= (others => '0');
 			internal_host_to_gpib_data_byte_end <= '0';
+			internal_host_to_gpib_command_byte <= (others => '0');
+			internal_host_to_gpib_command_byte_latched <= '0';
 			prev_source_handshake_state := SIDS;
 		elsif rising_edge(clock) then
 			if prev_source_handshake_state /= STRS and 
-				source_handshake_state_buffer = STRS and
-				to_bit(ATN) = '0' then
+				source_handshake_state_buffer = STRS then
+				if ATN = '0' then
 					internal_host_to_gpib_data_byte_latched <= '0';
+				else
+					internal_host_to_gpib_command_byte_latched <= '0';
+				end if;
 			end if;
 			if device_clear_state_buffer = DCAS then
 				internal_host_to_gpib_data_byte_latched <= '0';
-			elsif to_bit(host_to_gpib_data_byte_write) = '1' then
-				internal_host_to_gpib_data_byte <= host_to_gpib_data_byte;
+			elsif host_to_gpib_data_byte_write = '1' then
+				internal_host_to_gpib_data_byte <= host_to_gpib_byte;
 				if host_to_gpib_data_byte_end = '1' or
 					(host_to_gpib_auto_EOI_on_EOS = '1' and 
 					EOS_match(internal_host_to_gpib_data_byte, configured_eos_character, ignore_eos_bit_7)) then
@@ -642,6 +653,9 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 					internal_host_to_gpib_data_byte_end <= '0';
 				end if;
 				internal_host_to_gpib_data_byte_latched <= '1';
+			elsif host_to_gpib_command_byte_write = '1' then
+				internal_host_to_gpib_command_byte <= host_to_gpib_byte;
+				internal_host_to_gpib_command_byte_latched <= '1';
 			end if;
 			prev_source_handshake_state := source_handshake_state_buffer;
 		end if;
