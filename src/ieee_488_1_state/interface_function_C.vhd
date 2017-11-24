@@ -315,15 +315,74 @@ begin
 		end if;
 	end process;
 
+	-- set outputs
+	process (controller_state_p1_buffer)
+	begin
+		TCT_out <= 'L';
+		case controller_state_p1_buffer is
+			when CIDS =>
+				ATN_out <= 'L';
+				IDY_out <= 'L';
+			when CADS =>
+				ATN_out <= 'L';
+				IDY_out <= 'L';
+			when CACS =>
+				ATN_out <= '1';
+				IDY_out <= '0';
+			when CPWS =>
+				ATN_out <= '1';
+				IDY_out <= '1';
+			when CPPS =>
+				ATN_out <= '1';
+				IDY_out <= '1';
+			when CSBS =>
+				ATN_out <= '0';
+				IDY_out <= 'L';
+			when CSHS =>
+				ATN_out <= '0';
+				IDY_out <= 'L';
+			when CSWS =>
+				ATN_out <= '1';
+				IDY_out <= '0';
+			when CAWS =>
+				ATN_out <= '1';
+				IDY_out <= '0';
+			when CTRS =>
+				ATN_out <= '1';
+				IDY_out <= '0';
+				TCT_out <= '1';
+		end case;
+	end process;
+
+	process (controller_state_p4_buffer)
+	begin
+		case controller_state_p4_buffer is
+			when SRIS =>
+				REN_out <= 'L';
+			when SRNS =>
+				REN_out <= '0';
+			when SRAS =>
+				REN_out <= '1';
+		end case;
+	end process;
+
+	process (controller_state_p5_buffer)
+	begin
+		case controller_state_p5_buffer is
+			when SIIS =>
+				IFC_out <= 'L';
+			when SINS =>
+				IFC_out <= '0';
+			when SIAS =>
+				IFC_out <= '1';
+		end case;
+	end process;
+	
 	controller_state_p1 <= controller_state_p1_buffer;
 	controller_state_p2 <= controller_state_p2_buffer;
 	controller_state_p3 <= controller_state_p3_buffer;
 	controller_state_p4 <= controller_state_p4_buffer;
 	controller_state_p5 <= controller_state_p5_buffer;
 	
-	ATN_out <= 'L';
-	IDY_out <= 'L';
 	NUL_out <= 'H';
-	REN_out <= 'L';
-	TCT_out <= 'L';
 end interface_function_C_arch;
