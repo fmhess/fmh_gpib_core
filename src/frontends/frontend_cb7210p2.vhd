@@ -868,18 +868,14 @@ begin
 			end if;
 
 			if gpib_to_host_byte_latched = '1' and prev_gpib_to_host_byte_latched = '0' then
-				if acceptor_handshake_state = ACDS and listener_state_p1 = LACS then
-					DI_interrupt <= '1';
-				end if;
+				DI_interrupt <= '1';
 			end if;
 			if gpib_to_host_byte_latched = '0' then
 				DI_interrupt <= '0';
 			end if;
 
 			if end_interrupt_condition = '1' and prev_end_interrupt_condition = '0' then
-				if acceptor_handshake_state = ACDS and listener_state_p1 = LACS then
-					END_interrupt <= '1';
-				end if;
+				END_interrupt <= '1';
 			end if;
 			if end_interrupt_condition = '0' then
 				END_interrupt <= '0';
@@ -965,13 +961,16 @@ begin
 		end if;
 	end process;
 		
-	end_interrupt_condition <= gpib_to_host_byte_end or (generate_END_interrupt_on_EOS and gpib_to_host_byte_eos);
+	end_interrupt_condition <= '1' when (gpib_to_host_byte_end or (generate_END_interrupt_on_EOS and gpib_to_host_byte_eos)) = '1' and
+			(gpib_to_host_byte_latched = '1' or RFD_holdoff_mode = continuous_mode) else
+		'0';
 	
 	-- accept writes from host
 	process (hard_reset, clock)
 		variable do_pulse_host_to_gpib_data_byte_write : boolean;
 		variable send_eoi : std_logic;
 		variable clear_rtl : boolean;
+		variable take_control_synchronously_on_end : std_logic;
 		
 		procedure execute_auxiliary_command(command : in std_logic_vector(4 downto 0)) is
 		begin
@@ -1006,7 +1005,7 @@ begin
 				when "10010" => -- take control synchronously
 					tcs <= '1';
 				when "11010" => -- take control synchronously on end
-					-- TODO
+					take_control_synchronously_on_end := '1';
 				when "10011" => -- listen (pulse)
 					-- TODO
 				when "11000" => -- request rsv true
@@ -1260,6 +1259,7 @@ begin
 				sic <= '0';
 				tca <= '0';
 				tcs <= '0';
+				take_control_synchronously_on_end := '0';
 				ton <= '0';
 				transmit_receive_mode <= "00";
 				address_mode <= "00";
@@ -1381,6 +1381,12 @@ begin
 			end if;
 
 			handle_command_pass_through;
+			
+			if take_control_synchronously_on_end = '1' and acceptor_handshake_state = ACDS and 
+				(gpib_to_host_byte_end or (generate_END_interrupt_on_EOS and gpib_to_host_byte_eos)) = '1' then
+				take_control_synchronously_on_end := '0';
+				tcs <= '1';
+			end if;
 			
 			-- handle pulses
 			if do_pulse_host_to_gpib_data_byte_write then

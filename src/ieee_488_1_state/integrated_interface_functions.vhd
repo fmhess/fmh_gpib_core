@@ -581,9 +581,9 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 				if RFD_holdoff_mode /= continuous_mode then
 					gpib_to_host_byte_latched_buffer <= '1';
 					gpib_to_host_byte <= not bus_DIO_inverted_in;
-					gpib_to_host_byte_end <= END_msg;
-					gpib_to_host_byte_eos <= EOS;
 				end if;
+				gpib_to_host_byte_end <= END_msg;
+				gpib_to_host_byte_eos <= EOS;
 				case RFD_holdoff_mode is
 					when holdoff_normal =>
 					when holdoff_on_all =>
