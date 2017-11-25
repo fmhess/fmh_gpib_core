@@ -872,7 +872,8 @@ begin
 			if gpib_to_host_byte_latched = '1' then
 				if listener_state_p1 = LACS and acceptor_handshake_state = ANRS and
 					prev_acceptor_handshake_state /= ANRS then
-				DI_interrupt <= '1';
+					DI_interrupt <= '1';
+				end if;
 			end if;
 			if gpib_to_host_byte_latched = '0' then
 				DI_interrupt <= '0';
