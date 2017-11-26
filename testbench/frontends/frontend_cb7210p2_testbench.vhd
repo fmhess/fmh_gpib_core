@@ -1,4 +1,4 @@
--- testbench for integrated interface functions.
+-- testbench for cb7210.2 frontend.
 -- Author: Frank Mori Hess fmh6jj@gmail.com
 -- Copyright 2017 Frank Mori Hess
 --
