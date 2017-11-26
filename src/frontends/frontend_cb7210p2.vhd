@@ -84,7 +84,8 @@ entity frontend_cb7210p2 is
 		EOI_output_enable : out std_logic;
 		not_controller_in_charge : out std_logic; -- transceiver DC
 		pullup_disable : out std_logic; -- transceiver PE
-		trigger : out std_logic
+		trigger : out std_logic;
+		system_controller : out std_logic
 	);
 end frontend_cb7210p2;
      
@@ -1255,6 +1256,7 @@ begin
 				parallel_poll_disable <= '0';
 				ltn <= '0';
 				lun <= '0';
+				rpp <= '0';
 				rtl <= '0';
 				sre <= '0';
 				sic <= '0';
@@ -1477,6 +1479,8 @@ begin
 		'0';
 	EOI_output_enable <= EOI_output_enable_buffer;
 
+	system_controller <= '1' when controller_state_p3 = SACS else '0';
+	
 	trigger_buffer <= '1' when entered_DTAS = '1' or
 		trigger_aux_command_pulse = '1' else '0';
 	trigger <= trigger_buffer;
