@@ -13,11 +13,9 @@
 -- * a dedicated command byte out register at offset 0x10 (register page 2, offset 0) which
 --   only accepts commmand bytes, not data bytes 
 --
--- Features we don't implement, because they are nearly useless, but could be implemented
--- if anyone cares:
--- * DAC holdoff on DTAS or DCAS
--- * Setting clock frequency by writing to the auxiliary mode register.  It is done
---   by a generic parameter instead.  Would want to implement if someone actually
+-- Features which could be implemented if anyone cares:
+-- * Setting clock frequency by writing to the auxiliary mode register.  Clock frequency
+--   is specified by a generic parameter instead.  We would want to implement this if someone actually
 --   wanted to produce this as an ASIC rather than burning it into an FPGA.
 --
 -- Features we don't implement, because they are standards violating:
