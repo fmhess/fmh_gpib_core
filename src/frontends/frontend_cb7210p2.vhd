@@ -202,6 +202,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal ultra_fast_T1_delay : std_logic;
 	signal high_speed_T1_delay : std_logic;
 	signal generate_END_interrupt_on_EOS : std_logic;
+	signal configured_RFD_holdoff_mode : RFD_holdoff_enum;
 	signal RFD_holdoff_mode : RFD_holdoff_enum;
 	signal release_RFD_holdoff_pulse : std_logic;
 	signal parallel_poll_flag : std_logic;
@@ -216,6 +217,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal enable_secondary_addressing : std_logic;
 	signal address_passthrough_active : std_logic;
 	signal command_passthrough_active : std_logic;
+	signal listen_with_continuous_mode : std_logic;
 	
 	signal talk_enable_buffer : std_logic;
 	signal controller_in_charge_buffer : std_logic;
@@ -1014,16 +1016,18 @@ begin
 				when "11010" => -- take control synchronously on end
 					take_control_synchronously_on_end := '1';
 				when "10011" => -- listen (pulse)
-					-- TODO
+					ltn <= '1';
+					listen_with_continuous_mode <= '0';
 				when "11000" => -- request rsv true
 					rsv <= '1';
 					pending_rsv <= '1';
 				when "11001" => -- request rsv false
 					rsv <= '0';
 				when "11011" => -- listen with continuous mode
-					-- TODO
+					ltn <= '1';
+					listen_with_continuous_mode <= '1';
 				when "11100" => -- local unlisten (pulse)
-					-- TODO
+					lun <= '1';
 				when "11101" => -- execute parallel poll
 					rpp <= '1';
 				when "10110" => -- clear IFC 
@@ -1115,13 +1119,13 @@ begin
 						when "100" => -- aux A register
 							case write_data(1 downto 0) is
 								when "00" =>
-									RFD_holdoff_mode <= holdoff_normal;
+									configured_RFD_holdoff_mode <= holdoff_normal;
 								when "01" =>
-									RFD_holdoff_mode <= holdoff_on_all;
+									configured_RFD_holdoff_mode <= holdoff_on_all;
 								when "10" =>
-									RFD_holdoff_mode <= holdoff_on_end;
+									configured_RFD_holdoff_mode <= holdoff_on_end;
 								when "11" =>
-									RFD_holdoff_mode <= continuous_mode;
+									configured_RFD_holdoff_mode <= continuous_mode;
 								when others =>
 							end case;
 							generate_END_interrupt_on_EOS <= write_data(2);
@@ -1129,7 +1133,7 @@ begin
 							ignore_eos_bit_7 <= not write_data(4);
 						when "101" => -- aux B register
 							CPT_enabled <= write_data(0);
-							-- bit 1 not supported
+							-- TODO bit 1 not supported
 							high_speed_T1_delay <= write_data(2);
 							invert_interrupt <= write_data(3);
 							use_SRQS_as_ist <= write_data(4);
@@ -1326,6 +1330,7 @@ begin
 				CPT_enabled <= '0';
 				minor_addressed <= '0';
 				minor_primary_addressed <= '0';
+				listen_with_continuous_mode <= '0';
 				
 				-- imr0 enables
 				ATN_interrupt_enable <= '0';
@@ -1349,7 +1354,7 @@ begin
 				SRQ_interrupt_enable <= '0';
 
 				generate_END_interrupt_on_EOS <= '0';
-				RFD_holdoff_mode <= holdoff_normal;
+				configured_RFD_holdoff_mode <= holdoff_normal;
 			end if;
 		end handle_soft_reset;
 	begin
@@ -1445,7 +1450,12 @@ begin
 			if trigger_aux_command_pulse /= '0' then
 				trigger_aux_command_pulse <= '0';
 			end if;
-			
+			if ltn /= '0' then
+				ltn <= '0';
+			end if;
+			if lun /= '0' then
+				lun <= '0';
+			end if;
 			if rtl /= '0' and clear_rtl then
 				rtl <= '0';
 				clear_rtl := false;
@@ -1458,6 +1468,10 @@ begin
 				gts <= '0';
 			end if;
 			
+			if listen_with_continuous_mode = '1' and ltn = '0' and listener_state_p1 = LIDS then
+				listen_with_continuous_mode <= '0';
+			end if;
+			
 			-- clear register page after read (we clear it after writes above)
 			if host_read_from_bus_state = host_io_active then
 				register_page <= (others => '0');
@@ -1466,6 +1480,9 @@ begin
 		end if;
 	end process;	
 
+	RFD_holdoff_mode <= continuous_mode when listen_with_continuous_mode = '1' else
+		configured_RFD_holdoff_mode;
+	
 	-- set timing counters
 	first_T1_terminal_count <= T1_clock_ticks_1100ns when ultra_fast_T1_delay = '1' else
 		T1_clock_ticks_2us;
