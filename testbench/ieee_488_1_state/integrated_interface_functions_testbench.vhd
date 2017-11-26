@@ -71,6 +71,7 @@ architecture behav of integrated_interface_functions_testbench is
 	signal host_to_gpib_auto_EOI_on_EOS : std_logic;
 	signal address_passthrough : std_logic;
 	signal command_passthrough : std_logic;
+	signal assert_END_in_SPAS : std_logic;
 	
 	signal gts : std_logic;
 	signal ist : std_logic;
@@ -176,7 +177,8 @@ architecture behav of integrated_interface_functions_testbench is
 			RFD_holdoff_mode => RFD_holdoff_mode,
 			release_RFD_holdoff_pulse => release_RFD_holdoff_pulse,
 			address_passthrough => address_passthrough,
-			command_passthrough => command_passthrough
+			command_passthrough => command_passthrough,
+			assert_END_in_SPAS => assert_END_in_SPAS
 		);
 
 	my_gpib_transceiver: entity work.gpib_transceiver
@@ -331,6 +333,7 @@ architecture behav of integrated_interface_functions_testbench is
 		local_STB <= (others => '0');
 		RFD_holdoff_mode <= holdoff_normal;
 		release_RFD_holdoff_pulse <= '0';
+		assert_END_in_SPAS <= '0';
 		
 		pon <= '1';
 		wait until rising_edge(clock);	

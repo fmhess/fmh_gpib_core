@@ -30,6 +30,7 @@ entity interface_function_TE is
 		PCG : in std_logic;
 		enable_secondary_addressing : in std_logic; -- true for extended talker, false for talker
 		host_to_gpib_data_byte_end : in std_logic;
+		assert_END_in_SPAS : in std_logic;
 		
 		talker_state_p1 : out TE_state_p1;
 		talker_state_p2 : out TE_state_p2;
@@ -164,7 +165,7 @@ begin
 				RQS <= 'L';
 				NUL <= 'L';
 			when SPAS =>
-				END_msg <= '0';
+				END_msg <= assert_END_in_SPAS;
 				if service_request_state = APRS then
 					RQS <= '1';
 				else

@@ -218,6 +218,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal address_passthrough_active : std_logic;
 	signal command_passthrough_active : std_logic;
 	signal listen_with_continuous_mode : std_logic;
+	signal assert_END_in_SPAS : std_logic;
 	
 	signal talk_enable_buffer : std_logic;
 	signal controller_in_charge_buffer : std_logic;
@@ -399,7 +400,8 @@ begin
 			RFD_holdoff_mode => RFD_holdoff_mode,
 			release_RFD_holdoff_pulse => release_RFD_holdoff_pulse,
 			address_passthrough => address_passthrough_active,
-			command_passthrough => command_passthrough_active
+			command_passthrough => command_passthrough_active,
+			assert_END_in_SPAS => assert_END_in_SPAS
 		);
 
 	-- latch external gpib signals on clock edge
@@ -1133,7 +1135,7 @@ begin
 							ignore_eos_bit_7 <= not write_data(4);
 						when "101" => -- aux B register
 							CPT_enabled <= write_data(0);
-							-- TODO bit 1 not supported
+							assert_END_in_SPAS <= write_data(1);
 							high_speed_T1_delay <= write_data(2);
 							invert_interrupt <= write_data(3);
 							use_SRQS_as_ist <= write_data(4);
@@ -1331,6 +1333,7 @@ begin
 				minor_addressed <= '0';
 				minor_primary_addressed <= '0';
 				listen_with_continuous_mode <= '0';
+				assert_END_in_SPAS <= '0';
 				
 				-- imr0 enables
 				ATN_interrupt_enable <= '0';

@@ -82,6 +82,7 @@ entity integrated_interface_functions is
 		RFD_holdoff_mode : in RFD_holdoff_enum;
 		-- pulse to release rfd holdoff
 		release_RFD_holdoff_pulse : in std_logic;
+		assert_END_in_SPAS : in std_logic;
 		
 		address_passthrough : out std_logic; 
 		command_passthrough : out std_logic; 
@@ -431,6 +432,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			PCG => PCG,
 			enable_secondary_addressing => enable_secondary_addressing,
 			host_to_gpib_data_byte_end => internal_host_to_gpib_data_byte_end,
+			assert_END_in_SPAS => assert_END_in_SPAS,
 			talker_state_p1 => talker_state_p1_buffer,
 			talker_state_p2 => talker_state_p2_buffer,
 			talker_state_p3 => talker_state_p3_buffer,
