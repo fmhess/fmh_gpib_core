@@ -289,7 +289,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 		raw_address : in std_logic_vector(num_address_lines - 1 downto 0)) 
 		return integer is
 		variable raw_address_integer : integer range 0 to 127;
-		variable result : std_logic_vector(num_address_lines + page'LENGTH - 1 downto 0);
+		variable result : std_logic_vector(page'LENGTH + 2 downto 0);
 	begin
 		raw_address_integer := to_integer(unsigned(raw_address));
 		if raw_address_integer < 8 then
