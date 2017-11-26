@@ -265,8 +265,8 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal DMA_output_enable : std_logic;
 	signal SRQ_interrupt_enable : std_logic;
 	
-	-- we don't support minor addresses, they are in gross violation of the standards
-	constant minor_addressed : std_logic := '0';
+	signal minor_addressed : std_logic;
+	signal minor_primary_addressed : std_logic;
 
 	-- overhead parameter is fixed number of clock ticks of overhead even when using a timing delay of zero
 	function to_clock_ticks (nanoseconds : in integer; overhead : in integer) return unsigned is
@@ -994,6 +994,9 @@ begin
 					command_invalid <= '1';
 				when "01111" => -- valid pass through secondary address 
 					command_valid <= '1';
+					if address_mode = "11" and APT_needs_host_response = '1' then
+						minor_addressed <= minor_primary_addressed;
+					end if;
 				when "00001" => -- clear parallel poll flag 
 					parallel_poll_flag <= '0';
 				when "01001" => -- set parallel poll flag 
@@ -1188,9 +1191,12 @@ begin
 								when "00" =>
 									command_invalid <= '1';
 								when "01" =>
-									if (enable_talker_gpib_address_0 = '1' and gpib_address_0 = not bus_DIO_inverted_in(4 downto 0)) or
-										(enable_talker_gpib_address_1 = '1' and gpib_address_1 = not bus_DIO_inverted_in(4 downto 0)) then
+									if (enable_talker_gpib_address_0 = '1' and gpib_address_0 = not bus_DIO_inverted_in(4 downto 0)) then
 										command_valid <= '1';
+										minor_addressed <= '0';
+									elsif (enable_talker_gpib_address_1 = '1' and gpib_address_1 = not bus_DIO_inverted_in(4 downto 0)) then
+										command_valid <= '1';
+										minor_addressed <= '1';
 									else
 										command_invalid <= '1';
 									end if;
@@ -1204,6 +1210,7 @@ begin
 									if (enable_talker_gpib_address_0 = '1' and gpib_address_0 = not bus_DIO_inverted_in(4 downto 0)) or
 										(enable_talker_gpib_address_1 = '1' and gpib_address_1 = not bus_DIO_inverted_in(4 downto 0)) then
 										command_valid <= '1';
+										minor_primary_addressed <= '1';
 									else
 										command_invalid <= '1';
 									end if;
@@ -1214,9 +1221,12 @@ begin
 								when "00" =>
 									command_invalid <= '1';
 								when "01" =>
-									if (enable_listener_gpib_address_0 = '1' and gpib_address_0 = not bus_DIO_inverted_in(4 downto 0)) or
-										(enable_listener_gpib_address_1 = '1' and gpib_address_1 = not bus_DIO_inverted_in(4 downto 0)) then
+									if (enable_listener_gpib_address_0 = '1' and gpib_address_0 = not bus_DIO_inverted_in(4 downto 0)) then
 										command_valid <= '1';
+										minor_addressed <= '0';
+									elsif (enable_listener_gpib_address_1 = '1' and gpib_address_1 = not bus_DIO_inverted_in(4 downto 0)) then
+										command_valid <= '1';
+										minor_addressed <= '1';
 									else
 										command_invalid <= '1';
 									end if;
@@ -1230,6 +1240,7 @@ begin
 									if (enable_listener_gpib_address_0 = '1' and gpib_address_0 = not bus_DIO_inverted_in(4 downto 0)) or
 										(enable_listener_gpib_address_1 = '1' and gpib_address_1 = not bus_DIO_inverted_in(4 downto 0)) then
 										command_valid <= '1';
+										minor_primary_addressed <= '1';
 									else
 										command_invalid <= '1';
 									end if;
@@ -1245,6 +1256,7 @@ begin
 									if gpib_address_1 = not bus_DIO_inverted_in(4 downto 0) and
 										gpib_address_1 /= NO_ADDRESS_CONFIGURED then
 										command_valid <= '1';
+										minor_addressed <= '0';
 									else
 										command_invalid <= '1';
 									end if;
@@ -1312,6 +1324,8 @@ begin
 				APT_needs_host_response <= '0';
 				CPT_needs_host_response <= '0';
 				CPT_enabled <= '0';
+				minor_addressed <= '0';
+				minor_primary_addressed <= '0';
 				
 				-- imr0 enables
 				ATN_interrupt_enable <= '0';
