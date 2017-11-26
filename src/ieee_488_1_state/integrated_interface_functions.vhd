@@ -183,7 +183,6 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	signal UNT : std_logic;
 	signal NIC : std_logic;
 	signal CFE : std_logic;
-	signal NUL : std_logic;
 	signal local_PPR : std_logic_vector(7 downto 0);
 	signal local_ATN : std_logic;
 	signal local_DAC : std_logic;
@@ -196,9 +195,6 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	signal local_SRQ : std_logic;
 	signal local_IDY : std_logic;
 	signal local_EOI : std_logic;
-	signal talker_NUL_buffer : std_logic;
-	signal controller_NUL_buffer : std_logic;
-	signal local_NUL : std_logic;
 	signal local_TCT : std_logic;
 	
 	signal acceptor_handshake_state_buffer : AH_state;
@@ -260,7 +256,6 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			MSA => MSA,
 			OSA => OSA,
 			OTA => OTA,
-			NUL => NUL,
 			PCG => PCG,
 			PPC => PPC,
 			PPE => PPE,
@@ -437,8 +432,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			talker_state_p2 => talker_state_p2_buffer,
 			talker_state_p3 => talker_state_p3_buffer,
 			END_msg => local_END,
-			RQS => local_RQS,
-			NUL => talker_NUL_buffer
+			RQS => local_RQS
 		);
 		
 	my_C: entity work.interface_function_C
@@ -461,7 +455,6 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			IDY_out => local_IDY,
 			IFC_out => local_IFC,
 			REN_out => local_REN,
-			NUL_out => controller_NUL_buffer,
 			TCT_out => local_TCT,
 			T6_terminal_count => T6_terminal_count,
 			T7_terminal_count => T7_terminal_count,
@@ -506,8 +499,6 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	host_to_gpib_data_byte_latched <= internal_host_to_gpib_data_byte_latched;
 	host_to_gpib_command_byte_latched <= internal_host_to_gpib_command_byte_latched;
 	
-	local_NUL <= talker_NUL_buffer or controller_NUL_buffer;
-
 	status_byte_buffer(7) <= not local_STB(7); 
 	status_byte_buffer(6) <= not local_RQS; 
 	status_byte_buffer(5 downto 0) <= not local_STB(5 downto 0);
@@ -554,9 +545,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			elsif parallel_poll_state_p1_buffer = PPAS then
 				bus_DIO_inverted_out_buffer <= to_X0Z(not local_PPR);
 			elsif (talker_state_p1_buffer = TACS or talker_state_p1_buffer = SPAS or controller_state_p1_buffer = CACS) then
-				if to_X01(local_NUL) = '1' then
-					bus_DIO_inverted_out_buffer <= (others => '1');
-				end if;
+				bus_DIO_inverted_out_buffer <= (others => '1');
 			else
 				bus_DIO_inverted_out_buffer <= (others => 'Z');
 			end if;

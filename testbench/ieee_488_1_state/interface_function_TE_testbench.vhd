@@ -37,7 +37,6 @@ architecture behav of interface_function_TE_testbench is
 	signal talker_state_p3 : TE_state_p3;
 	signal END_msg : std_logic;
 	signal RQS : std_logic;
-	signal NUL : std_logic;
 	
 	constant clock_half_period : time := 50 ns;
 
@@ -70,8 +69,7 @@ architecture behav of interface_function_TE_testbench is
 			talker_state_p2 => talker_state_p2,
 			talker_state_p3 => talker_state_p3,
 			END_msg => END_msg,
-			RQS => RQS,
-			NUL => NUL
+			RQS => RQS
 		);
 	
 	process

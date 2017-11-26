@@ -38,7 +38,6 @@ entity interface_function_C is
 		IDY_out : out std_logic;
 		IFC_out : out std_logic;
 		REN_out : out std_logic;
-		NUL_out : out std_logic;
 		TCT_out : out std_logic;
 		
 		controller_state_p1 : out C_state_p1;
@@ -384,5 +383,4 @@ begin
 	controller_state_p4 <= controller_state_p4_buffer;
 	controller_state_p5 <= controller_state_p5_buffer;
 	
-	NUL_out <= 'H';
 end interface_function_C_arch;

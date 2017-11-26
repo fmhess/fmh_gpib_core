@@ -36,8 +36,7 @@ entity interface_function_TE is
 		talker_state_p2 : out TE_state_p2;
 		talker_state_p3 : out TE_state_p3;
 		END_msg : out std_logic;
-		RQS : out std_logic;
-		NUL : out std_logic
+		RQS : out std_logic
 	);
  
 end interface_function_TE;
@@ -151,11 +150,9 @@ begin
 			when TIDS =>
 				END_msg <= 'L';
 				RQS <= 'L';
-				NUL <= 'H';
 			when TADS =>
 				END_msg <= 'L';
 				RQS <= 'L';
-				NUL <= 'H';
 			when TACS =>
 				if source_handshake_state = SDYS or source_handshake_state = STRS then  
 					END_msg <= latched_end;
@@ -163,7 +160,6 @@ begin
 					END_msg <= 'L';
 				end if;
 				RQS <= 'L';
-				NUL <= 'L';
 			when SPAS =>
 				END_msg <= assert_END_in_SPAS;
 				if service_request_state = APRS then
@@ -171,7 +167,6 @@ begin
 				else
 					RQS <= '0';
 				end if;
-				NUL <= 'L';
 		end case;
 	end process;
 	
