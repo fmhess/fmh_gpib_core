@@ -82,6 +82,8 @@ entity integrated_interface_functions is
 		RFD_holdoff_mode : in RFD_holdoff_enum;
 		-- pulse to release rfd holdoff
 		release_RFD_holdoff_pulse : in std_logic;
+		DAC_holdoff_on_DTAS : in std_logic;
+		DAC_holdoff_on_DCAS : in std_logic;
 		assert_END_in_SPAS : in std_logic;
 		
 		address_passthrough : out std_logic; 
@@ -302,7 +304,6 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 
 	my_DC: entity work.interface_function_DC 
 		port map (
-			clock => clock,
 			acceptor_handshake_state => acceptor_handshake_state_buffer,
 			listener_state_p1 => listener_state_p1_buffer,
 			DCL => DCL,
@@ -312,7 +313,6 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 
 	my_DT: entity work.interface_function_DT 
 		port map (
-			clock => clock,
 			acceptor_handshake_state => acceptor_handshake_state_buffer,
 			listener_state_p1 => listener_state_p1_buffer,
 			GET => GET,
@@ -684,17 +684,25 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	-- update DAC_holdoff
 	process(pon, clock)
 		variable last_primary_command_unrecognized : std_logic;
+		variable prev_device_clear_state : DC_state;
+		variable prev_device_trigger_state : DT_state;
 	begin
 		if to_X01(pon) = '1' then
 			DAC_holdoff <= '0';
 			address_passthrough_buffer <= '0';
 			command_passthrough_buffer <= '0';
 			last_primary_command_unrecognized := '0';
+			prev_device_clear_state := DCIS;
+			prev_device_trigger_state := DTIS;
 		elsif rising_edge(clock) then
 			if ATN = '1' then
 				if acceptor_handshake_state_buffer = ACDS then
 					if (command_valid or command_invalid) = '1' then
 						DAC_holdoff <= '0';
+					elsif device_clear_state_buffer = DCAS and prev_device_clear_state /= DCAS and DAC_holdoff_on_DCAS = '1' then
+						DAC_holdoff <= '1';
+					elsif device_trigger_state_buffer = DTAS and prev_device_trigger_state /= DTAS and DAC_holdoff_on_DTAS = '1' then
+						DAC_holdoff <= '1';
 					end if;
 					if PCG = '1' then
 						if unrecognized_primary_command = '1' then
@@ -743,6 +751,8 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 				command_passthrough_buffer <= '0';
 				DAC_holdoff <= '0';
 			end if;
+			prev_device_clear_state := device_clear_state_buffer;
+			prev_device_trigger_state := device_trigger_state_buffer;
 		end if;
 	end process;
 

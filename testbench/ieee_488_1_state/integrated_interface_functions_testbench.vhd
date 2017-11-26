@@ -72,6 +72,8 @@ architecture behav of integrated_interface_functions_testbench is
 	signal address_passthrough : std_logic;
 	signal command_passthrough : std_logic;
 	signal assert_END_in_SPAS : std_logic;
+	signal DAC_holdoff_on_DCAS : std_logic;
+	signal DAC_holdoff_on_DTAS : std_logic;
 	
 	signal gts : std_logic;
 	signal ist : std_logic;
@@ -178,7 +180,9 @@ architecture behav of integrated_interface_functions_testbench is
 			release_RFD_holdoff_pulse => release_RFD_holdoff_pulse,
 			address_passthrough => address_passthrough,
 			command_passthrough => command_passthrough,
-			assert_END_in_SPAS => assert_END_in_SPAS
+			assert_END_in_SPAS => assert_END_in_SPAS,
+			DAC_holdoff_on_DCAS => DAC_holdoff_on_DCAS,
+			DAC_holdoff_on_DTAS => DAC_holdoff_on_DTAS
 		);
 
 	my_gpib_transceiver: entity work.gpib_transceiver
@@ -334,7 +338,9 @@ architecture behav of integrated_interface_functions_testbench is
 		RFD_holdoff_mode <= holdoff_normal;
 		release_RFD_holdoff_pulse <= '0';
 		assert_END_in_SPAS <= '0';
-		
+		DAC_holdoff_on_DCAS <= '0';
+		DAC_holdoff_on_DTAS <= '0';
+
 		pon <= '1';
 		wait until rising_edge(clock);	
 		pon <= '0';

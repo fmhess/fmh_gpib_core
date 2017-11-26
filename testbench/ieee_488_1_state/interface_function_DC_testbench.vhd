@@ -26,7 +26,6 @@ architecture behav of interface_function_DC_testbench is
 	begin
 	my_DC: entity work.interface_function_DC 
 		port map (
-			clock => clock,
 			acceptor_handshake_state => acceptor_handshake_state,
 			listener_state_p1 => listener_state_p1,
 			DCL => DCL,

@@ -15,7 +15,6 @@
 --
 -- Features we don't implement, because they are nearly useless, but could be implemented
 -- if anyone cares:
--- * configuring whether to assert END while in SPAS.
 -- * DAC holdoff on DTAS or DCAS
 -- * Setting clock frequency by writing to the auxiliary mode register.  It is done
 --   by a generic parameter instead.  Would want to implement if someone actually
@@ -219,7 +218,9 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal command_passthrough_active : std_logic;
 	signal listen_with_continuous_mode : std_logic;
 	signal assert_END_in_SPAS : std_logic;
-	
+	signal DAC_holdoff_on_DCAS : std_logic;
+	signal DAC_holdoff_on_DTAS : std_logic;
+
 	signal talk_enable_buffer : std_logic;
 	signal controller_in_charge_buffer : std_logic;
 	signal pullup_disable_buffer : std_logic;
@@ -401,7 +402,9 @@ begin
 			release_RFD_holdoff_pulse => release_RFD_holdoff_pulse,
 			address_passthrough => address_passthrough_active,
 			command_passthrough => command_passthrough_active,
-			assert_END_in_SPAS => assert_END_in_SPAS
+			assert_END_in_SPAS => assert_END_in_SPAS,
+			DAC_holdoff_on_DCAS => DAC_holdoff_on_DCAS,
+			DAC_holdoff_on_DTAS => DAC_holdoff_on_DTAS
 		);
 
 	-- latch external gpib signals on clock edge
@@ -1140,7 +1143,8 @@ begin
 							invert_interrupt <= write_data(3);
 							use_SRQS_as_ist <= write_data(4);
 						when "110" => -- aux E register
-							-- TODO
+							DAC_holdoff_on_DCAS <=  write_data(0);
+							DAC_holdoff_on_DTAS <= write_data(1);
 						when "010" => 
 							if write_data(4) = '1' then
 								register_page <= write_data(3 downto 0);
@@ -1334,6 +1338,8 @@ begin
 				minor_primary_addressed <= '0';
 				listen_with_continuous_mode <= '0';
 				assert_END_in_SPAS <= '0';
+				DAC_holdoff_on_DCAS <= '0';
+				DAC_holdoff_on_DTAS <= '0';
 				
 				-- imr0 enables
 				ATN_interrupt_enable <= '0';

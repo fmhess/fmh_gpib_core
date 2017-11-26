@@ -25,7 +25,6 @@ architecture behav of interface_function_DT_testbench is
 	begin
 	my_DT: entity work.interface_function_DT 
 		port map (
-			clock => clock,
 			acceptor_handshake_state => acceptor_handshake_state,
 			listener_state_p1 => listener_state_p1,
 			GET => GET,

@@ -11,7 +11,6 @@ use work.interface_function_common.all;
 
 entity interface_function_DC is
 	port(
-		clock : in std_logic;
 		acceptor_handshake_state : in AH_state;
 		listener_state_p1 : in LE_state_p1;
 		DCL : in std_logic;
@@ -23,30 +22,9 @@ entity interface_function_DC is
 end interface_function_DC;
  
 architecture interface_function_DC_arch of interface_function_DC is
-
-	signal device_clear_state_buffer : DC_state;
-	signal device_clear_message : boolean;
-	
 begin
 
-	device_clear_message <= (to_bit(DCL) = '1' or (to_bit(SDC) = '1' and listener_state_p1 = LADS)) and 
-		acceptor_handshake_state = ACDS;
-
-	device_clear_state <= device_clear_state_buffer;
-
-	process(clock) begin
-		if rising_edge(clock) then
-
-			case device_clear_state_buffer is
-				when DCIS =>
-					if device_clear_message then
-						device_clear_state_buffer <= DCAS;
-					end if;
-				when DCAS =>
-					if not device_clear_message then
-						device_clear_state_buffer <= DCIS;
-					end if;
-			end case;
-		end if;
-	end process;
+	device_clear_state <= DCAS when (to_bit(DCL) = '1' or (to_bit(SDC) = '1' and listener_state_p1 = LADS)) and 
+			acceptor_handshake_state = ACDS else
+		DCIS;
 end interface_function_DC_arch;
