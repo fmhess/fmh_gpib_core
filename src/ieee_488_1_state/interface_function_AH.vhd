@@ -39,9 +39,14 @@ begin
 	acceptor_handshake_state <= acceptor_handshake_state_buffer;
 	addressed <= listener_state_p1 = LACS or listener_state_p1 = LADS;
 	
-	process(pon, clock) begin
+	process(pon, clock) 
+		-- used to delay in ACDS for an extra clock cycle so there is time to see if we need to
+		-- do a DAC holdoff due to DTAS or DCAS
+		variable T3_delay_satisfied : boolean; 
+	begin
 		if pon = '1' then
 			acceptor_handshake_state_buffer <= AIDS;
+			T3_delay_satisfied := false;
 		elsif rising_edge(clock) then
 			old_rdy <= rdy;
 			
@@ -60,6 +65,7 @@ begin
 				when ACRS =>
 					if to_X01(DAV) = '1' then
 						acceptor_handshake_state_buffer <= ACDS;
+						T3_delay_satisfied := false;
 					elsif to_X01(ATN) = '0' and to_X01(rdy) = '0' then
 						acceptor_handshake_state_buffer <= ANRS;
 					end if;
@@ -67,11 +73,13 @@ begin
 						assert false report "rdy is not permitted to transition false during ACRS.";
 					end if;
 				when ACDS =>
-					if (to_X01(rdy) = '0' and to_X01(ATN) = '0') or (DAC_holdoff = '0' and to_X01(ATN) = '1') then
+					if (to_X01(rdy) = '0' and to_X01(ATN) = '0') or 
+						(DAC_holdoff = '0' and T3_delay_satisfied and to_X01(ATN) = '1') then
 						acceptor_handshake_state_buffer <= AWNS;
 					elsif to_X01(DAV) = '0' then
 						acceptor_handshake_state_buffer <= ACRS;
 					end if;
+					T3_delay_satisfied := true;
 				when AWNS =>
 					if to_X01(DAV) = '0' then
 						acceptor_handshake_state_buffer <= ANRS;

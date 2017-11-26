@@ -121,7 +121,7 @@ architecture behav of interface_function_AH_testbench is
 		DAV <= '1';
 		wait_for_ticks(2);
 		assert acceptor_handshake_state = ACDS;
-		wait_for_ticks(1);
+		wait_for_ticks(2);
 		assert acceptor_handshake_state = AWNS;
 
 		DAV <= 'L';
