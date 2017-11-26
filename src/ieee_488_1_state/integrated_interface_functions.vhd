@@ -496,8 +496,8 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	talker_state_p3 <= talker_state_p3_buffer;
 	
 	nba <= '1' when source_handshake_state_buffer = SGNS and
-			(internal_host_to_gpib_data_byte_latched = '1' or
-			internal_host_to_gpib_command_byte_latched = '1' or
+			((internal_host_to_gpib_data_byte_latched = '1' and talker_state_p1_buffer = TACS) or
+			(internal_host_to_gpib_command_byte_latched = '1' and controller_state_p1_buffer = CACS) or
 			talker_state_p1_buffer = SPAS) else
 		'0';
 	
@@ -539,8 +539,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			bus_DIO_inverted_out_buffer <= (others => 'Z');  
 		elsif rising_edge(clock) then
 		
-			if (source_handshake_state_buffer = SDYS or source_handshake_state_buffer = STRS) and
-				to_X01(ATN) = '0' then
+			if (source_handshake_state_buffer = SDYS or source_handshake_state_buffer = STRS) then
 				if talker_state_p1_buffer = TACS then
 					bus_DIO_inverted_out_buffer <= not internal_host_to_gpib_data_byte;
 				elsif controller_state_p1_buffer = CACS then

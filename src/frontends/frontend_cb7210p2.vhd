@@ -281,7 +281,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	constant T1_clock_ticks_350ns : unsigned(T1_terminal_count'RANGE) := to_clock_ticks(350, 2);
 	constant T6_clock_ticks_2us : unsigned(num_counter_bits - 1 downto 0) := to_clock_ticks(2000, 2);
 	constant T7_clock_ticks_500ns : unsigned(num_counter_bits - 1 downto 0) := to_clock_ticks(500, 2);
-	constant T8_clock_ticks_per_us : unsigned(num_counter_bits - 1 downto 0) := to_clock_ticks(1000, 2);
+	constant T8_clock_ticks_per_us : unsigned(num_counter_bits - 1 downto 0) := to_clock_ticks(1000, 1);
 	constant T9_clock_ticks_1500ns : unsigned(num_counter_bits - 1 downto 0) := to_clock_ticks(1500, 2);
 	constant T10_clock_ticks_1500ns : unsigned(num_counter_bits - 1 downto 0) := to_clock_ticks(1500, 2);
 	
@@ -460,7 +460,6 @@ begin
 	
 	-- accept reads from host
 	process (hard_reset, clock)
-		variable do_pulse_gpib_to_host_byte_read : boolean;
 		variable prev_controller_state_p2 : C_state_p2;
 		variable prev_source_handshake_state : SH_state;
 		variable prev_in_remote_state : std_logic;
@@ -483,7 +482,7 @@ begin
 			case flat_address(page, read_address) is
 				when 0 => -- data in
 					host_data_bus_out_buffer <= gpib_to_host_byte;
-					do_pulse_gpib_to_host_byte_read := true;
+					gpib_to_host_byte_read <= '1';
 				when 1 => -- interrupt status 1
 					host_data_bus_out_buffer(0) <= DI_interrupt and DI_interrupt_enable;
 					host_data_bus_out_buffer(1) <= DO_interrupt and DO_interrupt_enable;
@@ -787,7 +786,6 @@ begin
 			prev_APT_needs_host_response := '0';
 			prev_CPT_needs_host_response := '0';
 		
-			do_pulse_gpib_to_host_byte_read := false;
 			handle_soft_reset('1');
 		elsif rising_edge(clock) then
 			-- host read from bus state machine
@@ -830,7 +828,7 @@ begin
 				when dma_acknowledged =>
 					gpib_to_host_dma_state <= dma_waiting_for_idle;
 					dma_bus_out_buffer <= gpib_to_host_byte;
-					do_pulse_gpib_to_host_byte_read := true;
+					gpib_to_host_byte_read <= '1';
 				when dma_waiting_for_idle =>
 					dma_bus_out_request <= 'L';
 					if dma_read_selected = '0' then
@@ -839,10 +837,7 @@ begin
 			end case;
 
 			-- handle pulses
-			if do_pulse_gpib_to_host_byte_read then
-				gpib_to_host_byte_read <= '1';
-				do_pulse_gpib_to_host_byte_read := false;
-			else
+			if gpib_to_host_byte_read = '1' then
 				gpib_to_host_byte_read <= '0';
 			end if;
 
@@ -969,7 +964,6 @@ begin
 	
 	-- accept writes from host
 	process (hard_reset, clock)
-		variable do_pulse_host_to_gpib_data_byte_write : boolean;
 		variable send_eoi : std_logic;
 		variable clear_rtl : boolean;
 		variable take_control_synchronously_on_end : std_logic;
@@ -1037,13 +1031,17 @@ begin
 			end case;
 		end execute_auxiliary_command;
 		
-		procedure write_host_to_gpib_data_byte (write_data : in std_logic_vector(7 downto 0)) is
+		procedure write_host_to_gpib_byte (write_data : in std_logic_vector(7 downto 0)) is
 		begin
 			host_to_gpib_byte <= write_data;
-			host_to_gpib_data_byte_end <= send_eoi;
-			send_eoi := '0';
-			do_pulse_host_to_gpib_data_byte_write := true;
-		end write_host_to_gpib_data_byte;
+			if controller_state_p1 = CACS then
+				host_to_gpib_command_byte_write <= '1';
+			else
+				host_to_gpib_data_byte_write <= '1';
+				host_to_gpib_data_byte_end <= send_eoi;
+				send_eoi := '0';
+			end if;
+		end write_host_to_gpib_byte;
 		
 		-- process a write from the host
 		procedure host_write_register (page : in std_logic_vector(3 downto 0);
@@ -1053,7 +1051,7 @@ begin
 		begin
 			case flat_address(page, write_address) is
 				when 0 => -- byte out register
-					write_host_to_gpib_data_byte(write_data);
+					write_host_to_gpib_byte(write_data);
 				when 1 => -- interrupt mask register 1
 					DI_interrupt_enable <= write_data(0);
 					DO_interrupt_enable <= write_data(1);
@@ -1324,7 +1322,6 @@ begin
 			register_page <= (others => '0');
 			pon_pulse <= '0';
 			soft_reset_pulse <= '0';
-			do_pulse_host_to_gpib_data_byte_write := false;
 			dma_bus_in_request <= 'L';
 			release_RFD_holdoff_pulse <= '0';
 			trigger_aux_command_pulse <= '0';
@@ -1367,7 +1364,7 @@ begin
 						dma_bus_in_request <= 'L';
 					end if;
 				when dma_acknowledged =>
-					write_host_to_gpib_data_byte(dma_bus_in);
+					write_host_to_gpib_byte(dma_bus_in);
 					host_to_gpib_dma_state <= dma_waiting_for_idle;
 				when dma_waiting_for_idle =>
 					dma_bus_in_request <= 'L';
@@ -1392,11 +1389,11 @@ begin
 			end if;
 			
 			-- handle pulses
-			if do_pulse_host_to_gpib_data_byte_write then
-				host_to_gpib_data_byte_write <= '1';
-				do_pulse_host_to_gpib_data_byte_write := false;
-			else
+			if host_to_gpib_data_byte_write = '1' then
 				host_to_gpib_data_byte_write <= '0';
+			end if;
+			if host_to_gpib_command_byte_write = '1' then
+				host_to_gpib_command_byte_write <= '0';
 			end if;
 			if soft_reset_pulse /= '0' then 
 				soft_reset_pulse <= '0';
