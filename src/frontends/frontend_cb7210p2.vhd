@@ -5,9 +5,13 @@
 -- * the addition or a isr0/imr0 register at page 1, offset 6.
 -- * added "Aux reg I" with PPMODE2 bit which properly selects between the remote
 --   or local parallel poll subsets of IEEE 488.1.
--- * status bits at register page 1, offset 1 which indicate clearly
+-- * status bits at offset 9 (register page 1, offset 1) which indicate clearly
 --   whether a byte may currently be written into or read out of the chip
 --   independently of interrupt clearing logic.
+-- * a dedicated data byte out register at offset 8 (register page 1, offset 0) which
+--   only accepts data bytes, not command bytes 
+-- * a dedicated command byte out register at offset 0x10 (register page 2, offset 0) which
+--   only accepts commmand bytes, not data bytes 
 --
 -- Features we don't implement, because they are nearly useless, but could be implemented
 -- if anyone cares:
@@ -996,10 +1000,14 @@ begin
 					parallel_poll_flag <= '1';
 				when "10000" => -- go to standby
 					gts <= '1';
+					tcs <= '0';
+					tca <= '0';
 				when "10001" => -- take control asynchronousll
 					tca <= '1';
+					gts <= '0';
 				when "10010" => -- take control synchronously
 					tcs <= '1';
+					gts <= '0';
 				when "11010" => -- take control synchronously on end
 					take_control_synchronously_on_end := '1';
 				when "10011" => -- listen (pulse)
@@ -1031,15 +1039,26 @@ begin
 			end case;
 		end execute_auxiliary_command;
 		
-		procedure write_host_to_gpib_byte (write_data : in std_logic_vector(7 downto 0)) is
+		procedure write_host_to_gpib_data_byte (write_data : in std_logic_vector(7 downto 0)) is
 		begin
 			host_to_gpib_byte <= write_data;
-			if controller_state_p1 = CACS then
-				host_to_gpib_command_byte_write <= '1';
+			host_to_gpib_data_byte_write <= '1';
+			host_to_gpib_data_byte_end <= send_eoi;
+			send_eoi := '0';
+		end write_host_to_gpib_data_byte;
+
+		procedure write_host_to_gpib_command_byte (write_data : in std_logic_vector(7 downto 0)) is
+		begin
+			host_to_gpib_byte <= write_data;
+			host_to_gpib_command_byte_write <= '1';
+		end write_host_to_gpib_command_byte;
+
+		procedure write_host_to_gpib_byte (write_data : in std_logic_vector(7 downto 0)) is
+		begin
+			if controller_state_p1 = CACS or controller_state_p1 = CAWS or controller_state_p1 = CSWS then
+				write_host_to_gpib_command_byte(write_data);
 			else
-				host_to_gpib_data_byte_write <= '1';
-				host_to_gpib_data_byte_end <= send_eoi;
-				send_eoi := '0';
+				write_host_to_gpib_data_byte(write_data);
 			end if;
 		end write_host_to_gpib_byte;
 		
@@ -1138,9 +1157,13 @@ begin
 					end if;
 				when 7 => -- end of string
 					configured_eos_character <= write_data;
+				when 8 => -- dedicated data byte out register
+					write_host_to_gpib_data_byte(write_data);
 				when 16#e# => -- interrupt mask register 0
 					ATN_interrupt_enable <= write_data(2);
 					IFC_interrupt_enable <= write_data(3);
+				when 16#10# => -- dedicated command byte out register
+					write_host_to_gpib_command_byte(write_data);
 				when others =>
 			end case;
 		end host_write_register;
@@ -1364,7 +1387,7 @@ begin
 						dma_bus_in_request <= 'L';
 					end if;
 				when dma_acknowledged =>
-					write_host_to_gpib_byte(dma_bus_in);
+					write_host_to_gpib_data_byte(dma_bus_in);
 					host_to_gpib_dma_state <= dma_waiting_for_idle;
 				when dma_waiting_for_idle =>
 					dma_bus_in_request <= 'L';
@@ -1386,6 +1409,7 @@ begin
 				(gpib_to_host_byte_end or (generate_END_interrupt_on_EOS and gpib_to_host_byte_eos)) = '1' then
 				take_control_synchronously_on_end := '0';
 				tcs <= '1';
+				gts <= '0';
 			end if;
 			
 			-- handle pulses
