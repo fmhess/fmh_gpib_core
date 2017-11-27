@@ -239,6 +239,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	-- interrupt mask register 1 interrupts
 	signal DI_interrupt : std_logic;
 	signal DO_interrupt : std_logic;
+	signal DO_interrupt_condition : std_logic;
 	signal ERR_interrupt : std_logic;
 	signal DEC_interrupt : std_logic;
 	signal END_interrupt : std_logic;
@@ -259,6 +260,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal REMC_interrupt : std_logic;
 	signal LOKC_interrupt : std_logic;
 	signal CO_interrupt : std_logic;
+	signal CO_interrupt_condition : std_logic;
 	signal SRQ_interrupt : std_logic;
 	signal ADSC_interrupt_enable : std_logic;
 	signal REMC_interrupt_enable : std_logic;
@@ -566,8 +568,8 @@ begin
 					host_data_bus_out_buffer(7) <= gpib_to_host_byte_end;
 				when 16#9# => -- state of interrupt status register related states free from interrupt clearing logic
 					host_data_bus_out_buffer(0) <= gpib_to_host_byte_latched;
-					host_data_bus_out_buffer(1) <= not host_to_gpib_data_byte_latched;
-					host_data_bus_out_buffer(2) <= not host_to_gpib_command_byte_latched;
+					host_data_bus_out_buffer(1) <= DO_interrupt_condition;
+					host_data_bus_out_buffer(2) <= CO_interrupt_condition;
 				when 16#b# => -- revision register
 					host_data_bus_out_buffer <= X"ff";
 				when 16#c# => -- state 1 register
@@ -859,7 +861,7 @@ begin
 			
 			if host_to_gpib_data_byte_latched = '0' then
 				if prev_source_handshake_state /= SGNS and source_handshake_state = SGNS then
-					if talker_state_p1 = TACS then
+					if DO_interrupt_condition = '1' then
 						DO_interrupt <= '1';
 					end if;
 				end if;
@@ -869,7 +871,7 @@ begin
 
 			if host_to_gpib_command_byte_latched = '0' then
 				if prev_source_handshake_state /= SGNS and source_handshake_state = SGNS then
-					if controller_state_p1 = CACS then
+					if CO_interrupt_condition = '1'then
 						CO_interrupt <= '1';
 					end if;
 				end if;
@@ -972,6 +974,8 @@ begin
 		end if;
 	end process;
 		
+	DO_interrupt_condition <= '1' when talker_state_p1 = TACS and host_to_gpib_data_byte_latched = '0' else '0';
+	CO_interrupt_condition <= '1' when controller_state_p1 = CACS and host_to_gpib_command_byte_latched = '0' else '0';
 	end_interrupt_condition <= '1' when (gpib_to_host_byte_end or (generate_END_interrupt_on_EOS and gpib_to_host_byte_eos)) = '1' and
 			(gpib_to_host_byte_latched = '1' or RFD_holdoff_mode = continuous_mode) else
 		'0';
@@ -1529,7 +1533,8 @@ begin
 	local_parallel_poll_config_or_disable <= local_parallel_poll_config or parallel_poll_disable;
 	
 	talk_enable_buffer <= '1' when (talker_state_p1 = TACS or talker_state_p1 = SPAS or 
-			controller_state_p1 = CACS or controller_state_p1 = CPPS or controller_state_p1 = CPWS) else
+			controller_state_p1 = CACS or controller_state_p1 = CPPS or controller_state_p1 = CPWS
+			or controller_state_p1 = CTRS) else
 		'0';
 	
 	controller_in_charge_buffer <= '0' when controller_state_p1 = CIDS or controller_state_p1 = CADS else '1';

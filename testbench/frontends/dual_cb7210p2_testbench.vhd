@@ -418,11 +418,29 @@ architecture behav of dual_cb7210p2_testbench is
 		procedure setup_parallel_poll_test is
 		begin
 			-- remote parallel poll mode
-			host_write("000101", "01100000"); -- enabled 
+			host_write("000101", "01100000"); -- parallel poll enabled 
 			host_write("000101", "11100000"); -- aux reg I, remote mode 
 			host_write("000101", "10110000"); -- aux reg B, use SRQS as ist
 		end setup_parallel_poll_test;
 		
+		procedure pass_control_test is
+		begin
+			-- wait to be made controller in charge
+			host_read("000100", host_read_result); -- address status register
+			if host_read_result(7) /= '1' then -- if not already CIC
+				-- wait to become CIC
+				for i in 0 to loop_timeout loop
+					wait_for_interrupt(X"00", X"00", X"01"); -- wait for address status change interrupt
+					
+					host_read("000100", host_read_result); -- address status register
+					if host_read_result(7) = '1' then -- CIC
+						exit;
+					end if;
+					assert i < loop_timeout;
+				end loop;
+			end if;
+			
+		end pass_control_test;
 	begin
 		device_chip_select_inverted <= '1';
 		device_dma_bus_ack_inverted <= '1';
@@ -452,6 +470,13 @@ architecture behav of dual_cb7210p2_testbench is
 		sync_with_controller(2);
 
 		sync_with_controller(3);
+
+		pass_control_test;
+
+		sync_with_controller(4);
+
+		-- need to reinit stuff if we want to add more tests here, 
+		-- the pass control test leaves us controller
 
 		wait until rising_edge(device_clock);	
 		assert false report "end of device process" severity note;
@@ -538,9 +563,19 @@ architecture behav of dual_cb7210p2_testbench is
 			wait for 4 us;
 			if to_X01(bus_ATN_inverted) /= '0' then
 				host_write("000101", "00010001"); -- fall back on tca
-				if to_X01(bus_ATN_inverted) /= '0' then
-					wait until to_X01(bus_ATN_inverted) = '0';
-				end if;
+			end if;
+			-- wait for CACS
+			host_read("100100", host_read_result); -- state 4 register
+			if host_read_result(3 downto 0) /= "0011" then -- if not already CACS
+				for i in 0 to loop_timeout loop
+					wait_for_interrupt(X"00", X"00", X"09"); -- wait for address status change or CO interrupt
+					
+					host_read("100100", host_read_result); -- state 4 register
+					if host_read_result(3 downto 0) = "0011" then -- if CACS
+						exit;
+					end if;
+					assert i < loop_timeout;
+				end loop;
 			end if;
 		end take_control;
 		
@@ -640,7 +675,7 @@ architecture behav of dual_cb7210p2_testbench is
 
 			host_write("001110", "00000000"); -- interrupt mask register 0
 			host_write("000001", "00000011"); -- interrupt mask register 1, DI, DO interrupt enables
-			host_write("000010", "00001000"); -- interrupt mask register 2, CO interrupt enables
+			host_write("000010", "00001001"); -- interrupt mask register 2, ADSR and CO interrupt enables
 
 			assert to_X01(bus_REN_inverted) = '1';
 			host_write("000101", "00011111"); -- set REN
@@ -663,7 +698,6 @@ architecture behav of dual_cb7210p2_testbench is
 
 			send_setup;
 			
-			wait_for_CO;
 			host_write("000101", "00010000"); -- gts			
 			wait_for_ticks(5);
 			assert to_X01(bus_ATN_inverted) = '1';
@@ -720,6 +754,28 @@ architecture behav of dual_cb7210p2_testbench is
 			assert host_read_result = X"04";
 		end parallel_poll_test;
 		
+		procedure pass_control_test is
+		begin
+			receive_setup;
+
+			wait_for_CO;
+			host_write("000000", "00001001"); -- TCT
+			-- wait until we are no longer controller in charge
+			host_read("000100", host_read_result); -- address status register
+			if host_read_result(7) /= '0' then -- if CIC not already lost
+				-- wait to lose CIC
+				for i in 0 to loop_timeout loop
+					wait_for_interrupt(X"00", X"00", X"01"); -- wait for address status change interrupt
+					
+					host_read("000100", host_read_result); -- address status register
+					if host_read_result(7) = '0' then -- not CIC
+						exit;
+					end if;
+					assert i < loop_timeout;
+				end loop;
+			end if;
+		end pass_control_test;
+		
 	begin
 		controller_chip_select_inverted <= '1';
 		controller_dma_bus_ack_inverted <= '1';
@@ -749,6 +805,13 @@ architecture behav of dual_cb7210p2_testbench is
 		parallel_poll_test;
 		
 		sync_with_device(3);
+
+		pass_control_test; 
+		
+		sync_with_device (4);
+		
+		-- need to reinit stuff if we want to add more tests here, 
+		-- the pass control test leaves us not controller
 
 		wait until rising_edge(controller_clock);	
 		assert false report "end of controller process" severity note;
