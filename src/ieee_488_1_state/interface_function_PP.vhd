@@ -80,7 +80,9 @@ begin
 						parallel_poll_state_p1_buffer <= PPAS;
 					end if;
 				when PPAS =>
-					if to_bit(ATN) = '0' and to_bit(IDY) = '0' then
+					-- 488.1 PP diagram has an error (though the textual description is correct)
+					-- We should leave PPAS when either ATN or IDY is no longer true.
+					if to_bit(ATN) = '0' or to_bit(IDY) = '0' then
 						parallel_poll_state_p1_buffer <= PPSS;
 					end if;
 			end case;
