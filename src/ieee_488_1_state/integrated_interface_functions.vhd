@@ -512,8 +512,9 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 		controller_state_p5_buffer /= SIIS else 'Z';
 	bus_NDAC_inverted_out <= to_X0Z(local_DAC);
 	bus_NRFD_inverted_out <= to_X0Z(local_RFD);
+	-- REN is an output based on whether we are the system controller (based on SIIS, not SRIS)
 	bus_REN_inverted_out <= not local_REN when
-		controller_state_p4_buffer /= SRIS else 'Z';
+		controller_state_p5_buffer /= SIIS else 'Z';
 	bus_SRQ_inverted_out <= to_X0Z(not local_SRQ);
 
 	process(pon, clock)
