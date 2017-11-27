@@ -1008,14 +1008,12 @@ begin
 					parallel_poll_flag <= '1';
 				when "10000" => -- go to standby
 					gts <= '1';
-					tcs <= '0';
-					tca <= '0';
-				when "10001" => -- take control asynchronousll
+				when "10001" => -- take control asynchronously
 					tca <= '1';
-					gts <= '0';
 				when "10010" => -- take control synchronously
-					tcs <= '1';
-					gts <= '0';
+					if controller_state_p1 = CSBS then -- 488.1 only allows tcs to become true during CSBS
+						tcs <= '1';
+					end if;
 				when "11010" => -- take control synchronously on end
 					take_control_synchronously_on_end := '1';
 				when "10011" => -- listen (pulse)
@@ -1433,9 +1431,10 @@ begin
 			
 			if take_control_synchronously_on_end = '1' and acceptor_handshake_state = ACDS and 
 				(gpib_to_host_byte_end or (generate_END_interrupt_on_EOS and gpib_to_host_byte_eos)) = '1' then
-				take_control_synchronously_on_end := '0';
-				tcs <= '1';
-				gts <= '0';
+				if controller_state_p1 = CSBS then -- 488.1 only allows tcs to become true during CSBS
+					take_control_synchronously_on_end := '0';
+					tcs <= '1';
+				end if;
 			end if;
 			
 			-- handle pulses
@@ -1468,11 +1467,12 @@ begin
 				clear_rtl := false;
 			end if;
 			
-			if controller_state_p1 = CACS then
-				tca <= '0';
-				tcs <= '0';
-			else
+			if controller_state_p1 /= CACS then
 				gts <= '0';
+			end if;
+			if controller_state_p1 = CAWS then -- 488.1 only allows tcs to go false during CAWS
+				tcs <= '0';
+				tca <= '0';
 			end if;
 			
 			if listen_with_continuous_mode = '1' and ltn = '0' and listener_state_p1 = LIDS then

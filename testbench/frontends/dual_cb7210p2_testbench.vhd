@@ -367,9 +367,9 @@ architecture behav of dual_cb7210p2_testbench is
 		
 		procedure basic_io_test is
 		begin
+			-- wait to be addressed as listener
 			host_read("000100", host_read_result); -- address status register
 			if host_read_result(2) /= '1' then -- if not already addressed as listener
-				-- wait to be addressed as listener
 				for i in 0 to loop_timeout loop
 					wait_for_interrupt(X"00", X"00", X"01"); -- wait for address status change interrupt
 					
@@ -388,6 +388,31 @@ architecture behav of dual_cb7210p2_testbench is
 				host_read("000000", host_read_result);
 				assert host_read_result = std_logic_vector(to_unsigned(n, 8));
 			end loop;
+
+			-- wait to be addressed as talker
+			host_read("000100", host_read_result); -- address status register
+			if host_read_result(1) /= '1' then -- if not already addressed as talker
+				-- wait to be addressed as talker
+				for i in 0 to loop_timeout loop
+					wait_for_interrupt(X"00", X"00", X"01"); -- wait for address status change interrupt
+					
+					host_read("000100", host_read_result); -- address status register
+					if host_read_result(1) = '1' then -- addressed as talker
+						exit;
+					end if;
+					assert i < loop_timeout;
+				end loop;
+			end if;
+			
+			-- send n data bytes
+			for n in 16#10# to 16#19# loop
+				host_read("001001", host_read_result);
+				if host_read_result(1) /= '1' then
+					wait_for_interrupt(X"00", X"02", X"00"); -- wait for DO interrupt
+				end if;
+				host_write("000000", std_logic_vector(to_unsigned(n, 8)));
+			end loop;
+			wait_for_interrupt(X"00", X"02", X"00"); -- wait for DO interrupt
 		end basic_io_test;
 		
 	begin
@@ -495,13 +520,17 @@ architecture behav of dual_cb7210p2_testbench is
 			end loop;
 		end wait_for_interrupt;
 		
-		--address chip as listener
 		procedure send_setup is
 		begin
-			host_write("000101", "00010010"); -- tcs			
-			wait_for_ticks(3);
-			assert to_X01(bus_ATN_inverted) = '0';
-
+			host_write("000101", "00010010"); -- tcs
+			wait for 4 us;
+			if to_X01(bus_ATN_inverted) /= '0' then
+				host_write("000101", "00010001"); -- fall back on tca
+				if to_X01(bus_ATN_inverted) /= '0' then
+					wait until to_X01(bus_ATN_inverted) = '0';
+				end if;
+			end if;
+			
 			wait_for_interrupt(X"00", X"00", X"08"); -- wait for CO interrupt
 
 			host_write_byte(7 downto 5) := "010";
@@ -537,6 +566,52 @@ architecture behav of dual_cb7210p2_testbench is
 			wait_for_interrupt(X"00", X"00", X"08"); -- wait for CO interrupt
 		end send_setup;
 
+		procedure receive_setup is
+		begin
+			host_write("000101", "00010010"); -- tcs
+			wait for 4 us;
+			if to_X01(bus_ATN_inverted) /= '0' then
+				host_write("000101", "00010001"); -- fall back on tca
+				if to_X01(bus_ATN_inverted) /= '0' then
+					wait until to_X01(bus_ATN_inverted) = '0';
+				end if;
+			end if;
+
+			wait_for_interrupt(X"00", X"00", X"08"); -- wait for CO interrupt
+
+			host_write("000000", "00111111"); -- UNL
+
+			wait_for_interrupt(X"00", X"00", X"08"); -- wait for CO interrupt
+
+			host_write_byte(7 downto 5) := "001";
+			host_write_byte(4 downto 0) := std_logic_vector(to_unsigned(controller_primary_address, 5));
+			host_write("000000", host_write_byte); -- controller MLA
+
+			if controller_secondary_address /= to_integer(unsigned(NO_ADDRESS_CONFIGURED)) then
+				wait_for_interrupt(X"00", X"00", X"08"); -- wait for CO interrupt
+			
+				host_write_byte(7 downto 5) := "011";
+				host_write_byte(4 downto 0) := std_logic_vector(to_unsigned(controller_secondary_address, 5));
+				host_write("000000", host_write_byte); -- controller MSA
+			end if;
+
+			wait_for_interrupt(X"00", X"00", X"08"); -- wait for CO interrupt
+			
+			host_write_byte(7 downto 5) := "010";
+			host_write_byte(4 downto 0) := std_logic_vector(to_unsigned(device_primary_address, 5));
+			host_write("000000", host_write_byte); -- device MTA
+
+			if device_secondary_address /= to_integer(unsigned(NO_ADDRESS_CONFIGURED)) then
+				wait_for_interrupt(X"00", X"00", X"08"); -- wait for CO interrupt
+			
+				host_write_byte(7 downto 5) := "011";
+				host_write_byte(4 downto 0) := std_logic_vector(to_unsigned(device_secondary_address, 5));
+				host_write("000000", host_write_byte); -- device MSA
+			end if;
+
+			wait_for_interrupt(X"00", X"00", X"08"); -- wait for CO interrupt
+		end receive_setup;
+
 		procedure setup_basic_io_test is
 		begin
 
@@ -550,18 +625,27 @@ architecture behav of dual_cb7210p2_testbench is
 			host_write("000001", "00000011"); -- interrupt mask register 1, DI, DO interrupt enables
 			host_write("000010", "00001000"); -- interrupt mask register 2, CO interrupt enables
 
+			assert to_X01(bus_REN_inverted) = '1';
+			host_write("000101", "00011111"); -- set REN
+			
+			assert to_X01(bus_IFC_inverted) = '1';
 			host_write("000101", "00011110"); -- set IFC
+			wait_for_ticks(3);
+			assert to_X01(bus_IFC_inverted) = '0';
 			wait for 100 us;
 			host_write("000101", "00010110"); -- release IFC
 			wait_for_ticks(3);
 			assert to_X01(bus_IFC_inverted) = '1';
+
+			assert to_X01(bus_REN_inverted) = '0';
 		end setup_basic_io_test;
 		
 		procedure basic_io_test is
 		begin
+			-- send n data bytes
+
 			send_setup;
 			
-			-- send n data bytes
 			host_write("000101", "00010000"); -- gts			
 			wait_for_ticks(5);
 			assert to_X01(bus_ATN_inverted) = '1';
@@ -572,6 +656,23 @@ architecture behav of dual_cb7210p2_testbench is
 				host_write("000000", host_write_byte);
 			end loop;
 			wait_for_interrupt(X"00", X"02", X"00"); -- wait for DO interrupt
+
+			-- read n data bytes
+
+			receive_setup;
+			
+			host_write("000101", "00010000"); -- gts			
+			wait_for_ticks(5);
+			assert to_X01(bus_ATN_inverted) = '1';
+
+			for n in 16#10# to 16#19# loop
+				host_read("001001", host_read_result);
+				if host_read_result(0) /= '1' then
+					wait_for_interrupt(X"00", X"01", X"00"); -- wait for DI interrupt
+				end if;
+				host_read("000000", host_read_result);
+				assert host_read_result = std_logic_vector(to_unsigned(n, 8));
+			end loop;
 		end basic_io_test;
 		
 	begin
