@@ -174,10 +174,10 @@ begin
 						controller_state_p1_buffer <= CAWS;
 					end if;
 			end case;
-		end if;
 		
-		if IFC_in = '1' and controller_state_p3_buffer /= SACS then
-			controller_state_p1_buffer <= CIDS;
+			if IFC_in = '1' and controller_state_p3_buffer /= SACS then
+				controller_state_p1_buffer <= CIDS;
+			end if;
 		end if;
 	end process;
 	

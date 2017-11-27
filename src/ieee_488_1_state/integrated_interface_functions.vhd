@@ -143,7 +143,6 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	signal address_passthrough_buffer : std_logic;
 	signal command_passthrough_buffer : std_logic;
 	
-	signal ACG : std_logic;
 	signal ATN : std_logic;
 	signal DAC : std_logic;
 	signal DAV : std_logic;
@@ -170,7 +169,6 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	signal PPU : std_logic;
 	signal REN : std_logic;
 	signal RFD : std_logic;
-	signal RQS : std_logic;
 	signal SCG : std_logic;
 	signal SDC : std_logic;
 	signal SPD : std_logic;
@@ -178,11 +176,8 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	signal SRQ : std_logic;
 	signal TCT : std_logic;
 	signal TAG : std_logic;
-	signal UCG : std_logic;
 	signal UNL : std_logic;
 	signal UNT : std_logic;
-	signal NIC : std_logic;
-	signal CFE : std_logic;
 	signal local_PPR : std_logic_vector(7 downto 0);
 	signal local_ATN : std_logic;
 	signal local_DAC : std_logic;
@@ -238,7 +233,6 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			ignore_eos_bit_7 => ignore_eos_bit_7,
 			command_valid => command_valid,
 			command_invalid => command_invalid,
-			ACG => ACG,
 			ATN => ATN,
 			DAC => DAC,
 			DAV => DAV,
@@ -265,7 +259,6 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			PPU => PPU,
 			REN => REN,
 			RFD => RFD,
-			RQS => RQS,
 			SCG => SCG,
 			SDC => SDC,
 			SPD => SPD,
@@ -273,11 +266,8 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			SRQ => SRQ,
 			TCT => TCT,
 			TAG => TAG,
-			UCG => UCG,
 			UNL => UNL,
 			UNT => UNT,
-			NIC => NIC,
-			CFE => CFE,
 			unrecognized_primary_command => unrecognized_primary_command
 		);
 

@@ -143,7 +143,7 @@ begin
 	end process;
 	
 	-- set local message outputs as soon as state changes for low latency
-	process(talker_state_p1_buffer, source_handshake_state, service_request_state, latched_end) 
+	process(talker_state_p1_buffer, source_handshake_state, service_request_state, latched_end, assert_END_in_SPAS) 
 	begin
 		-- part 1 state machine
 		case talker_state_p1_buffer is
