@@ -520,7 +520,7 @@ architecture behav of dual_cb7210p2_testbench is
 			end loop;
 		end wait_for_interrupt;
 		
-		procedure send_setup is
+		procedure take_control is
 		begin
 			host_write("000101", "00010010"); -- tcs
 			wait for 4 us;
@@ -530,6 +530,11 @@ architecture behav of dual_cb7210p2_testbench is
 					wait until to_X01(bus_ATN_inverted) = '0';
 				end if;
 			end if;
+		end take_control;
+		
+		procedure send_setup is
+		begin
+			take_control;
 			
 			wait_for_interrupt(X"00", X"00", X"08"); -- wait for CO interrupt
 
@@ -568,14 +573,7 @@ architecture behav of dual_cb7210p2_testbench is
 
 		procedure receive_setup is
 		begin
-			host_write("000101", "00010010"); -- tcs
-			wait for 4 us;
-			if to_X01(bus_ATN_inverted) /= '0' then
-				host_write("000101", "00010001"); -- fall back on tca
-				if to_X01(bus_ATN_inverted) /= '0' then
-					wait until to_X01(bus_ATN_inverted) = '0';
-				end if;
-			end if;
+			take_control;
 
 			wait_for_interrupt(X"00", X"00", X"08"); -- wait for CO interrupt
 
@@ -675,6 +673,22 @@ architecture behav of dual_cb7210p2_testbench is
 			end loop;
 		end basic_io_test;
 		
+		procedure parallel_poll_test is
+		begin
+			take_control;
+
+			host_read("000010", host_read_result); -- read clear isr2 so CO interrupt is not set
+			
+			host_write("000101", "00011101"); -- execute parallel poll
+			wait_for_ticks(5);
+			assert to_X01(bus_ATN_inverted) = '0';
+			assert to_X01(bus_EOI_inverted) = '0';
+			-- wait until parallel poll is finished, which is signaled by a return to CACS which produces a command out interrupt
+			wait_for_interrupt(X"00", X"00", X"08"); -- wait for CO interrupt
+			assert to_X01(bus_EOI_inverted) = '1';
+			--TODO actually configure the device for a response and read it out of the CPT register
+		end parallel_poll_test;
+		
 	begin
 		controller_chip_select_inverted <= '1';
 		controller_dma_bus_ack_inverted <= '1';
@@ -700,6 +714,8 @@ architecture behav of dual_cb7210p2_testbench is
 		basic_io_test;
 		
 		sync_with_device(2);
+		
+		parallel_poll_test;
 		
 		wait until rising_edge(controller_clock);	
 		assert false report "end of controller process" severity note;
