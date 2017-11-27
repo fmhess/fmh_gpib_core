@@ -218,7 +218,8 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal assert_END_in_SPAS : std_logic;
 	signal DAC_holdoff_on_DCAS : std_logic;
 	signal DAC_holdoff_on_DTAS : std_logic;
-
+	signal parallel_poll_result : std_logic_vector(7 downto 0);
+	
 	signal talk_enable_buffer : std_logic;
 	signal controller_in_charge_buffer : std_logic;
 	signal pullup_disable_buffer : std_logic;
@@ -548,7 +549,11 @@ begin
 					host_data_bus_out_buffer(6) <= bus_ATN_inverted_in;
 					host_data_bus_out_buffer(7) <= controller_in_charge_buffer;
 				when 5 => -- command pass through
-					host_data_bus_out_buffer <= not bus_DIO_inverted_in;
+					if controller_state_p1 = CIDS then
+						host_data_bus_out_buffer <= not bus_DIO_inverted_in;
+					else
+						host_data_bus_out_buffer <= parallel_poll_result;
+					end if;
 				when 6 => -- address register 0
 					host_data_bus_out_buffer(4 downto 0) <= gpib_address_0;
 					host_data_bus_out_buffer(5) <= not enable_listener_gpib_address_0;
@@ -1474,6 +1479,9 @@ begin
 				tcs <= '0';
 				tca <= '0';
 			end if;
+			if controller_state_p1 = CPPS or controller_state_p1 = CIDS then 
+				rpp <= '0';
+			end if;
 			
 			if listen_with_continuous_mode = '1' and ltn = '0' and listener_state_p1 = LIDS then
 				listen_with_continuous_mode <= '0';
@@ -1628,6 +1636,17 @@ begin
 				entered_DCAS <= '0';
 			end if;
 			prev_device_clear_state := device_clear_state;
+		end if;
+	end process;
+	
+	process (soft_reset, clock)
+	begin
+		if soft_reset = '1' then
+			parallel_poll_result <= (others => '0');
+		elsif rising_edge(clock) then
+			if controller_state_p1 = CPPS then
+				parallel_poll_result <= not bus_DIO_inverted_in;
+			end if;
 		end if;
 	end process;
 end frontend_cb7210p2_arch;
