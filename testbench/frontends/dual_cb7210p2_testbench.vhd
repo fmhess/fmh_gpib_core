@@ -414,6 +414,14 @@ architecture behav of dual_cb7210p2_testbench is
 			end loop;
 			wait_for_interrupt(X"00", X"02", X"00"); -- wait for DO interrupt
 		end basic_io_test;
+
+		procedure setup_parallel_poll_test is
+		begin
+			-- remote parallel poll mode
+			host_write("000101", "01100000"); -- enabled 
+			host_write("000101", "11100000"); -- aux reg I, remote mode 
+			host_write("000101", "10110000"); -- aux reg B, use SRQS as ist
+		end setup_parallel_poll_test;
 		
 	begin
 		device_chip_select_inverted <= '1';
@@ -439,7 +447,11 @@ architecture behav of dual_cb7210p2_testbench is
 		
 		basic_io_test;
 		
+		setup_parallel_poll_test;
+		
 		sync_with_controller(2);
+
+		sync_with_controller(3);
 
 		wait until rising_edge(device_clock);	
 		assert false report "end of device process" severity note;
@@ -532,82 +544,89 @@ architecture behav of dual_cb7210p2_testbench is
 			end if;
 		end take_control;
 		
+		procedure wait_for_CO is
+		begin
+			host_read("001001", host_read_result); 
+			if host_read_result(2) /= '1' then
+				wait_for_interrupt(X"00", X"00", X"08"); -- wait for CO interrupt
+			end if;
+		end wait_for_CO;
+		
 		procedure send_setup is
 		begin
 			take_control;
 			
-			wait_for_interrupt(X"00", X"00", X"08"); -- wait for CO interrupt
+			wait_for_CO;
 
 			host_write_byte(7 downto 5) := "010";
 			host_write_byte(4 downto 0) := std_logic_vector(to_unsigned(controller_primary_address, 5));
 			host_write("000000", host_write_byte); -- controller MTA
 
 			if controller_secondary_address /= to_integer(unsigned(NO_ADDRESS_CONFIGURED)) then
-				wait_for_interrupt(X"00", X"00", X"08"); -- wait for CO interrupt
+				wait_for_CO;
 			
 				host_write_byte(7 downto 5) := "011";
 				host_write_byte(4 downto 0) := std_logic_vector(to_unsigned(controller_secondary_address, 5));
 				host_write("000000", host_write_byte); -- controller MSA
 			end if;
 
-			wait_for_interrupt(X"00", X"00", X"08"); -- wait for CO interrupt
+			wait_for_CO;
 
 			host_write("000000", "00111111"); -- UNL
 
-			wait_for_interrupt(X"00", X"00", X"08"); -- wait for CO interrupt
+			wait_for_CO;
 			
 			host_write_byte(7 downto 5) := "001";
 			host_write_byte(4 downto 0) := std_logic_vector(to_unsigned(device_primary_address, 5));
 			host_write("000000", host_write_byte); -- device MLA
 
 			if device_secondary_address /= to_integer(unsigned(NO_ADDRESS_CONFIGURED)) then
-				wait_for_interrupt(X"00", X"00", X"08"); -- wait for CO interrupt
+				wait_for_CO;
 			
 				host_write_byte(7 downto 5) := "011";
 				host_write_byte(4 downto 0) := std_logic_vector(to_unsigned(device_secondary_address, 5));
 				host_write("000000", host_write_byte); -- device MSA
 			end if;
-
-			wait_for_interrupt(X"00", X"00", X"08"); -- wait for CO interrupt
+			
+			wait_for_CO;
 		end send_setup;
 
 		procedure receive_setup is
 		begin
 			take_control;
 
-			wait_for_interrupt(X"00", X"00", X"08"); -- wait for CO interrupt
+			wait_for_CO;
 
 			host_write("000000", "00111111"); -- UNL
 
-			wait_for_interrupt(X"00", X"00", X"08"); -- wait for CO interrupt
+			wait_for_CO;
 
 			host_write_byte(7 downto 5) := "001";
 			host_write_byte(4 downto 0) := std_logic_vector(to_unsigned(controller_primary_address, 5));
 			host_write("000000", host_write_byte); -- controller MLA
 
 			if controller_secondary_address /= to_integer(unsigned(NO_ADDRESS_CONFIGURED)) then
-				wait_for_interrupt(X"00", X"00", X"08"); -- wait for CO interrupt
+				wait_for_CO;
 			
 				host_write_byte(7 downto 5) := "011";
 				host_write_byte(4 downto 0) := std_logic_vector(to_unsigned(controller_secondary_address, 5));
 				host_write("000000", host_write_byte); -- controller MSA
 			end if;
 
-			wait_for_interrupt(X"00", X"00", X"08"); -- wait for CO interrupt
+			wait_for_CO;
 			
 			host_write_byte(7 downto 5) := "010";
 			host_write_byte(4 downto 0) := std_logic_vector(to_unsigned(device_primary_address, 5));
 			host_write("000000", host_write_byte); -- device MTA
 
 			if device_secondary_address /= to_integer(unsigned(NO_ADDRESS_CONFIGURED)) then
-				wait_for_interrupt(X"00", X"00", X"08"); -- wait for CO interrupt
+				wait_for_CO;
 			
 				host_write_byte(7 downto 5) := "011";
 				host_write_byte(4 downto 0) := std_logic_vector(to_unsigned(device_secondary_address, 5));
 				host_write("000000", host_write_byte); -- device MSA
 			end if;
-
-			wait_for_interrupt(X"00", X"00", X"08"); -- wait for CO interrupt
+			wait_for_CO;
 		end receive_setup;
 
 		procedure setup_basic_io_test is
@@ -644,6 +663,7 @@ architecture behav of dual_cb7210p2_testbench is
 
 			send_setup;
 			
+			wait_for_CO;
 			host_write("000101", "00010000"); -- gts			
 			wait_for_ticks(5);
 			assert to_X01(bus_ATN_inverted) = '1';
@@ -677,16 +697,27 @@ architecture behav of dual_cb7210p2_testbench is
 		begin
 			take_control;
 
+			-- remotely configure parallel poll
+			send_setup;
+
+			wait_for_CO;
+			host_write("000000", "00000101"); -- PPC
+
+			wait_for_CO;
+			host_write("000000", "01100010"); -- PPE, sense 0, line 2
+
+			wait_for_CO;
 			host_read("000010", host_read_result); -- read clear isr2 so CO interrupt is not set
 			
 			host_write("000101", "00011101"); -- execute parallel poll
-			wait_for_ticks(5);
+			wait until to_X01(bus_EOI_inverted) = '0';
 			assert to_X01(bus_ATN_inverted) = '0';
-			assert to_X01(bus_EOI_inverted) = '0';
 			-- wait until parallel poll is finished, which is signaled by a return to CACS which produces a command out interrupt
-			wait_for_interrupt(X"00", X"00", X"08"); -- wait for CO interrupt
+			wait_for_CO;
 			assert to_X01(bus_EOI_inverted) = '1';
-			--TODO actually configure the device for a response and read it out of the CPT register
+			-- read parallel poll result
+			host_read("000101", host_read_result); -- read CPT reg
+			assert host_read_result = X"04";
 		end parallel_poll_test;
 		
 	begin
@@ -717,6 +748,8 @@ architecture behav of dual_cb7210p2_testbench is
 		
 		parallel_poll_test;
 		
+		sync_with_device(3);
+
 		wait until rising_edge(controller_clock);	
 		assert false report "end of controller process" severity note;
 		controller_process_finished := true;
