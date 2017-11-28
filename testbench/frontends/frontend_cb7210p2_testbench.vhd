@@ -61,6 +61,7 @@ architecture behav of frontend_cb7210p2_testbench is
 	begin
 	my_frontend_cb7210p2: entity work.frontend_cb7210p2
 		generic map (
+			num_address_lines => 3,
 			clock_frequency_KHz => 10000,
 			num_counter_bits => 16
 		)

@@ -33,8 +33,10 @@ use work.integrated_interface_functions;
 
 entity frontend_cb7210p2 is
 	generic(
-		-- use 6 address lines for a flat register map.  Address lines 3 to 5 will specify page.
-		num_address_lines : integer := 3;
+		-- the number of address lines may be reduced to 3 if you don't care about having
+		-- a flat register map.  Address lines 3 through 5 are equivalent to the register page
+		-- selected by the page select auxilliary command.
+		num_address_lines : integer := 6;
 		clock_frequency_KHz : integer := 20000;
 		-- you must have enough counter bits to generate a 2 microsecond delay given your clock speed.
 		num_counter_bits : integer := 8);
