@@ -86,6 +86,8 @@ begin
 							controller_state_p1_buffer <= CSBS;
 						end if;
 						if rpp = '1' then
+							counter_done := false;
+							current_count := (others => '0');
 							controller_state_p1_buffer <= CPWS;
 						end if;
 					end if;
@@ -101,6 +103,8 @@ begin
 					end if;
 					if tca = '1' then
 						controller_state_p1_buffer <= CSWS;
+						counter_done := false;
+						current_count := (others => '0');
 					end if;
 				when CSHS =>
 					--T10 counter
@@ -168,10 +172,14 @@ begin
 					end if;
 					if rpp = '0' then
 						controller_state_p1_buffer <= CAWS;
+						counter_done := false;
+						current_count := (others => '0');
 					end if;
 				when CPPS =>
 					if rpp = '0' then
 						controller_state_p1_buffer <= CAWS;
+						counter_done := false;
+						current_count := (others => '0');
 					end if;
 			end case;
 		
