@@ -572,6 +572,7 @@ begin
 					host_data_bus_out_buffer(0) <= gpib_to_host_byte_latched;
 					host_data_bus_out_buffer(1) <= DO_interrupt_condition;
 					host_data_bus_out_buffer(2) <= CO_interrupt_condition;
+					host_data_bus_out_buffer (7 downto 3) <= (others => '0');
 				when 16#b# => -- revision register
 					host_data_bus_out_buffer <= X"ff";
 				when 16#c# => -- state 1 register
@@ -753,6 +754,7 @@ begin
 							host_data_bus_out_buffer(7 downto 6) <= "10";
 					end case;
 				when others =>
+					host_data_bus_out_buffer <= (others => '0');
 			end case;
 		end host_read_register;
 
