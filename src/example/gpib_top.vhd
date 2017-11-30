@@ -161,7 +161,9 @@ begin
 		);
 	
 	my_cb7210p2 : entity work.frontend_cb7210p2
-		generic map(clock_frequency_KHz => 60000)
+		generic map(
+			num_address_lines => 3,
+			clock_frequency_KHz => 60000)
 		port map (
 			clock => clk,
 			chip_select_inverted => avalon_cs,
