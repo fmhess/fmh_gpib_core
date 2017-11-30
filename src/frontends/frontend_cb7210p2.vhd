@@ -93,11 +93,11 @@ entity frontend_cb7210p2 is
 end frontend_cb7210p2;
      
 architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
-	type host_io_enum is (host_io_idle, host_io_active, host_io_waiting_for_idle);
+	type host_io_enum is (host_io_idle, host_io_waiting_for_idle);
 	signal host_read_from_bus_state : host_io_enum;
 	signal host_write_to_bus_state : host_io_enum;
 
-	type dma_enum is (dma_idle, dma_requesting, dma_acknowledged, dma_waiting_for_idle);
+	type dma_enum is (dma_idle, dma_requesting, dma_waiting_for_idle);
 	signal host_to_gpib_dma_state : dma_enum;
 	signal gpib_to_host_dma_state : dma_enum;
 	signal dma_bus_out_buffer : std_logic_vector(7 downto 0);
@@ -290,11 +290,11 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	constant T1_clock_ticks_1100ns : unsigned(T1_terminal_count'RANGE) := to_clock_ticks(1100, 2);
 	constant T1_clock_ticks_500ns : unsigned(T1_terminal_count'RANGE) := to_clock_ticks(500, 2);
 	constant T1_clock_ticks_350ns : unsigned(T1_terminal_count'RANGE) := to_clock_ticks(350, 2);
-	constant T6_clock_ticks_2us : unsigned(num_counter_bits - 1 downto 0) := to_clock_ticks(2000, 2);
-	constant T7_clock_ticks_500ns : unsigned(num_counter_bits - 1 downto 0) := to_clock_ticks(500, 2);
+	constant T6_clock_ticks_2us : unsigned(num_counter_bits - 1 downto 0) := to_clock_ticks(2000, 1);
+	constant T7_clock_ticks_500ns : unsigned(num_counter_bits - 1 downto 0) := to_clock_ticks(500, 1);
 	constant T8_clock_ticks_per_us : unsigned(num_counter_bits - 1 downto 0) := to_clock_ticks(1000, 1);
-	constant T9_clock_ticks_1500ns : unsigned(num_counter_bits - 1 downto 0) := to_clock_ticks(1500, 2);
-	constant T10_clock_ticks_1500ns : unsigned(num_counter_bits - 1 downto 0) := to_clock_ticks(1500, 2);
+	constant T9_clock_ticks_1500ns : unsigned(num_counter_bits - 1 downto 0) := to_clock_ticks(1500, 1);
+	constant T10_clock_ticks_1500ns : unsigned(num_counter_bits - 1 downto 0) := to_clock_ticks(1500, 1);
 	
 	function flat_address (page : in std_logic_vector(3 downto 0);
 		raw_address : in std_logic_vector(num_address_lines - 1 downto 0)) 
@@ -810,13 +810,11 @@ begin
 			case host_read_from_bus_state is
 				when host_io_idle =>
 					if host_read_selected = '1' then
-						host_read_from_bus_state <= host_io_active;
+						host_read_register(register_page, address);
+						host_read_from_bus_state <= host_io_waiting_for_idle;
+					else
+						host_data_bus_out_buffer <= (others => 'Z');
 					end if;
-					host_data_bus_out_buffer <= (others => 'Z');
-				when host_io_active =>
-					-- process read
-					host_read_register(register_page, address);
-					host_read_from_bus_state <= host_io_waiting_for_idle;
 				when host_io_waiting_for_idle =>
 					if host_read_selected = '0' then
 						host_read_from_bus_state <= host_io_idle;
@@ -835,7 +833,9 @@ begin
 				when dma_requesting =>
 					dma_bus_out_request <= '1';
 					if dma_read_selected = '1' then
-						gpib_to_host_dma_state <= dma_acknowledged;
+						dma_bus_out_buffer <= gpib_to_host_byte;
+						gpib_to_host_byte_read <= '1';
+						gpib_to_host_dma_state <= dma_waiting_for_idle;
 					elsif DMA_input_enable = '0' then
 						gpib_to_host_dma_state <= dma_idle;
 						-- we want bus request to go false immediately, since if it
@@ -843,10 +843,6 @@ begin
 						-- transfer went through rather than giving up on it
 						dma_bus_out_request <= 'L';
 					end if;
-				when dma_acknowledged =>
-					gpib_to_host_dma_state <= dma_waiting_for_idle;
-					dma_bus_out_buffer <= gpib_to_host_byte;
-					gpib_to_host_byte_read <= '1';
 				when dma_waiting_for_idle =>
 					dma_bus_out_request <= 'L';
 					if dma_read_selected = '0' then
@@ -1390,13 +1386,13 @@ begin
 			case host_write_to_bus_state is
 				when host_io_idle =>
 					if host_write_selected = '1' then
-						host_write_to_bus_state <= host_io_active;
+						-- clear register page after writes.  Do it on the line before
+						-- calling host_write_register since we want to allow a write to
+						-- the page select to set a new register page
+						register_page <= (others => '0'); 
+						host_write_register(register_page, address, to_X01(host_data_bus_in));
+						host_write_to_bus_state <= host_io_waiting_for_idle;
 					end if;
-				when host_io_active =>
-					-- process write
-					register_page <= (others => '0'); -- clear register page after writes
-					host_write_register(register_page, address, to_X01(host_data_bus_in));
-					host_write_to_bus_state <= host_io_waiting_for_idle;
 				when host_io_waiting_for_idle =>
 					if host_write_selected = '0' then
 						host_write_to_bus_state <= host_io_idle;
@@ -1413,7 +1409,8 @@ begin
 				when dma_requesting =>
 					dma_bus_in_request <= '1';
 					if dma_write_selected = '1' then
-						host_to_gpib_dma_state <= dma_acknowledged;
+						write_host_to_gpib_data_byte(dma_bus_in);
+						host_to_gpib_dma_state <= dma_waiting_for_idle;
 					elsif DMA_output_enable = '0' then
 						host_to_gpib_dma_state <= dma_idle;
 						-- we want bus request to go false immediately, since if it
@@ -1421,9 +1418,6 @@ begin
 						-- transfer went through rather than giving up on it
 						dma_bus_in_request <= 'L';
 					end if;
-				when dma_acknowledged =>
-					write_host_to_gpib_data_byte(dma_bus_in);
-					host_to_gpib_dma_state <= dma_waiting_for_idle;
 				when dma_waiting_for_idle =>
 					dma_bus_in_request <= 'L';
 					if dma_write_selected = '0' then
@@ -1494,7 +1488,7 @@ begin
 			end if;
 			
 			-- clear register page after read (we clear it after writes above)
-			if host_read_from_bus_state = host_io_active then
+			if host_read_from_bus_state = host_io_waiting_for_idle then
 				register_page <= (others => '0');
 			end if;
 			handle_soft_reset(soft_reset);

@@ -188,7 +188,7 @@ package body test_common is
 		chip_select_inverted <= '0';
 		address <= addr;
 		host_data_bus <= byte;
-		wait_for_ticks(2, clock);
+		wait_for_ticks(1, clock);
 
 		write_inverted <= '1';
 		chip_select_inverted <= '1';
@@ -212,7 +212,7 @@ package body test_common is
 		read_inverted <= '0';
 		chip_select_inverted <= '0';
 		address <= addr;
-		wait_for_ticks(3, clock);
+		wait_for_ticks(2, clock);
 
 		read_inverted <= '1';
 		chip_select_inverted <= '1';

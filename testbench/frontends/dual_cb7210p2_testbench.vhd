@@ -744,7 +744,9 @@ architecture behav of dual_cb7210p2_testbench is
 			host_read("000010", host_read_result); -- read clear isr2 so CO interrupt is not set
 			
 			host_write("000101", "00011101"); -- execute parallel poll
-			wait until to_X01(bus_EOI_inverted) = '0';
+			if to_X01(bus_EOI_inverted) /= '0' then
+				wait until to_X01(bus_EOI_inverted) = '0';
+			end if;
 			assert to_X01(bus_ATN_inverted) = '0';
 			-- wait until parallel poll is finished, which is signaled by a return to CACS which produces a command out interrupt
 			wait_for_CO;
