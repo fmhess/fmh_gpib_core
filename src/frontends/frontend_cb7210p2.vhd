@@ -482,6 +482,7 @@ begin
 		variable prev_IFC_inverted : std_logic;
 		variable prev_in_TIDS : std_logic;
 		variable prev_LADS_or_LACS : std_logic;
+		variable prev_minor_addressed : std_logic;
 		variable prev_controller_in_charge : std_logic;
 		variable prev_gpib_to_host_byte_latched : std_logic;
 		variable prev_end_interrupt_condition : std_logic;
@@ -923,7 +924,8 @@ begin
 			end if;
 
 			if (prev_in_TIDS /= in_TIDS or prev_LADS_or_LACS /= LADS_or_LACS or
-				prev_controller_in_charge /= controller_in_charge_buffer) and 
+				prev_controller_in_charge /= controller_in_charge_buffer or
+				prev_minor_addressed /= minor_addressed) and 
 				ADSC_interrupt_enable = '1' then
 				ADSC_interrupt <= '1';
 			end if;
@@ -964,6 +966,7 @@ begin
 			prev_IFC_inverted := bus_IFC_inverted_in;
 			prev_in_TIDS := in_TIDS;
 			prev_LADS_or_LACS := LADS_or_LACS;
+			prev_minor_addressed := minor_addressed;
 			prev_controller_in_charge := controller_in_charge_buffer;
 			prev_gpib_to_host_byte_latched := gpib_to_host_byte_latched;
 			prev_end_interrupt_condition := end_interrupt_condition;
