@@ -1501,9 +1501,10 @@ begin
 		configured_RFD_holdoff_mode;
 	
 	-- set timing counters
-	first_T1_terminal_count <= T1_clock_ticks_1100ns when ultra_fast_T1_delay = '1' else
+	first_T1_terminal_count <= T1_clock_ticks_1100ns when ultra_fast_T1_delay = '1' and controller_state_p1 /= CACS else
 		T1_clock_ticks_2us;
-	T1_terminal_count <= T1_clock_ticks_350ns when ultra_fast_T1_delay = '1' else
+	T1_terminal_count <= T1_clock_ticks_2us when controller_state_p1 = CACS else
+		T1_clock_ticks_350ns when ultra_fast_T1_delay = '1' else
 		T1_clock_ticks_500ns when high_speed_T1_delay = '1' else
 		T1_clock_ticks_2us;
 	
