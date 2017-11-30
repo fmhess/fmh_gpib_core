@@ -709,7 +709,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 					elsif unrecognized_primary_command = '1' then
 						address_passthrough_buffer <= '0';
 						if is_addressed_command(not bus_DIO_inverted_in) then
-							if listener_state_p2_buffer = LPAS then
+							if listener_state_p2_buffer = LPAS or talker_state_p2_buffer = TPAS then
 								command_passthrough_buffer <= '1';
 								DAC_holdoff <= '1';
 							else
