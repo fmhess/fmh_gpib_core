@@ -221,6 +221,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal DAC_holdoff_on_DCAS : std_logic;
 	signal DAC_holdoff_on_DTAS : std_logic;
 	signal parallel_poll_result : std_logic_vector(7 downto 0);
+	signal parallel_poll_result_latched : std_logic;
 	
 	signal talk_enable_buffer : std_logic;
 	signal controller_in_charge_buffer : std_logic;
@@ -554,7 +555,7 @@ begin
 					host_data_bus_out_buffer(6) <= bus_ATN_inverted_in;
 					host_data_bus_out_buffer(7) <= controller_in_charge_buffer;
 				when 5 => -- command pass through
-					if controller_state_p1 = CIDS then
+					if parallel_poll_result_latched = '0' then
 						host_data_bus_out_buffer <= not bus_DIO_inverted_in;
 					else
 						host_data_bus_out_buffer <= parallel_poll_result;
@@ -1640,9 +1641,20 @@ begin
 	begin
 		if soft_reset = '1' then
 			parallel_poll_result <= (others => '0');
+			parallel_poll_result_latched <= '0';
 		elsif rising_edge(clock) then
 			if controller_state_p1 = CPPS then
 				parallel_poll_result <= not bus_DIO_inverted_in;
+				parallel_poll_result_latched <= '1';
+			-- once the next byte is accepted, we need to stop returning the
+			-- parallel poll result in the command pass through register, since
+			-- we might be receiving a pass through command.  We've given the
+			-- host plenty of time to read the parallel poll result at this point.
+			-- really the nec7210 should have been designed to just make the rpp
+			-- message set/clear instead of a pulse to keep the controller in
+			-- CPPS as long as it needed, but oh well.
+			elsif acceptor_handshake_state = ACDS then
+				parallel_poll_result_latched <= '0';
 			end if;
 		end if;
 	end process;
