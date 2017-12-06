@@ -458,9 +458,9 @@ begin
 	dma_read_selected <= not dma_read_inverted and not dma_bus_out_ack_inverted;
 	dma_bus_out <= dma_bus_out_buffer;
 
-	process (hard_reset, clock)
+	process (soft_reset, clock)
 	begin
-		if hard_reset = '1' then
+		if soft_reset = '1' then
 			host_data_bus_out <= (others => 'Z');
 		elsif rising_edge(clock) then
 			if to_X01(host_read_selected) = '1' and
@@ -473,7 +473,7 @@ begin
 	end process;
 	
 	-- accept reads from host
-	process (hard_reset, clock)
+	process (soft_reset, clock)
 		variable prev_controller_state_p2 : C_state_p2;
 		variable prev_source_handshake_state : SH_state;
 		variable prev_in_remote_state : std_logic;
@@ -758,35 +758,9 @@ begin
 					host_data_bus_out_buffer <= (others => '0');
 			end case;
 		end host_read_register;
-
-		procedure handle_soft_reset(do_reset : std_logic) is
-		begin
-			if do_reset = '1' then
-				-- isr0 interrupts
-				ATN_interrupt <= '0';
-				IFC_interrupt <= '0';
-				-- isr1 interrupts
-				DI_interrupt <= '0';
-				DO_interrupt <= '0';
-				ERR_interrupt <= '0';
-				DEC_interrupt <= '0';
-				END_interrupt <= '0';
-				DET_interrupt <= '0';
-				APT_interrupt <= '0';
-				CPT_interrupt <= '0';
-				-- isr2 interrupts
-				ADSC_interrupt <= '0';
-				REMC_interrupt <= '0';
-				LOKC_interrupt <= '0';
-				CO_interrupt <= '0';
-				SRQ_interrupt <= '0';
-
-				check_for_listeners <= '1';
-			end if;
-		end handle_soft_reset;
 	
 	begin
-		if hard_reset = '1' then
+		if soft_reset = '1' then
 			host_read_from_bus_state <= host_io_idle;
 			host_data_bus_out_buffer <= (others => 'Z');
 			gpib_to_host_dma_state <= dma_idle;
@@ -807,7 +781,25 @@ begin
 			prev_APT_needs_host_response := '0';
 			prev_CPT_needs_host_response := '0';
 		
-			handle_soft_reset('1');
+			ATN_interrupt <= '0';
+			IFC_interrupt <= '0';
+			-- isr1 interrupts
+			DI_interrupt <= '0';
+			DO_interrupt <= '0';
+			ERR_interrupt <= '0';
+			DEC_interrupt <= '0';
+			END_interrupt <= '0';
+			DET_interrupt <= '0';
+			APT_interrupt <= '0';
+			CPT_interrupt <= '0';
+			-- isr2 interrupts
+			ADSC_interrupt <= '0';
+			REMC_interrupt <= '0';
+			LOKC_interrupt <= '0';
+			CO_interrupt <= '0';
+			SRQ_interrupt <= '0';
+
+			check_for_listeners <= '1';
 		elsif rising_edge(clock) then
 			-- host read from bus state machine
 			case host_read_from_bus_state is
@@ -972,8 +964,6 @@ begin
 			prev_end_interrupt_condition := end_interrupt_condition;
 			prev_APT_needs_host_response := APT_needs_host_response;
 			prev_CPT_needs_host_response := CPT_needs_host_response;
-			
-			handle_soft_reset(soft_reset);
 		end if;
 	end process;
 		
@@ -1512,9 +1502,9 @@ begin
 		T1_clock_ticks_2us;
 	
 	-- enable_secondary_addressing as appropriate
-	process (hard_reset, clock)
+	process (soft_reset, clock)
 	begin
-		if hard_reset = '1' then
+		if soft_reset = '1' then
 			enable_secondary_addressing <= '0';
 		elsif rising_edge(clock) then
 			case address_mode is
@@ -1560,9 +1550,9 @@ begin
 	trigger <= trigger_buffer;
 	
 	tr1 <= talk_enable_buffer;
-	process (hard_reset, clock)
+	process (soft_reset, clock)
 	begin
-		if hard_reset = '1' then
+		if soft_reset = '1' then
 			tr2 <= '0';
 			tr3 <= '0';
 		elsif rising_edge(clock) then
@@ -1614,10 +1604,10 @@ begin
 		'1' when service_request_state = SRQS else
 		'0';
 
-	process (hard_reset, clock)
+	process (soft_reset, clock)
 		variable prev_device_trigger_state : DT_state;
 	begin
-		if hard_reset = '1' then
+		if soft_reset = '1' then
 			entered_DTAS <= '0';
 			prev_device_trigger_state := DTIS;
 		elsif rising_edge(clock) then
@@ -1630,10 +1620,10 @@ begin
 		end if;
 	end process;
 
-	process (hard_reset, clock)
+	process (soft_reset, clock)
 		variable prev_device_clear_state : DC_state;
 	begin
-		if hard_reset = '1' then
+		if soft_reset = '1' then
 			entered_DCAS <= '0';
 			prev_device_clear_state := DCIS;
 		elsif rising_edge(clock) then
