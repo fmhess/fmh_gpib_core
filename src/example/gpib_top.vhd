@@ -58,9 +58,9 @@ entity gpib_top is
 		gpib_disable : in std_logic;
 
 		-- transfer counter
-		dma_count_cs : in std_logic;
-		dma_count_rd : in  std_logic;
-		dma_count_wr : in  std_logic;
+		dma_count_cs : in std_logic; -- inverted
+		dma_count_rd : in  std_logic; -- inverted
+		dma_count_wr : in  std_logic; -- inverted
 		dma_count_din : in  std_logic_vector(10 downto 0);
 		dma_count_dout : out std_logic_vector(10 downto 0)
 	);
@@ -253,26 +253,15 @@ begin
 	begin
 		if to_X01(safe_reset) = '0' then
 			-- inputs
-			gated_ATN <= 'H';
-			gated_DAV <= 'H';
-			gated_EOI <= 'H';
-			gated_IFC <= 'H';
-			gated_NDAC <= 'H';
-			gated_NRFD <= 'H';
-			gated_REN <= 'H';
-			gated_SRQ <= 'H';
+			gated_ATN <= '1';
+			gated_DAV <= '1';
+			gated_EOI <= '1';
+			gated_IFC <= '1';
+			gated_NDAC <= '1';
+			gated_NRFD <= '1';
+			gated_REN <= '1';
+			gated_SRQ <= '1';
 
-			-- outputs
-			gpib_data <= (others => 'Z');
-			gpib_atn <= 'Z';
-			gpib_dav <= 'Z';
-			gpib_eoi <= 'Z';
-			gpib_ifc <= 'Z';
-			gpib_ndac <= 'Z';
-			gpib_nrfd <= 'Z';
-			gpib_ren <= 'Z';
-			gpib_srq <= 'Z';
-			
 			-- transceiver control
 			gpib_te <= '0';
 			gpib_pe <= '0';
@@ -280,24 +269,14 @@ begin
 		elsif rising_edge(clk) then
 			if to_X01(gpib_disable) = '1' then
 				-- inputs
-				gated_ATN <= 'H';
-				gated_DAV <= 'H';
-				gated_EOI <= 'H';
-				gated_IFC <= 'H';
-				gated_NDAC <= 'H';
-				gated_NRFD <= 'H';
-				gated_REN <= 'H';
-				gated_SRQ <= 'H';
-
-				gpib_data <= (others => 'Z');
-				gpib_atn <= 'Z';
-				gpib_dav <= 'Z';
-				gpib_eoi <= 'Z';
-				gpib_ifc <= 'Z';
-				gpib_ndac <= 'Z';
-				gpib_nrfd <= 'Z';
-				gpib_ren <= 'Z';
-				gpib_srq <= 'Z';
+				gated_ATN <= '1';
+				gated_DAV <= '1';
+				gated_EOI <= '1';
+				gated_IFC <= '1';
+				gated_NDAC <= '1';
+				gated_NRFD <= '1';
+				gated_REN <= '1';
+				gated_SRQ <= '1';
 
 				-- transceiver control
 				gpib_te <= '0';
@@ -305,25 +284,14 @@ begin
 				gpib_dc <= '0';
 			else
 				-- inputs
-				gated_ATN <= filtered_ATN;
-				gated_DAV <= filtered_DAV;
-				gated_EOI <= filtered_EOI;
-				gated_IFC <= filtered_IFC;
-				gated_NDAC <= filtered_NDAC;
-				gated_NRFD <= filtered_NRFD;
-				gated_REN <= filtered_REN;
-				gated_SRQ <= filtered_SRQ;
-
-				--outputs
-				gpib_data <= ungated_DIO_inverted_out;
-				gpib_atn <= ungated_ATN_inverted_out;
-				gpib_dav <= ungated_DAV_inverted_out;
-				gpib_eoi <= ungated_EOI_inverted_out;
-				gpib_ifc <= ungated_IFC_inverted_out;
-				gpib_ndac <= ungated_NDAC_inverted_out;
-				gpib_nrfd <= ungated_NRFD_inverted_out;
-				gpib_ren <= ungated_REN_inverted_out;
-				gpib_srq <= ungated_SRQ_inverted_out;
+ 				gated_ATN <= filtered_ATN;
+ 				gated_DAV <= filtered_DAV;
+ 				gated_EOI <= filtered_EOI;
+ 				gated_IFC <= filtered_IFC;
+ 				gated_NDAC <= filtered_NDAC;
+ 				gated_NRFD <= filtered_NRFD;
+ 				gated_REN <= filtered_REN;
+ 				gated_SRQ <= filtered_SRQ;
 
 				-- transceiver control
 				gpib_te <= ungated_talk_enable;
@@ -333,4 +301,14 @@ begin
 		end if;
 	end process;
 
+	gpib_data <= (others => 'Z') when gpib_disable = '1' else ungated_DIO_inverted_out;
+	gpib_atn <= 'Z' when gpib_disable = '1' else ungated_ATN_inverted_out;
+	gpib_dav <= 'Z' when gpib_disable = '1' else ungated_DAV_inverted_out;
+	gpib_eoi <= 'Z' when gpib_disable = '1' else ungated_EOI_inverted_out;
+	gpib_ifc <= 'Z' when gpib_disable = '1' else ungated_IFC_inverted_out;
+	gpib_ndac <= 'Z' when gpib_disable = '1' else ungated_NDAC_inverted_out;
+	gpib_nrfd <= 'Z' when gpib_disable = '1' else ungated_NRFD_inverted_out;
+	gpib_ren <= 'Z' when gpib_disable = '1' else ungated_REN_inverted_out;
+	gpib_srq <= 'Z' when gpib_disable = '1' else ungated_SRQ_inverted_out;
+	
 end architecture structural;
