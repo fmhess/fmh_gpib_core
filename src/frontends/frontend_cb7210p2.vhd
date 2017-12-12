@@ -205,7 +205,6 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal parallel_poll_flag : std_logic;
 	signal use_SRQS_as_ist : std_logic;
 	signal host_to_gpib_auto_EOI_on_EOS : std_logic;
-	signal end_interrupt_condition : std_logic;
 	signal command_valid : std_logic;
 	signal command_invalid : std_logic;
 	signal APT_needs_host_response : std_logic;
@@ -472,6 +471,7 @@ begin
 		variable prev_minor_addressed : std_logic;
 		variable prev_controller_in_charge : std_logic;
 		variable prev_gpib_to_host_byte_latched : std_logic;
+		variable end_interrupt_condition : std_logic;
 		variable prev_end_interrupt_condition : std_logic;
 		variable prev_APT_needs_host_response : std_logic;
 		variable prev_CPT_needs_host_response : std_logic;
@@ -753,7 +753,6 @@ begin
 			gpib_to_host_dma_state <= dma_idle;
 			dma_bus_out_request <= 'L';
 			dma_bus_out <= (others => '0');
-
 			prev_controller_state_p2 := CSNS;
 			prev_source_handshake_state := SIDS;
 			prev_in_remote_state := '0';
@@ -764,6 +763,7 @@ begin
 			prev_LADS_or_LACS := '0';
 			prev_controller_in_charge := '0';
 			prev_gpib_to_host_byte_latched := '0';
+			end_interrupt_condition := '0';
 			prev_end_interrupt_condition := '0';
 			prev_APT_needs_host_response := '0';
 			prev_CPT_needs_host_response := '0';
@@ -857,17 +857,21 @@ begin
 				CO_interrupt <= '0';
 			end if;
 
+			if (gpib_to_host_byte_latched = '1' or RFD_holdoff_mode = continuous_mode) then
+				end_interrupt_condition := gpib_to_host_byte_end or (generate_END_interrupt_on_EOS and gpib_to_host_byte_eos);
+			end if;
+
 			if gpib_to_host_byte_latched = '1' then
 				if prev_gpib_to_host_byte_latched = '0' then
 					DI_interrupt <= '1';
+					if end_interrupt_condition = '1' then
+						END_interrupt <= '1';
+					end if;
 				end if;
 			else
 				DI_interrupt <= '0';
 			end if;
 
-			if end_interrupt_condition = '1' and prev_end_interrupt_condition = '0' then
-				END_interrupt <= '1';
-			end if;
 			if end_interrupt_condition = '0' then
 				END_interrupt <= '0';
 			end if;
@@ -954,9 +958,6 @@ begin
 		
 	DO_interrupt_condition <= '1' when talker_state_p1 = TACS and host_to_gpib_data_byte_latched = '0' else '0';
 	CO_interrupt_condition <= '1' when controller_state_p1 = CACS and host_to_gpib_command_byte_latched = '0' else '0';
-	end_interrupt_condition <= '1' when (gpib_to_host_byte_end or (generate_END_interrupt_on_EOS and gpib_to_host_byte_eos)) = '1' and
-			(gpib_to_host_byte_latched = '1' or RFD_holdoff_mode = continuous_mode) else
-		'0';
 	
 	-- accept writes from host
 	process (hard_reset, clock)
@@ -1355,6 +1356,7 @@ begin
 		if hard_reset = '1' then
 			host_write_to_bus_state <= host_io_idle;
 			prev_host_read_from_bus_state := host_io_idle;
+			host_to_gpib_dma_state <= dma_idle;
 			register_page <= (others => '0');
 			pon_pulse <= '0';
 			soft_reset_pulse <= '0';
