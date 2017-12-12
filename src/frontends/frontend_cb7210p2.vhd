@@ -100,7 +100,6 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	type dma_enum is (dma_idle, dma_requesting, dma_waiting_for_idle);
 	signal host_to_gpib_dma_state : dma_enum;
 	signal gpib_to_host_dma_state : dma_enum;
-	signal dma_bus_out_buffer : std_logic_vector(7 downto 0);
 
 	signal bus_ATN_inverted_in : std_logic; 
 	signal bus_DAV_inverted_in :  std_logic; 
@@ -119,7 +118,6 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal local_parallel_poll_response_line : std_logic_vector(2 downto 0);
 	signal parallel_poll_disable : std_logic;
 	signal local_parallel_poll_config_or_disable : std_logic;
-	signal check_for_listeners : std_logic;
 	signal no_listeners : std_logic;
 	signal first_T1_terminal_count : unsigned(num_counter_bits - 1 downto 0);
 	signal T1_terminal_count : unsigned(num_counter_bits - 1 downto 0);
@@ -362,7 +360,7 @@ begin
 			local_parallel_poll_config => local_parallel_poll_config_or_disable,
 			local_parallel_poll_sense => local_parallel_poll_sense,
 			local_parallel_poll_response_line => local_parallel_poll_response_line,
-			check_for_listeners => check_for_listeners,
+			check_for_listeners => '1',
 			gpib_to_host_byte_read => gpib_to_host_byte_read,
 			first_T1_terminal_count => first_T1_terminal_count,
 			T1_terminal_count => T1_terminal_count,
@@ -408,7 +406,10 @@ begin
 			command_passthrough => command_passthrough_active,
 			assert_END_in_SPAS => assert_END_in_SPAS,
 			DAC_holdoff_on_DCAS => DAC_holdoff_on_DCAS,
-			DAC_holdoff_on_DTAS => DAC_holdoff_on_DTAS
+			DAC_holdoff_on_DTAS => DAC_holdoff_on_DTAS,
+			talk_enable => talk_enable_buffer,
+			pullup_disable => pullup_disable_buffer,
+			EOI_output_enable => EOI_output_enable_buffer
 		);
 
 	-- latch external gpib signals on clock edge
@@ -454,24 +455,9 @@ begin
 	
 	host_write_selected <= not write_inverted and not chip_select_inverted;
 	host_read_selected <= not read_inverted and not chip_select_inverted;
-	host_data_bus_out <= host_data_bus_out_buffer;
 	dma_write_selected <= not dma_write_inverted and not dma_bus_in_ack_inverted;
 	dma_read_selected <= not dma_read_inverted and not dma_bus_out_ack_inverted;
-	dma_bus_out <= dma_bus_out_buffer;
-
-	process (soft_reset, clock)
-	begin
-		if soft_reset = '1' then
-			host_data_bus_out <= (others => 'Z');
-		elsif rising_edge(clock) then
-			if to_X01(host_read_selected) = '1' and
-				host_read_from_bus_state = host_io_waiting_for_idle then 
-				host_data_bus_out <= host_data_bus_out_buffer;
-			else
-				host_data_bus_out <= (others=> 'Z');
-			end if;
-		end if;
-	end process;
+	host_data_bus_out <= host_data_bus_out_buffer;
 	
 	-- accept reads from host
 	process (soft_reset, clock)
@@ -624,14 +610,14 @@ begin
 					ATN_interrupt <= ATN_interrupt and not ATN_interrupt_enable;
 					IFC_interrupt <= IFC_interrupt and not IFC_interrupt_enable;
 				when 16#f# => -- bus status register
-					host_data_bus_out_buffer(0) <= bus_REN_inverted_in;
-					host_data_bus_out_buffer(1) <= bus_IFC_inverted_in;
+					host_data_bus_out_buffer(0) <= bus_ATN_inverted_in;
+					host_data_bus_out_buffer(1) <= bus_EOI_inverted_in;
 					host_data_bus_out_buffer(2) <= bus_SRQ_inverted_in;
-					host_data_bus_out_buffer(3) <= bus_EOI_inverted_in;
-					host_data_bus_out_buffer(4) <= bus_NRFD_inverted_in;
-					host_data_bus_out_buffer(5) <= bus_NDAC_inverted_in;
-					host_data_bus_out_buffer(6) <= bus_DAV_inverted_in;
-					host_data_bus_out_buffer(7) <= bus_ATN_inverted_in;
+					host_data_bus_out_buffer(3) <= bus_IFC_inverted_in;
+					host_data_bus_out_buffer(4) <= bus_REN_inverted_in;
+					host_data_bus_out_buffer(5) <= bus_DAV_inverted_in;
+					host_data_bus_out_buffer(6) <= bus_NRFD_inverted_in;
+					host_data_bus_out_buffer(7) <= bus_NDAC_inverted_in;
 				when 16#14# => -- state 2 register
 					case talker_state_p2 is
 						when TPIS =>
@@ -763,10 +749,10 @@ begin
 	begin
 		if soft_reset = '1' then
 			host_read_from_bus_state <= host_io_idle;
-			host_data_bus_out_buffer <= (others => 'Z');
+			host_data_bus_out_buffer <= (others => '0');
 			gpib_to_host_dma_state <= dma_idle;
 			dma_bus_out_request <= 'L';
-			dma_bus_out_buffer <= (others => 'Z');
+			dma_bus_out <= (others => '0');
 
 			prev_controller_state_p2 := CSNS;
 			prev_source_handshake_state := SIDS;
@@ -799,8 +785,6 @@ begin
 			LOKC_interrupt <= '0';
 			CO_interrupt <= '0';
 			SRQ_interrupt <= '0';
-
-			check_for_listeners <= '1';
 		elsif rising_edge(clock) then
 			-- host read from bus state machine
 			case host_read_from_bus_state is
@@ -809,7 +793,7 @@ begin
 						host_read_register(register_page, address);
 						host_read_from_bus_state <= host_io_waiting_for_idle;
 					else
-						host_data_bus_out_buffer <= (others => 'Z');
+						host_data_bus_out_buffer <= (others => '0');
 					end if;
 				when host_io_waiting_for_idle =>
 					if host_read_selected = '0' then
@@ -821,7 +805,7 @@ begin
 			case gpib_to_host_dma_state is
 				when dma_idle =>
 					dma_bus_out_request <= 'L';
-					dma_bus_out_buffer <= (others => 'Z');
+					dma_bus_out <= (others => '0');
 					if DMA_input_enable = '1' and 
 						gpib_to_host_byte_latched = '1' then
 						gpib_to_host_dma_state <= dma_requesting;
@@ -829,7 +813,7 @@ begin
 				when dma_requesting =>
 					dma_bus_out_request <= '1';
 					if dma_read_selected = '1' then
-						dma_bus_out_buffer <= gpib_to_host_byte;
+						dma_bus_out <= gpib_to_host_byte;
 						gpib_to_host_byte_read <= '1';
 						gpib_to_host_dma_state <= dma_waiting_for_idle;
 					elsif DMA_input_enable = '0' then
@@ -979,6 +963,7 @@ begin
 		variable send_eoi : std_logic;
 		variable clear_rtl : boolean;
 		variable take_control_synchronously_on_end : std_logic;
+		variable prev_host_read_from_bus_state : host_io_enum;
 		
 		procedure execute_auxiliary_command(command : in std_logic_vector(4 downto 0)) is
 		begin
@@ -1369,6 +1354,7 @@ begin
 
 		if hard_reset = '1' then
 			host_write_to_bus_state <= host_io_idle;
+			prev_host_read_from_bus_state := host_io_idle;
 			register_page <= (others => '0');
 			pon_pulse <= '0';
 			soft_reset_pulse <= '0';
@@ -1484,9 +1470,12 @@ begin
 			end if;
 			
 			-- clear register page after read (we clear it after writes above)
-			if host_read_from_bus_state = host_io_waiting_for_idle then
+			if host_read_from_bus_state = host_io_waiting_for_idle and 
+				prev_host_read_from_bus_state /=  host_io_waiting_for_idle then
 				register_page <= (others => '0');
 			end if;
+			prev_host_read_from_bus_state := host_read_from_bus_state;
+			
 			handle_soft_reset(soft_reset);
 		end if;
 	end process;	
@@ -1525,23 +1514,11 @@ begin
 	lpe <= local_parallel_poll_config and not parallel_poll_disable;
 	local_parallel_poll_config_or_disable <= local_parallel_poll_config or parallel_poll_disable;
 	
-	talk_enable_buffer <= '1' when (talker_state_p1 = TACS or talker_state_p1 = SPAS or 
-			controller_state_p1 = CACS or controller_state_p1 = CPPS or controller_state_p1 = CPWS
-			or controller_state_p1 = CTRS) else
-		'0';
-	
 	controller_in_charge_buffer <= '0' when controller_state_p1 = CIDS or controller_state_p1 = CADS else '1';
 	not_controller_in_charge <= not controller_in_charge_buffer;
 
-	pullup_disable_buffer <= '1' when parallel_poll_state_p1 /= PPAS and controller_state_p1 /= CPPS and 
-		controller_state_p1 /= CPWS else '0';
 	pullup_disable <= pullup_disable_buffer;
 	
-	EOI_output_enable_buffer <= '1' when
-			(talker_state_p1 = TACS or talker_state_p1 = SPAS) or
-			(controller_state_p1 /= CIDS and controller_state_p1 /= CADS and 
-				controller_state_p1 /= CSBS and controller_state_p1 /= CSHS) else
-		'0';
 	EOI_output_enable <= EOI_output_enable_buffer;
 
 	system_controller <= '1' when controller_state_p3 = SACS else '0';

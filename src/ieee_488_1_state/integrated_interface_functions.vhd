@@ -123,7 +123,10 @@ entity integrated_interface_functions is
 		gpib_to_host_byte_latched : out std_logic;
 		-- host_to_gpib_data_byte_latched false means a new host to gpib byte can be written by host
 		host_to_gpib_data_byte_latched : out std_logic;
-		host_to_gpib_command_byte_latched : out std_logic
+		host_to_gpib_command_byte_latched : out std_logic;
+		talk_enable : out std_logic;
+		pullup_disable : out std_logic;
+		EOI_output_enable : out std_logic
 	);
  
 end integrated_interface_functions;
@@ -211,6 +214,10 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	signal talker_state_p2_buffer : TE_state_p2;
 	signal talker_state_p3_buffer : TE_state_p3;
 	signal bus_dio_inverted_out_buffer : std_logic_vector(7 downto 0);
+	
+	signal talk_enable_buffer : std_logic;
+	signal pullup_disable_buffer : std_logic;
+	signal EOI_output_enable_buffer : std_logic;
 	
 	signal status_byte_buffer : std_logic_vector(7 downto 0);
 	
@@ -495,9 +502,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 
 	bus_ATN_inverted_out <= not local_ATN when
 		controller_state_p1_buffer /= CIDS and controller_state_p1_buffer /= CADS else 'Z';
-	bus_DAV_inverted_out <= not local_DAV when
-		(source_handshake_state_buffer /= SIDS and source_handshake_state_buffer /= SIWS) or
-		(controller_state_p1_buffer = CPPS or controller_state_p1_buffer = CPWS) else 'Z';
+	bus_DAV_inverted_out <= not local_DAV when talk_enable_buffer = '1' else 'Z';
 	bus_EOI_inverted_out <= not (local_END) when
 			talker_state_p1_buffer = TACS or talker_state_p1_buffer = SPAS else
 		not local_IDY when 
@@ -543,6 +548,22 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 		end if;
 	end process;
 	bus_DIO_inverted_out <= bus_DIO_inverted_out_buffer;
+
+	talk_enable_buffer <= '1' when (talker_state_p1_buffer = TACS or talker_state_p1_buffer = SPAS or 
+			controller_state_p1_buffer = CACS or controller_state_p1_buffer = CTRS) or
+			(parallel_poll_state_p1_buffer = PPAS and (controller_state_p1_buffer = CIDS or controller_state_p1_buffer = CADS)) else
+		'0';
+	talk_enable <= talk_enable_buffer;
+	
+	pullup_disable_buffer <= '1' when parallel_poll_state_p1_buffer /= PPAS else '0';
+	pullup_disable <= pullup_disable_buffer;
+
+	EOI_output_enable_buffer <= '1' when
+			(talker_state_p1_buffer = TACS or talker_state_p1_buffer = SPAS) or
+			(controller_state_p1_buffer /= CIDS and controller_state_p1_buffer /= CADS and 
+			controller_state_p1_buffer /= CSBS and controller_state_p1_buffer /= CSHS) else
+		'0';
+	EOI_output_enable <= EOI_output_enable_buffer;
 
 	-- deal with byte read by host from gpib bus
 	process(pon, clock) 
