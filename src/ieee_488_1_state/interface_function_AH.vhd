@@ -56,8 +56,7 @@ begin
 						acceptor_handshake_state_buffer <= ANRS;
 					end if;
 				when ANRS =>
-					if ((to_X01(ATN) = '1' and to_X01(DAV) = '0') or to_X01(rdy) = '1') and to_X01(tcs) = '0' and
-						RFD_holdoff = '0' then
+					if ((to_X01(ATN) = '1' and to_X01(DAV) = '0') or (to_X01(rdy) = '1' and RFD_holdoff = '0')) and to_X01(tcs) = '0' then
 						acceptor_handshake_state_buffer <= ACRS;
 					elsif to_X01(DAV) = '1' then
 						acceptor_handshake_state_buffer <= AWNS;
