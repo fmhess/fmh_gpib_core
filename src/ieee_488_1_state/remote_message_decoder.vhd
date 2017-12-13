@@ -20,6 +20,7 @@ entity remote_message_decoder is
 		bus_NRFD_inverted : in std_logic;
 		bus_DAV_inverted : in std_logic;
 		configured_eos_character : in std_logic_vector(7 downto 0);
+		enable_EOS_detection : in std_logic;
 		ignore_eos_bit_7 : in std_logic;
 		command_valid : in std_logic; -- pulsed
 		command_invalid : in std_logic; -- pulsed
@@ -94,7 +95,7 @@ begin
 	DCL <= '1' when UCG_buffer = '1' and not bus_DIO_inverted(3 downto 0) = "0100" and not bus_ATN_inverted = '1' else
 		'0';
 	END_msg <= bus_ATN_inverted and not bus_EOI_inverted;
-	EOS <= '1' when EOS_match(not bus_DIO_inverted, configured_eos_character, ignore_eos_bit_7)
+	EOS <= '1' when enable_EOS_detection = '1' and EOS_match(not bus_DIO_inverted, configured_eos_character, ignore_eos_bit_7)
 		and bus_ATN_inverted = '1' else
 		'0';
 	GET <= '1' when ACG_buffer = '1' and not bus_DIO_inverted(3 downto 0) = "1000" and not bus_ATN_inverted = '1' else

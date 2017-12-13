@@ -73,6 +73,7 @@ entity integrated_interface_functions is
 		check_for_listeners : in std_logic;
 		-- host should set gpib_to_host_byte_read high for a clock when it reads gpib_to_host_byte
 		gpib_to_host_byte_read : in std_logic;
+		enable_gpib_to_host_EOS : in std_logic;
 		host_to_gpib_byte : in std_logic_vector(7 downto 0);
 		host_to_gpib_data_byte_end : in std_logic;
 		host_to_gpib_auto_EOI_on_EOS : in std_logic;
@@ -240,6 +241,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			ignore_eos_bit_7 => ignore_eos_bit_7,
 			command_valid => command_valid,
 			command_invalid => command_invalid,
+			enable_EOS_detection => enable_gpib_to_host_EOS,
 			ATN => ATN,
 			DAC => DAC,
 			DAV => DAV,
@@ -287,7 +289,6 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			pon => pon,
 			rdy => rdy,
 			tcs => tcs,
-			RFD_holdoff => RFD_holdoff,
 			DAC_holdoff => DAC_holdoff,
 			acceptor_handshake_state => acceptor_handshake_state_buffer,
 			RFD => local_RFD,
@@ -611,10 +612,10 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 				if acceptor_handshake_state_buffer = ACDS then
 					rdy <= '0';
 				else
-					rdy <= '1';
+					rdy <= not RFD_holdoff;
 				end if;
 			else
-				rdy <= not gpib_to_host_byte_latched_buffer;
+				rdy <= not gpib_to_host_byte_latched_buffer and not RFD_holdoff;
 			end if;
 			
 			prev_acceptor_handshake_state := acceptor_handshake_state_buffer;

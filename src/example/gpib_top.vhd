@@ -10,7 +10,6 @@
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
-use work.dma_translator_cb7210p2_to_pl330;
 use work.gpib_control_debounce_filter;
 use work.frontend_cb7210p2;
 
@@ -19,24 +18,33 @@ entity gpib_top is
 		clk : in std_logic;
 		reset : in  std_logic; -- inverted
 
-		-- host bus
+		-- gpib chip registers, avalon mm io port
 		avalon_cs : in std_logic; -- inverted
 		avalon_rd : in std_logic; -- inverted
 		avalon_wr : in  std_logic; -- inverted
 		avalon_addr : in  std_logic_vector(2 downto 0);
-		avalon_irq : out std_logic;
 		avalon_din : in  std_logic_vector(7 downto 0);
 		avalon_dout : out std_logic_vector(7 downto 0);
 
-		-- gpib dma
+		avalon_irq : out std_logic;
+
+		-- dma, avalon mm io port
 		dma_cs : in std_logic; -- inverted
 		dma_rd : in std_logic; --inverted
 		dma_wr : in std_logic; --inverted
 		dma_din : in  std_logic_vector(7 downto 0);
 		dma_dout : out std_logic_vector(7 downto 0);
-		dma_single : out std_logic;
-		dma_req : out std_logic;
-		dma_ack : in  std_logic;
+		-- dma request
+		dma_single : out std_logic; -- aka drtype with drvalid
+		dma_req : out std_logic; -- aka drready/drvalid
+		dma_ack : in  std_logic; -- aka datype with davalid
+
+		-- transfer counter, avalon mm io port
+		dma_count_cs : in std_logic; -- inverted
+		dma_count_rd : in  std_logic; -- inverted
+		dma_count_wr : in  std_logic; -- inverted
+		dma_count_din : in  std_logic_vector(10 downto 0);
+		dma_count_dout : out std_logic_vector(10 downto 0);
 
 		-- gpib bus
 		gpib_data : inout std_logic_vector (7 downto 0);
@@ -51,18 +59,11 @@ entity gpib_top is
 
 		-- gpib transceiver control
 		gpib_pe : out std_logic;
-		gpib_dc : out std_logic; -- inverted
+		gpib_dc : out std_logic;
 		gpib_te : out std_logic;
 
 		-- gpib bus disconnect
-		gpib_disable : in std_logic;
-
-		-- transfer counter
-		dma_count_cs : in std_logic; -- inverted
-		dma_count_rd : in  std_logic; -- inverted
-		dma_count_wr : in  std_logic; -- inverted
-		dma_count_din : in  std_logic_vector(10 downto 0);
-		dma_count_dout : out std_logic_vector(10 downto 0)
+		gpib_disable : in std_logic
 	);
 end gpib_top;
 
@@ -74,7 +75,6 @@ architecture structural of gpib_top is
 	signal cb7210p2_dma_read_inverted : std_logic;
 	signal cb7210p2_dma_write_inverted : std_logic;
 	signal cb7210p2_dma_ack_inverted : std_logic;
-	signal dma_req_buffer : std_logic;
 	
 	signal dma_count: unsigned (10 downto 0); -- Count of bytes into 7210.
 	signal gpib_reset  : std_logic; -- Invert reset signal to GPIB
@@ -116,22 +116,6 @@ architecture structural of gpib_top is
 	signal ungated_not_controller_in_charge : std_logic;
 	
 begin
-	my_dma_translator : entity work.dma_translator_cb7210p2_to_pl330
-		port map (
-			clock => clk,
-			reset => gpib_reset,
-			pl330_dma_cs_inverted => dma_cs,
-			pl330_dma_rd_inverted => dma_rd,
-			pl330_dma_wr_inverted => dma_wr,
-			pl330_dma_ack => dma_ack,
-			pl330_dma_single => dma_single,
-			pl330_dma_req => dma_req_buffer,
-			cb7210p2_dma_in_request => cb7210p2_dma_bus_in_request,
-			cb7210p2_dma_out_request => cb7210p2_dma_bus_out_request,
-			cb7210p2_dma_read_inverted => cb7210p2_dma_read_inverted,
-			cb7210p2_dma_write_inverted => cb7210p2_dma_write_inverted,
-			cb7210p2_dma_ack_inverted => cb7210p2_dma_ack_inverted
-		);
 
 	my_debounce_filter : entity work.gpib_control_debounce_filter
 		generic map(
@@ -209,8 +193,6 @@ begin
 
 	dma_count_dout <= std_logic_vector(dma_count);
 
-	dma_req <= dma_req_buffer;
-
 	-- sync reset deassertion
 	process (reset, clk)
 	begin
@@ -223,28 +205,20 @@ begin
 	
 	-- dma transfer counter
 	process(safe_reset, clk) is
-		variable dma_transfer_active : std_logic;
-		variable prev_dma_transfer_active : std_logic;
+		variable prev_dma_ack : std_logic;
 	begin
 		if safe_reset = '0' then
 			dma_count <= (others => '0');
-			dma_transfer_active := '0';
-			prev_dma_transfer_active := '0';
+			prev_dma_ack := '0';
 		elsif rising_edge(clk) then
-			prev_dma_transfer_active := dma_transfer_active;
-			dma_transfer_active := dma_ack and dma_req_buffer;
-			
-			-- Count bytes during data transfers.
 			-- Reset counter when written to.
 			if (dma_count_cs = '0') and (dma_count_wr = '0') then
 				dma_count <= (others => '0');
-			-- Count bytes on leading edge of DMA transfer.
-			elsif prev_dma_transfer_active = '0' and dma_transfer_active = '1' then
+			-- Count bytes on DMA ack.
+			elsif prev_dma_ack = '0' and dma_ack = '1' then
 				dma_count <= dma_count + 1;
-			-- Hold byte count between data transfers.
-			else
-				dma_count <= dma_count;
 			end if;
+			prev_dma_ack := dma_ack;
 		end if;
 	end process;
 
@@ -311,4 +285,48 @@ begin
 	gpib_ren <= 'Z' when gpib_disable = '1' else ungated_REN_inverted_out;
 	gpib_srq <= 'Z' when gpib_disable = '1' else ungated_SRQ_inverted_out;
 	
+	-- dma requests
+	cb7210p2_dma_ack_inverted <= dma_cs;
+	cb7210p2_dma_read_inverted <= dma_rd;
+	cb7210p2_dma_write_inverted <= dma_wr;
+-- 	dma_single <= cb7210p2_dma_bus_in_request or cb7210p2_dma_bus_out_request;
+ 	dma_req <= dma_ack;
+
+	process (safe_reset, clk)
+		variable toggle : std_logic;
+	begin
+		if to_X01(safe_reset) = '0' then
+			dma_single <= '0';
+			toggle := '0';
+		elsif rising_edge(clk) then
+			if (cb7210p2_dma_bus_in_request or cb7210p2_dma_bus_out_request) = '1' and dma_cs = '1' then
+				toggle := not toggle;
+				dma_single <= toggle;
+			else
+				dma_single <= '0';
+			end if;
+		end if;
+	end process;
+	
+-- 	process (safe_reset, clk)
+-- 		variable prev_cb7210p2_dma_request : std_logic;
+-- 	begin
+-- 		if to_X01(safe_reset) = '0' then
+-- 			dma_req <= '0';
+-- 			dma_single <= '0';
+-- 			prev_cb7210p2_dma_request := '0';
+-- 		elsif rising_edge(clk) then
+-- 			if (cb7210p2_dma_bus_in_request or cb7210p2_dma_bus_out_request) = '1' and prev_cb7210p2_dma_request = '0' then
+-- 				dma_single <= '1';
+-- 				dma_req <= '1';
+-- 			else
+-- 				dma_single <= '0';
+-- 			end if;
+-- 			if dma_ack = '1' then
+-- 				dma_req <= '0';
+-- 			end if;
+-- 			prev_cb7210p2_dma_request := cb7210p2_dma_bus_in_request or cb7210p2_dma_bus_out_request;
+-- 		end if;
+-- 	end process;
+
 end architecture structural;

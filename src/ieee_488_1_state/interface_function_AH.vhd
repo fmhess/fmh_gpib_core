@@ -18,7 +18,6 @@ entity interface_function_AH is
 		pon : in std_logic;
 		rdy : in std_logic;
 		tcs : in std_logic;
-		RFD_holdoff : in std_logic;
 		DAC_holdoff : in std_logic;
 		
 		acceptor_handshake_state : out AH_state;
@@ -56,7 +55,7 @@ begin
 						acceptor_handshake_state_buffer <= ANRS;
 					end if;
 				when ANRS =>
-					if ((to_X01(ATN) = '1' and to_X01(DAV) = '0') or (to_X01(rdy) = '1' and RFD_holdoff = '0')) and to_X01(tcs) = '0' then
+					if ((to_X01(ATN) = '1' and to_X01(DAV) = '0') or to_X01(rdy) = '1') and to_X01(tcs) = '0' then
 						acceptor_handshake_state_buffer <= ACRS;
 					elsif to_X01(DAV) = '1' then
 						acceptor_handshake_state_buffer <= AWNS;

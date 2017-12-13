@@ -198,7 +198,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal enable_listener_gpib_address_1 : std_logic;
 	signal ultra_fast_T1_delay : std_logic;
 	signal high_speed_T1_delay : std_logic;
-	signal generate_END_interrupt_on_EOS : std_logic;
+	signal enable_gpib_to_host_EOS : std_logic;
 	signal configured_RFD_holdoff_mode : RFD_holdoff_enum;
 	signal RFD_holdoff_mode : RFD_holdoff_enum;
 	signal release_RFD_holdoff_pulse : std_logic;
@@ -373,6 +373,7 @@ begin
 			gpib_to_host_byte_end => gpib_to_host_byte_end,
 			gpib_to_host_byte_eos => gpib_to_host_byte_eos,
 			gpib_to_host_byte_latched => gpib_to_host_byte_latched,
+			enable_gpib_to_host_EOS => enable_gpib_to_host_EOS,
 			host_to_gpib_byte => host_to_gpib_byte,
 			host_to_gpib_data_byte_end => host_to_gpib_data_byte_end,
 			host_to_gpib_auto_EOI_on_EOS => host_to_gpib_auto_EOI_on_EOS,
@@ -550,7 +551,7 @@ begin
 					host_data_bus_out_buffer(4 downto 0) <= gpib_address_0;
 					host_data_bus_out_buffer(5) <= not enable_listener_gpib_address_0;
 					host_data_bus_out_buffer(6) <= not enable_talker_gpib_address_0;
-					host_data_bus_out_buffer(7) <= '0';
+					host_data_bus_out_buffer(7) <= gpib_to_host_byte_latched; -- provided for compatibility with old fluke gpib extension
 				when 7 => -- address register 1
 					host_data_bus_out_buffer(4 downto 0) <= gpib_address_1;
 					host_data_bus_out_buffer(5) <= not enable_listener_gpib_address_1;
@@ -858,7 +859,7 @@ begin
 			end if;
 
 			if (gpib_to_host_byte_latched = '1' or RFD_holdoff_mode = continuous_mode) then
-				end_interrupt_condition := gpib_to_host_byte_end or (generate_END_interrupt_on_EOS and gpib_to_host_byte_eos);
+				end_interrupt_condition := gpib_to_host_byte_end or gpib_to_host_byte_eos;
 			end if;
 
 			if gpib_to_host_byte_latched = '1' then
@@ -1118,7 +1119,7 @@ begin
 									configured_RFD_holdoff_mode <= continuous_mode;
 								when others =>
 							end case;
-							generate_END_interrupt_on_EOS <= write_data(2);
+							enable_gpib_to_host_EOS <= write_data(2);
 							host_to_gpib_auto_EOI_on_EOS <= write_data(3);
 							ignore_eos_bit_7 <= not write_data(4);
 						when "101" => -- aux B register
@@ -1347,7 +1348,7 @@ begin
 				DMA_output_enable <= '0';
 				SRQ_interrupt_enable <= '0';
 
-				generate_END_interrupt_on_EOS <= '0';
+				enable_gpib_to_host_EOS <= '0';
 				configured_RFD_holdoff_mode <= holdoff_normal;
 			end if;
 		end handle_soft_reset;
@@ -1419,7 +1420,7 @@ begin
 			handle_command_pass_through;
 			
 			if take_control_synchronously_on_end = '1' and acceptor_handshake_state = ACDS and 
-				(gpib_to_host_byte_end or (generate_END_interrupt_on_EOS and gpib_to_host_byte_eos)) = '1' then
+				(gpib_to_host_byte_end or gpib_to_host_byte_eos) = '1' then
 				if controller_state_p1 = CSBS then -- 488.1 only allows tcs to become true during CSBS
 					take_control_synchronously_on_end := '0';
 					tcs <= '1';
