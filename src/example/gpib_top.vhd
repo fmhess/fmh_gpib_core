@@ -10,6 +10,7 @@
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
+use work.dma_translator_cb7210p2_to_pl330;
 use work.gpib_control_debounce_filter;
 use work.frontend_cb7210p2;
 
@@ -35,9 +36,9 @@ entity gpib_top is
 		dma_din : in  std_logic_vector(7 downto 0);
 		dma_dout : out std_logic_vector(7 downto 0);
 		-- dma request
-		dma_single : out std_logic; -- aka drtype with drvalid
-		dma_req : out std_logic; -- aka drready/drvalid
-		dma_ack : in  std_logic; -- aka datype with davalid
+		dma_single : out std_logic; -- request single transfer
+		dma_req : out std_logic; -- request burst transfer
+		dma_ack : in  std_logic;
 
 		-- transfer counter, avalon mm io port
 		dma_count_cs : in std_logic; -- inverted
@@ -116,7 +117,17 @@ architecture structural of gpib_top is
 	signal ungated_not_controller_in_charge : std_logic;
 	
 begin
-
+	my_dma_translator : entity work.dma_translator_cb7210p2_to_pl330
+		port map (
+			clock => clk,
+			reset => gpib_reset,
+			pl330_dma_ack => dma_ack,
+			pl330_dma_single => dma_single,
+			pl330_dma_req => dma_req,
+			cb7210p2_dma_in_request => cb7210p2_dma_bus_in_request,
+			cb7210p2_dma_out_request => cb7210p2_dma_bus_out_request
+		);
+	
 	my_debounce_filter : entity work.gpib_control_debounce_filter
 		generic map(
 			length => 12,
@@ -205,20 +216,20 @@ begin
 	
 	-- dma transfer counter
 	process(safe_reset, clk) is
-		variable prev_dma_ack : std_logic;
+		variable prev_dma_cs : std_logic;
 	begin
 		if safe_reset = '0' then
 			dma_count <= (others => '0');
-			prev_dma_ack := '0';
+			prev_dma_cs := '1';
 		elsif rising_edge(clk) then
 			-- Reset counter when written to.
 			if (dma_count_cs = '0') and (dma_count_wr = '0') then
 				dma_count <= (others => '0');
-			-- Count bytes on DMA ack.
-			elsif prev_dma_ack = '0' and dma_ack = '1' then
+			-- count bytes on data transfer across dma bus port.
+			elsif dma_cs = '0' and prev_dma_cs = '1' then
 				dma_count <= dma_count + 1;
 			end if;
-			prev_dma_ack := dma_ack;
+			prev_dma_cs := dma_cs;
 		end if;
 	end process;
 
@@ -285,48 +296,8 @@ begin
 	gpib_ren <= 'Z' when gpib_disable = '1' else ungated_REN_inverted_out;
 	gpib_srq <= 'Z' when gpib_disable = '1' else ungated_SRQ_inverted_out;
 	
-	-- dma requests
-	cb7210p2_dma_ack_inverted <= dma_cs;
+	-- dma port
 	cb7210p2_dma_read_inverted <= dma_rd;
 	cb7210p2_dma_write_inverted <= dma_wr;
--- 	dma_single <= cb7210p2_dma_bus_in_request or cb7210p2_dma_bus_out_request;
- 	dma_req <= dma_ack;
-
-	process (safe_reset, clk)
-		variable toggle : std_logic;
-	begin
-		if to_X01(safe_reset) = '0' then
-			dma_single <= '0';
-			toggle := '0';
-		elsif rising_edge(clk) then
-			if (cb7210p2_dma_bus_in_request or cb7210p2_dma_bus_out_request) = '1' and dma_cs = '1' then
-				toggle := not toggle;
-				dma_single <= toggle;
-			else
-				dma_single <= '0';
-			end if;
-		end if;
-	end process;
-	
--- 	process (safe_reset, clk)
--- 		variable prev_cb7210p2_dma_request : std_logic;
--- 	begin
--- 		if to_X01(safe_reset) = '0' then
--- 			dma_req <= '0';
--- 			dma_single <= '0';
--- 			prev_cb7210p2_dma_request := '0';
--- 		elsif rising_edge(clk) then
--- 			if (cb7210p2_dma_bus_in_request or cb7210p2_dma_bus_out_request) = '1' and prev_cb7210p2_dma_request = '0' then
--- 				dma_single <= '1';
--- 				dma_req <= '1';
--- 			else
--- 				dma_single <= '0';
--- 			end if;
--- 			if dma_ack = '1' then
--- 				dma_req <= '0';
--- 			end if;
--- 			prev_cb7210p2_dma_request := cb7210p2_dma_bus_in_request or cb7210p2_dma_bus_out_request;
--- 		end if;
--- 	end process;
-
+	cb7210p2_dma_ack_inverted <= dma_cs;
 end architecture structural;

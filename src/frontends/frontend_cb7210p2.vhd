@@ -97,7 +97,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal host_read_from_bus_state : host_io_enum;
 	signal host_write_to_bus_state : host_io_enum;
 
-	type dma_enum is (dma_idle, dma_requesting, dma_waiting_for_idle);
+	type dma_enum is (dma_idle, dma_waiting_for_idle);
 	signal host_to_gpib_dma_state : dma_enum;
 	signal gpib_to_host_dma_state : dma_enum;
 
@@ -251,6 +251,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal ERR_interrupt_enable : std_logic;
 	signal DEC_interrupt_enable : std_logic;
 	signal END_interrupt_enable : std_logic;
+	signal end_interrupt_condition : std_logic;
 	signal DET_interrupt_enable : std_logic;
 	signal APT_interrupt_enable : std_logic;
 	signal CPT_interrupt_enable : std_logic;
@@ -461,6 +462,7 @@ begin
 	
 	-- accept reads from host
 	process (soft_reset, clock)
+		variable prev_acceptor_handshake_state : AH_state;
 		variable prev_controller_state_p2 : C_state_p2;
 		variable prev_source_handshake_state : SH_state;
 		variable prev_in_remote_state : std_logic;
@@ -472,10 +474,10 @@ begin
 		variable prev_minor_addressed : std_logic;
 		variable prev_controller_in_charge : std_logic;
 		variable prev_gpib_to_host_byte_latched : std_logic;
-		variable end_interrupt_condition : std_logic;
 		variable prev_end_interrupt_condition : std_logic;
 		variable prev_APT_needs_host_response : std_logic;
 		variable prev_CPT_needs_host_response : std_logic;
+		variable prev_DI_interrupt_enable : std_logic;
 		
 		-- process a read from the host
 		procedure host_read_register (page : in std_logic_vector(3 downto 0);
@@ -754,6 +756,7 @@ begin
 			gpib_to_host_dma_state <= dma_idle;
 			dma_bus_out_request <= 'L';
 			dma_bus_out <= (others => '0');
+			prev_acceptor_handshake_state := AIDS;
 			prev_controller_state_p2 := CSNS;
 			prev_source_handshake_state := SIDS;
 			prev_in_remote_state := '0';
@@ -764,11 +767,10 @@ begin
 			prev_LADS_or_LACS := '0';
 			prev_controller_in_charge := '0';
 			prev_gpib_to_host_byte_latched := '0';
-			end_interrupt_condition := '0';
 			prev_end_interrupt_condition := '0';
 			prev_APT_needs_host_response := '0';
 			prev_CPT_needs_host_response := '0';
-		
+			
 			ATN_interrupt <= '0';
 			IFC_interrupt <= '0';
 			-- isr1 interrupts
@@ -805,24 +807,16 @@ begin
 			-- gpib to host dma state machine
 			case gpib_to_host_dma_state is
 				when dma_idle =>
-					dma_bus_out_request <= 'L';
 					dma_bus_out <= (others => '0');
-					if DMA_input_enable = '1' and 
-						gpib_to_host_byte_latched = '1' then
-						gpib_to_host_dma_state <= dma_requesting;
+					if DMA_input_enable = '1' and gpib_to_host_byte_latched = '1' then
+						dma_bus_out_request <= '1';
+					else
+						dma_bus_out_request <= 'L';
 					end if;
-				when dma_requesting =>
-					dma_bus_out_request <= '1';
 					if dma_read_selected = '1' then
 						dma_bus_out <= gpib_to_host_byte;
 						gpib_to_host_byte_read <= '1';
 						gpib_to_host_dma_state <= dma_waiting_for_idle;
-					elsif DMA_input_enable = '0' then
-						gpib_to_host_dma_state <= dma_idle;
-						-- we want bus request to go false immediately, since if it
-						-- goes false while dma_read_selected is true it means the 
-						-- transfer went through rather than giving up on it
-						dma_bus_out_request <= 'L';
 					end if;
 				when dma_waiting_for_idle =>
 					dma_bus_out_request <= 'L';
@@ -858,22 +852,20 @@ begin
 				CO_interrupt <= '0';
 			end if;
 
-			if (gpib_to_host_byte_latched = '1' or RFD_holdoff_mode = continuous_mode) then
-				end_interrupt_condition := gpib_to_host_byte_end or gpib_to_host_byte_eos;
-			end if;
-
 			if gpib_to_host_byte_latched = '1' then
-				if prev_gpib_to_host_byte_latched = '0' then
+				if prev_gpib_to_host_byte_latched = '0' or 
+					(DI_interrupt_enable = '1' and prev_DI_interrupt_enable = '0') then
 					DI_interrupt <= '1';
-					if end_interrupt_condition = '1' then
-						END_interrupt <= '1';
-					end if;
 				end if;
 			else
 				DI_interrupt <= '0';
 			end if;
 
-			if end_interrupt_condition = '0' then
+			if end_interrupt_condition = '1' then
+				if prev_end_interrupt_condition = '0' then
+					END_interrupt <= '1';
+				end if;
+			else
 				END_interrupt <= '0';
 			end if;
 
@@ -940,6 +932,7 @@ begin
 				IFC_interrupt <= '1';
 			end if;
 
+			prev_acceptor_handshake_state := acceptor_handshake_state;
 			prev_controller_state_p2 := controller_state_p2;
 			prev_source_handshake_state := source_handshake_state;
 			prev_in_remote_state := in_remote_state;
@@ -954,11 +947,13 @@ begin
 			prev_end_interrupt_condition := end_interrupt_condition;
 			prev_APT_needs_host_response := APT_needs_host_response;
 			prev_CPT_needs_host_response := CPT_needs_host_response;
+			prev_DI_interrupt_enable := DI_interrupt_enable;
 		end if;
 	end process;
 		
 	DO_interrupt_condition <= '1' when talker_state_p1 = TACS and host_to_gpib_data_byte_latched = '0' else '0';
 	CO_interrupt_condition <= '1' when controller_state_p1 = CACS and host_to_gpib_command_byte_latched = '0' else '0';
+	end_interrupt_condition <= gpib_to_host_byte_end or gpib_to_host_byte_eos;
 	
 	-- accept writes from host
 	process (hard_reset, clock)
@@ -1389,19 +1384,13 @@ begin
 				when dma_idle =>
 					dma_bus_in_request <= 'L';
 					if DMA_output_enable = '1' and host_to_gpib_data_byte_latched = '0' then
-						host_to_gpib_dma_state <= dma_requesting;
+						dma_bus_in_request <= '1';
+					else
+						dma_bus_in_request <= 'L';
 					end if;
-				when dma_requesting =>
-					dma_bus_in_request <= '1';
 					if dma_write_selected = '1' then
 						write_host_to_gpib_data_byte(dma_bus_in);
 						host_to_gpib_dma_state <= dma_waiting_for_idle;
-					elsif DMA_output_enable = '0' then
-						host_to_gpib_dma_state <= dma_idle;
-						-- we want bus request to go false immediately, since if it
-						-- goes false while dma_write_selected is true it means the 
-						-- transfer went through rather than giving up on it
-						dma_bus_in_request <= 'L';
 					end if;
 				when dma_waiting_for_idle =>
 					dma_bus_in_request <= 'L';
