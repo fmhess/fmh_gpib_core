@@ -21,6 +21,7 @@ architecture behav of remote_message_decoder_testbench is
 	signal bus_NDAC_inverted : std_logic;
 	signal bus_NRFD_inverted : std_logic;
 	signal bus_DAV_inverted : std_logic;
+	signal enable_EOS_detection : std_logic;
 	signal configured_eos_character : std_logic_vector(7 downto 0);
 	signal ignore_eos_bit_7 : std_logic;
 	signal command_valid : std_logic;
@@ -80,6 +81,7 @@ architecture behav of remote_message_decoder_testbench is
 			bus_NDAC_inverted => bus_NDAC_inverted,
 			bus_NRFD_inverted => bus_NRFD_inverted,
 			bus_DAV_inverted => bus_DAV_inverted,
+			enable_EOS_detection => enable_EOS_detection,
 			configured_eos_character => configured_eos_character,
 			ignore_eos_bit_7 => ignore_eos_bit_7,
 			command_valid => command_valid,
@@ -137,6 +139,7 @@ architecture behav of remote_message_decoder_testbench is
 		bus_NDAC_inverted <= 'H';
 		bus_NRFD_inverted <= 'H';
 		bus_DAV_inverted <= 'H';
+		enable_EOS_detection <= '0';
 		configured_eos_character <= X"00";
 		ignore_eos_bit_7 <= '0';
 		command_valid <= '0';
@@ -155,6 +158,7 @@ architecture behav of remote_message_decoder_testbench is
 		assert ACG = '0';
 		assert DCL = '1';
 
+		enable_EOS_detection <= '1';
 		configured_eos_character <= X"9b";
 		ignore_eos_bit_7 <= '1';
 		bus_DIO_inverted <= not X"1b";		

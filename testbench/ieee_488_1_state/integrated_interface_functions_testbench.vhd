@@ -36,6 +36,7 @@ architecture behav of integrated_interface_functions_testbench is
 	signal device_NRFD_inverted : std_logic;
 	signal device_DAV_inverted : std_logic;
 
+	signal enable_gpib_to_host_eos : std_logic;
 	signal configured_eos_character : std_logic_vector(7 downto 0);
 	signal ignore_eos_bit_7 : std_logic;
 	signal command_valid : std_logic;
@@ -144,6 +145,7 @@ architecture behav of integrated_interface_functions_testbench is
 			tca => tca,
 			tcs => tcs,
 			ton => ton,
+			enable_gpib_to_host_eos => enable_gpib_to_host_eos,
 			configured_eos_character => configured_eos_character,
 			ignore_eos_bit_7 => ignore_eos_bit_7,
 			command_valid => command_valid,
@@ -300,6 +302,7 @@ architecture behav of integrated_interface_functions_testbench is
 		variable gpib_read_eoi : std_logic;
 	
 	begin
+		enable_gpib_to_host_eos <= '1';
 		configured_eos_character <= X"00";
 		ignore_eos_bit_7 <= '0';
 		enable_secondary_addressing <= '0';
