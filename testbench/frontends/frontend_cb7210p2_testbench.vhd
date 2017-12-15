@@ -48,7 +48,8 @@ architecture behav of frontend_cb7210p2_testbench is
 	signal tr2 : std_logic;
 	signal tr3 : std_logic;
 	signal interrupt : std_logic;
-	signal host_data_bus : std_logic_vector(7 downto 0);
+	signal host_data_bus_in : std_logic_vector(7 downto 0);
+	signal host_data_bus_out : std_logic_vector(7 downto 0);
 	signal pullup_disable : std_logic;
 	signal talk_enable : std_logic;
 	signal not_controller_in_charge : std_logic;
@@ -84,7 +85,7 @@ architecture behav of frontend_cb7210p2_testbench is
 			dma_bus_in_request  => dma_bus_request, 
 			dma_bus_out  => dma_bus, 
 			dma_bus_in  => dma_bus, 
-			host_data_bus_in  => host_data_bus, 
+			host_data_bus_in  => host_data_bus_in, 
 			gpib_ATN_inverted_in  => device_ATN_inverted,
 			gpib_DAV_inverted_in  => device_DAV_inverted, 
 			gpib_EOI_inverted_in  => device_EOI_inverted, 
@@ -94,7 +95,7 @@ architecture behav of frontend_cb7210p2_testbench is
 			gpib_REN_inverted_in  => device_REN_inverted,
 			gpib_SRQ_inverted_in  => device_SRQ_inverted, 
 			gpib_DIO_inverted_in  => device_DIO_inverted, 
-			host_data_bus_out  => host_data_bus, 
+			host_data_bus_out  => host_data_bus_out, 
 			gpib_ATN_inverted_out  => device_ATN_inverted,
 			gpib_DAV_inverted_out  => device_DAV_inverted, 
 			gpib_EOI_inverted_out  => device_EOI_inverted, 
@@ -193,7 +194,7 @@ architecture behav of frontend_cb7210p2_testbench is
 				chip_select_inverted,
 				address,
 				write_inverted,
-				host_data_bus
+				host_data_bus_in
 			);
 		end procedure host_write;
 
@@ -205,7 +206,7 @@ architecture behav of frontend_cb7210p2_testbench is
 				chip_select_inverted,
 				address,
 				read_inverted,
-				host_data_bus
+				host_data_bus_out
 			);
 		end procedure host_read;
 
@@ -761,7 +762,8 @@ architecture behav of frontend_cb7210p2_testbench is
 		chip_select_inverted <= '1';
 		dma_bus_ack_inverted <= '1';
 		dma_bus <= (others => 'Z');
-		host_data_bus <= (others => '0');
+		host_data_bus_in <= (others => '0');
+		host_data_bus_out <= (others => 'Z');
 		read_inverted <= '1';
 		write_inverted <= '1';
 		dma_read_inverted <= '1';

@@ -71,14 +71,16 @@ architecture behav of dual_cb7210p2_testbench is
 	signal controller_write_inverted : std_logic;
 
 	signal device_interrupt : std_logic;
-	signal device_host_data_bus : std_logic_vector(7 downto 0);
+	signal device_host_data_bus_in : std_logic_vector(7 downto 0);
+	signal device_host_data_bus_out : std_logic_vector(7 downto 0);
 	signal device_pullup_disable : std_logic;
 	signal device_talk_enable : std_logic;
 	signal device_not_controller_in_charge : std_logic;
 	signal device_system_controller : std_logic;
 	
 	signal controller_interrupt : std_logic;
-	signal controller_host_data_bus : std_logic_vector(7 downto 0);
+	signal controller_host_data_bus_in : std_logic_vector(7 downto 0);
+	signal controller_host_data_bus_out : std_logic_vector(7 downto 0);
 	signal controller_pullup_disable : std_logic;
 	signal controller_talk_enable : std_logic;
 	signal controller_not_controller_in_charge : std_logic;
@@ -126,7 +128,7 @@ architecture behav of dual_cb7210p2_testbench is
 			dma_bus_in_request  => device_dma_bus_request, 
 			dma_bus_out  => device_dma_bus, 
 			dma_bus_in  => device_dma_bus, 
-			host_data_bus_in  => device_host_data_bus, 
+			host_data_bus_in  => device_host_data_bus_in, 
 			gpib_ATN_inverted_in  => device_ATN_inverted,
 			gpib_DAV_inverted_in  => device_DAV_inverted, 
 			gpib_EOI_inverted_in  => device_EOI_inverted, 
@@ -136,7 +138,7 @@ architecture behav of dual_cb7210p2_testbench is
 			gpib_REN_inverted_in  => device_REN_inverted,
 			gpib_SRQ_inverted_in  => device_SRQ_inverted, 
 			gpib_DIO_inverted_in  => device_DIO_inverted, 
-			host_data_bus_out  => device_host_data_bus, 
+			host_data_bus_out  => device_host_data_bus_out, 
 			gpib_ATN_inverted_out  => device_ATN_inverted,
 			gpib_DAV_inverted_out  => device_DAV_inverted, 
 			gpib_EOI_inverted_out  => device_EOI_inverted, 
@@ -199,7 +201,7 @@ architecture behav of dual_cb7210p2_testbench is
 			dma_bus_in_request  => controller_dma_bus_request, 
 			dma_bus_out  => controller_dma_bus, 
 			dma_bus_in  => controller_dma_bus, 
-			host_data_bus_in  => controller_host_data_bus, 
+			host_data_bus_in  => controller_host_data_bus_in, 
 			gpib_ATN_inverted_in  => controller_ATN_inverted,
 			gpib_DAV_inverted_in  => controller_DAV_inverted, 
 			gpib_EOI_inverted_in  => controller_EOI_inverted, 
@@ -209,7 +211,7 @@ architecture behav of dual_cb7210p2_testbench is
 			gpib_REN_inverted_in  => controller_REN_inverted,
 			gpib_SRQ_inverted_in  => controller_SRQ_inverted, 
 			gpib_DIO_inverted_in  => controller_DIO_inverted, 
-			host_data_bus_out  => controller_host_data_bus, 
+			host_data_bus_out  => controller_host_data_bus_out, 
 			gpib_ATN_inverted_out  => controller_ATN_inverted,
 			gpib_DAV_inverted_out  => controller_DAV_inverted, 
 			gpib_EOI_inverted_out  => controller_EOI_inverted, 
@@ -297,7 +299,7 @@ architecture behav of dual_cb7210p2_testbench is
 				device_chip_select_inverted,
 				device_address,
 				device_write_inverted,
-				device_host_data_bus
+				device_host_data_bus_in
 			);
 		end procedure host_write;
 
@@ -309,7 +311,7 @@ architecture behav of dual_cb7210p2_testbench is
 				device_chip_select_inverted,
 				device_address,
 				device_read_inverted,
-				device_host_data_bus
+				device_host_data_bus_out
 			);
 		end procedure host_read;
 
@@ -445,7 +447,8 @@ architecture behav of dual_cb7210p2_testbench is
 		device_chip_select_inverted <= '1';
 		device_dma_bus_ack_inverted <= '1';
 		device_dma_bus <= (others => 'Z');
-		device_host_data_bus <= (others => '0');
+		device_host_data_bus_in <= (others => '0');
+		device_host_data_bus_out <= (others => 'Z');
 		device_read_inverted <= '1';
 		device_write_inverted <= '1';
 		device_dma_read_inverted <= '1';
@@ -508,7 +511,7 @@ architecture behav of dual_cb7210p2_testbench is
 				controller_chip_select_inverted,
 				controller_address,
 				controller_write_inverted,
-				controller_host_data_bus
+				controller_host_data_bus_in
 			);
 		end procedure host_write;
 
@@ -520,7 +523,7 @@ architecture behav of dual_cb7210p2_testbench is
 				controller_chip_select_inverted,
 				controller_address,
 				controller_read_inverted,
-				controller_host_data_bus
+				controller_host_data_bus_out
 			);
 		end procedure host_read;
 
@@ -782,7 +785,8 @@ architecture behav of dual_cb7210p2_testbench is
 		controller_chip_select_inverted <= '1';
 		controller_dma_bus_ack_inverted <= '1';
 		controller_dma_bus <= (others => 'Z');
-		controller_host_data_bus <= (others => '0');
+		controller_host_data_bus_in <= (others => '0');
+		controller_host_data_bus_out <= (others => 'Z');
 		controller_read_inverted <= '1';
 		controller_write_inverted <= '1';
 		controller_dma_read_inverted <= '1';
