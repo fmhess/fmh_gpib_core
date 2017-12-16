@@ -13,39 +13,42 @@ use ieee.numeric_std.all;
 use work.dma_translator_cb7210p2_to_pl330;
 use work.gpib_control_debounce_filter;
 use work.frontend_cb7210p2;
+use work.dma_fifos;
 
 entity gpib_top is
 	port (
-		clk : in std_logic;
+		clock : in std_logic;
 		reset : in  std_logic;
 
 		-- gpib chip registers, avalon mm io port
-		avalon_cs : in std_logic; -- inverted
-		avalon_rd : in std_logic; -- inverted
-		avalon_wr : in  std_logic; -- inverted
-		avalon_addr : in  std_logic_vector(2 downto 0);
-		avalon_din : in  std_logic_vector(7 downto 0);
-		avalon_dout : out std_logic_vector(7 downto 0);
+		avalon_chip_select_inverted : in std_logic;
+		avalon_read_inverted : in std_logic;
+		avalon_write_inverted : in  std_logic;
+		avalon_address : in  std_logic_vector(6 downto 0);
+		avalon_data_in : in  std_logic_vector(7 downto 0);
+		avalon_data_out : out std_logic_vector(7 downto 0);
 
 		avalon_irq : out std_logic;
 
 		-- dma, avalon mm io port
-		dma_cs : in std_logic; -- inverted
-		dma_rd : in std_logic; --inverted
-		dma_wr : in std_logic; --inverted
-		dma_din : in  std_logic_vector(7 downto 0);
-		dma_dout : out std_logic_vector(7 downto 0);
-		-- dma request
-		dma_single : out std_logic; -- request single transfer
-		dma_req : out std_logic; -- request burst transfer
+		dma_fifos_chip_select : in std_logic;
+		dma_fifos_address : in std_logic_vector(0 downto 0);
+		dma_fifos_read : in std_logic;
+		dma_fifos_write : in std_logic;
+		dma_fifos_data_in : in  std_logic_vector(7 downto 0);
+		dma_fifos_data_out : out std_logic_vector(7 downto 0);
+
+		-- dma peripherial request
+		dma_single : out std_logic;
+		dma_req : out std_logic;
 		dma_ack : in  std_logic;
 
 		-- transfer counter, avalon mm io port
-		dma_count_cs : in std_logic; -- inverted
-		dma_count_rd : in  std_logic; -- inverted
-		dma_count_wr : in  std_logic; -- inverted
-		dma_count_din : in  std_logic_vector(10 downto 0);
-		dma_count_dout : out std_logic_vector(10 downto 0);
+		dma_count_chip_select : in std_logic;
+		dma_count_read : in  std_logic;
+		dma_count_write : in  std_logic;
+		dma_count_data_in : in  std_logic_vector(10 downto 0);
+		dma_count_data_out : out std_logic_vector(10 downto 0);
 
 		-- gpib bus
 		gpib_data : inout std_logic_vector (7 downto 0);
@@ -76,6 +79,9 @@ architecture structural of gpib_top is
 	signal cb7210p2_dma_read_inverted : std_logic;
 	signal cb7210p2_dma_write_inverted : std_logic;
 	signal cb7210p2_dma_ack_inverted : std_logic;
+	
+	signal fifo_host_to_gpib_dma_request : std_logic;
+	signal fifo_gpib_to_host_dma_request : std_logic;
 	
 	signal dma_count: unsigned (10 downto 0); -- Count of bytes into 7210.
 	signal dma_transfer_active : std_logic;
@@ -118,13 +124,13 @@ architecture structural of gpib_top is
 begin
 	my_dma_translator : entity work.dma_translator_cb7210p2_to_pl330
 		port map (
-			clock => clk,
+			clock => clock,
 			reset => safe_reset,
 			pl330_dma_ack => dma_ack,
 			pl330_dma_single => dma_single,
 			pl330_dma_req => dma_req,
-			cb7210p2_dma_in_request => cb7210p2_dma_bus_in_request,
-			cb7210p2_dma_out_request => cb7210p2_dma_bus_out_request
+			cb7210p2_dma_in_request => fifo_host_to_gpib_dma_request,
+			cb7210p2_dma_out_request => fifo_gpib_to_host_dma_request
 		);
 	
 	my_debounce_filter : entity work.gpib_control_debounce_filter
@@ -134,8 +140,8 @@ begin
 		)
 		port map(
 			reset => safe_reset,
-			input_clock => clk,
-			output_clock => clk,
+			input_clock => clock,
+			output_clock => clock,
 			inputs(0) => gpib_atn,
 			inputs(1) => gpib_dav,
 			inputs(2) => gpib_eoi,
@@ -154,23 +160,45 @@ begin
 			outputs(7) => filtered_SRQ
 		);
 	
+	my_dma_fifos : entity work.dma_fifs
+		generic map(fifo_depth => 4)
+		port map(
+			clock => clock,
+			reset => safe_reset,
+			host_address => dma_fifos_address,
+			host_chip_select => dma_fifos_chip_select,
+			host_read => dma_fifos_read,
+			host_write => dma_fifos_write,
+			host_data_in => dma_fifos_data_in,
+			host_data_out => dma_fifos_data_out,
+			host_to_gpib_dma_request => fifo_host_to_gpib_dma_request,
+			gpib_to_host_dma_request => fifo_gpib_to_host_dma_request,
+			request_xfer_to_device => cb7210p2_dma_in_request,
+			request_xfer_from_device => cb7210p2_dma_out_request,
+			device_chip_select => "not" cb7210p2_dma_ack_inverted,
+			device_read => "not" cb7210p2_dma_read_inverted,
+			device_write => "not" cb7210p2_dma_write_inverted,
+			device_data_in => cb7210p2_dma_data_in,
+			device_data_out => cb7210p2_dma_data_out
+		);
+		
 	my_cb7210p2 : entity work.frontend_cb7210p2
 		generic map(
-			num_address_lines => 3,
+			num_address_lines => 7,
 			clock_frequency_KHz => 60000)
 		port map (
-			clock => clk,
+			clock => clock,
 			reset => safe_reset,
-			chip_select_inverted => avalon_cs,
+			chip_select_inverted => avalon_chip_select_inverted,
 			dma_bus_in_ack_inverted => cb7210p2_dma_ack_inverted,
 			dma_bus_out_ack_inverted => cb7210p2_dma_ack_inverted,
 			dma_read_inverted => cb7210p2_dma_read_inverted,
 			dma_write_inverted => cb7210p2_dma_write_inverted,
-			read_inverted => avalon_rd,
-			address => avalon_addr(2 downto 0),
-			write_inverted => avalon_wr,
-			host_data_bus_in => avalon_din,
-			dma_bus_in => dma_din,
+			read_inverted => avalon_read_inverted,
+			address => avalon_address,
+			write_inverted => avalon_write_inverted,
+			host_data_bus_in => avalon_data_in,
+			dma_bus_in => cb7210p2_dma_data_in,
 			gpib_ATN_inverted_in => gated_ATN,
 			gpib_DAV_inverted_in => gated_DAV,
 			gpib_EOI_inverted_in => gated_EOI,
@@ -186,8 +214,8 @@ begin
 			interrupt => avalon_irq,
 			dma_bus_in_request => cb7210p2_dma_bus_in_request,
 			dma_bus_out_request => cb7210p2_dma_bus_out_request,
-			host_data_bus_out => avalon_dout,
-			dma_bus_out => dma_dout,
+			host_data_bus_out => avalon_data_out,
+			dma_bus_out => cb7210p2_dma_data_out,
 			gpib_ATN_inverted_out => ungated_ATN_inverted_out,
 			gpib_DAV_inverted_out => ungated_DAV_inverted_out,
 			gpib_EOI_inverted_out => ungated_EOI_inverted_out,
@@ -211,22 +239,22 @@ begin
 		end if;
 	end process;
 	
-	-- dma transfer counter
+	-- dma transfer counter (at interfact between fifos and gpib chip)
 	process(safe_reset, clk) is
-		variable prev_dma_cs : std_logic;
+		variable prev_cb7210p2_dma_ack_inverted : std_logic;
 	begin
 		if safe_reset = '1' then
 			dma_count <= (others => '0');
-			prev_dma_cs := '1';
+			prev_cb7210p2_dma_ack_inverted := '1';
 		elsif rising_edge(clk) then
 			-- Reset counter when written to.
-			if (dma_count_cs = '0') and (dma_count_wr = '0') then
+			if (dma_count_chip_select = '1') and (dma_count_write = '1') then
 				dma_count <= (others => '0');
 			-- count bytes on data transfer across dma bus port.
-			elsif dma_cs = '0' and prev_dma_cs = '1' then
+			elsif cb7210p2_dma_ack_inverted = '1' and prev_cb7210p2_dma_ack_inverted = '0' then
 				dma_count <= dma_count + 1;
 			end if;
-			prev_dma_cs := dma_cs;
+			prev_cb7210p2_dma_ack_inverted := cb7210p2_dma_ack_inverted;
 		end if;
 	end process;
 
@@ -293,8 +321,4 @@ begin
 	gpib_ren <= 'Z' when gpib_disable = '1' else ungated_REN_inverted_out;
 	gpib_srq <= 'Z' when gpib_disable = '1' else ungated_SRQ_inverted_out;
 	
-	-- dma port
-	cb7210p2_dma_read_inverted <= dma_rd;
-	cb7210p2_dma_write_inverted <= dma_wr;
-	cb7210p2_dma_ack_inverted <= dma_cs;
 end architecture structural;

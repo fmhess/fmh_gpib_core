@@ -25,7 +25,8 @@ entity dma_fifos is
 		host_data_in : in std_logic_vector(7 downto 0);
 		host_data_out : out std_logic_vector(7 downto 0);
 
-		dma_request : out std_logic;
+		host_to_gpib_dma_request : out std_logic;
+		gpib_to_host_dma_request : out std_logic;
 		request_xfer_to_device : in std_logic;
 		request_xfer_from_device : in std_logic;
 		
@@ -48,14 +49,12 @@ architecture dma_fifos_arch of dma_fifos is
 	signal host_to_gpib_fifo_read_enable : std_logic;
 	signal host_to_gpib_fifo_empty : std_logic;
 	signal host_to_gpib_fifo_full : std_logic;
-	signal host_to_gpib_dma_request : std_logic;
 	
 	signal gpib_to_host_fifo_reset : std_logic;
 	signal gpib_to_host_fifo_write_enable : std_logic;
 	signal gpib_to_host_fifo_read_enable : std_logic;
 	signal gpib_to_host_fifo_empty : std_logic;
 	signal gpib_to_host_fifo_full : std_logic;
-	signal gpib_to_host_dma_request : std_logic;
 	signal gpib_to_host_fifo_data_out : std_logic_vector(7 downto 0);
 
 	signal host_write_pending : std_logic;
@@ -255,6 +254,4 @@ begin
 			
 		end if;
 	end process;
-
-	dma_request <= host_to_gpib_dma_request or gpib_to_host_dma_request;
 end dma_fifos_arch;

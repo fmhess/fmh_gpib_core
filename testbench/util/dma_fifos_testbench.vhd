@@ -25,7 +25,8 @@ architecture behav of dma_fifos_testbench is
 	signal host_data_in : std_logic_vector(7 downto 0);
 	signal host_data_out : std_logic_vector(7 downto 0);
 
-	signal dma_request : std_logic;
+	signal gpib_to_host_dma_request : std_logic;
+	signal host_to_gpib_dma_request : std_logic;
 	signal request_xfer_to_device : std_logic;
 	signal request_xfer_from_device : std_logic;
 	
@@ -59,7 +60,8 @@ begin
 			host_write => host_write_sig,
 			host_data_in => host_data_in,
 			host_data_out => host_data_out,
-			dma_request => dma_request,
+			host_to_gpib_dma_request => host_to_gpib_dma_request,
+			gpib_to_host_dma_request => gpib_to_host_dma_request,
 			request_xfer_to_device => request_xfer_to_device,
 			request_xfer_from_device => request_xfer_from_device,
 			device_chip_select => device_chip_select,
@@ -135,8 +137,8 @@ begin
 		
 		-- host-to-gpib fast write slow reads tests fifo full behavior
 		for i in 16#0# to 16#f# loop
-			if dma_request = '0' then
-				wait until dma_request = '1';
+			if host_to_gpib_dma_request = '0' then
+				wait until host_to_gpib_dma_request = '1';
 			end if;
 			wait_for_ticks(1);
 			host_write("0", std_logic_vector(to_unsigned(i, 8)));
@@ -144,8 +146,8 @@ begin
 		
 		-- host-to-gpib slow write fast reads tests fifo empty behavior
 		for i in 16#10# to 16#1f# loop
-			if dma_request = '0' then
-				wait until dma_request = '1';
+			if host_to_gpib_dma_request = '0' then
+				wait until host_to_gpib_dma_request = '1';
 			end if;
 			wait_for_ticks(5);
 			host_write("0", std_logic_vector(to_unsigned(i, 8)));
@@ -156,8 +158,8 @@ begin
 
 		-- gpib-to-host fast write slow read tests fifo full behavior
 		for i in 16#20# to 16#2f# loop
-			if dma_request = '0' then
-				wait until dma_request = '1';
+			if gpib_to_host_dma_request = '0' then
+				wait until gpib_to_host_dma_request = '1';
 			end if;
 			wait_for_ticks(5); -- slow down response to let fifo gradually fill up
 			host_read("0", host_read_result);
@@ -166,8 +168,8 @@ begin
 
 		-- gpib-to-host slow write fast read tests fifo empty behavior
 		for i in 16#30# to 16#3f# loop
-			if dma_request = '0' then
-				wait until dma_request = '1';
+			if gpib_to_host_dma_request = '0' then
+				wait until gpib_to_host_dma_request = '1';
 			end if;
 			wait_for_ticks(1);
 			host_read("0", host_read_result);
