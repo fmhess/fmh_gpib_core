@@ -73,6 +73,7 @@ begin
 					if ((Looped = false) or (Head /= Tail)) then
 						-- Write Data to Memory
 						Memory(Head) := DataIn;
+						DataOut <= Memory(Tail); -- update DataOut in case Head = Tail
 						
 						-- Increment Head pointer as needed
 						if (Head = FIFO_DEPTH - 1) then

@@ -168,6 +168,9 @@ begin
 				if host_write_selected = '1' then
 					host_write_pending <= '1';
 					handle_host_write(host_address, host_data_in);
+					host_to_gpib_dma_request <= '0';
+				elsif host_to_gpib_request_enable = '1' and host_to_gpib_fifo_full = '0' then
+					host_to_gpib_dma_request <= '1';
 				end if;
 			else -- host_write_pending = '1'
 				if host_write_selected = '0' then
@@ -181,6 +184,9 @@ begin
 				if host_read_selected = '1' then
 					host_read_pending <= '1';
 					handle_host_read(host_address);
+					gpib_to_host_dma_request <= '0';
+				elsif (gpib_to_host_request_enable = '1' and gpib_to_host_fifo_empty = '0') then
+					gpib_to_host_dma_request <= '1';
 				end if;
 			else -- host_read_pending = '1'
 				if host_read_selected = '0' then
@@ -199,9 +205,9 @@ begin
 				end if;
 			else -- xfer_to_device_pending = '1'
 				host_to_gpib_fifo_read_enable <= '0';
-				device_chip_select <= '0';
-				device_write <= '0';
 				if request_xfer_to_device = '0' then
+					device_chip_select <= '0';
+					device_write <= '0';
 					xfer_to_device_pending <= '0';
 				end if;
 			end if;
@@ -226,22 +232,6 @@ begin
 					end if;
 			end case;
 
-			-- handle our dma requests to host
-			if host_to_gpib_request_enable = '1' and host_to_gpib_fifo_full = '0' then
-				if host_write_selected = '0' and host_to_gpib_fifo_write_enable = '0' then
-					host_to_gpib_dma_request <= '1';
-				end if;
-			else
-				host_to_gpib_dma_request <= '0';
-			end if;			
-			if (gpib_to_host_request_enable = '1' and gpib_to_host_fifo_empty = '0') then
-				if host_read_selected = '0' and gpib_to_host_fifo_read_enable = '0' then
-					gpib_to_host_dma_request <= '1';
-				end if;
-			else
-				gpib_to_host_dma_request <= '0';
-			end if;
-			
 			-- clear fifo resets after they are set by hard or soft reset
 			if host_to_gpib_fifo_reset = '1' then
 				host_to_gpib_fifo_reset <= '0';

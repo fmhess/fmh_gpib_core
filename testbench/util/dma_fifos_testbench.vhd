@@ -133,22 +133,43 @@ begin
 		-- enable host-to-gpib dma requests
 		host_write("1", "00000001");
 		
-		-- write some data in response to dma requests
-		for i in 0 to 9 loop
+		-- host-to-gpib fast write slow reads tests fifo full behavior
+		for i in 16#0# to 16#f# loop
 			if dma_request = '0' then
 				wait until dma_request = '1';
 			end if;
+			wait_for_ticks(1);
 			host_write("0", std_logic_vector(to_unsigned(i, 8)));
 		end loop;
 		
+		-- host-to-gpib slow write fast reads tests fifo empty behavior
+		for i in 16#10# to 16#1f# loop
+			if dma_request = '0' then
+				wait until dma_request = '1';
+			end if;
+			wait_for_ticks(5);
+			host_write("0", std_logic_vector(to_unsigned(i, 8)));
+		end loop;
+
 		-- enable gpib-to-host dma requests
 		host_write("1", "00010000");
-		--read some data in response to dma requests
-		for i in 16#10# to 16#19# loop
+
+		-- gpib-to-host fast write slow read tests fifo full behavior
+		for i in 16#20# to 16#2f# loop
 			if dma_request = '0' then
 				wait until dma_request = '1';
 			end if;
 			wait_for_ticks(5); -- slow down response to let fifo gradually fill up
+			host_read("0", host_read_result);
+			assert host_read_result = std_logic_vector(to_unsigned(i, 8));
+		end loop;
+
+		-- gpib-to-host slow write fast read tests fifo empty behavior
+		for i in 16#30# to 16#3f# loop
+			if dma_request = '0' then
+				wait until dma_request = '1';
+			end if;
+			wait_for_ticks(1);
 			host_read("0", host_read_result);
 			assert host_read_result = std_logic_vector(to_unsigned(i, 8));
 		end loop;
@@ -169,31 +190,65 @@ begin
 		wait until reset = '0';
 		wait_for_ticks(1);
 		
-		-- make some dma requests for host to write data to us
-		for i in 0 to 9 loop
+		-- host-to-gpib fast write slow reads to test fifo full behavior
+		for i in 16#0# to 16#f# loop
 			request_xfer_to_device <= '1';
 			if device_chip_select = '0' or device_write = '0' then
 				wait until device_chip_select = '1' and device_write = '1';
 			end if;
+			wait_for_ticks(1);
 			request_xfer_to_device <= '0';
 			wait_for_ticks(6); -- slow down reads so host fills up fifo and has to wait
 			assert device_data_out = std_logic_vector(to_unsigned(i, 8));
 			if device_chip_select = '1' and device_write = '1' then
 				wait until device_chip_select = '0' or device_write = '0';
 			end if;
+			wait_for_ticks(1);
 		end loop;
 
-		-- make some dma requests for host to read data from us
-		for i in 16#10# to 16#19# loop
+		-- host-to-gpib slow write fast reads to test fifo empty behavior
+		for i in 16#10# to 16#1f# loop
+			request_xfer_to_device <= '1';
+			if device_chip_select = '0' or device_write = '0' then
+				wait until device_chip_select = '1' and device_write = '1';
+			end if;
+			wait_for_ticks(1);
+			request_xfer_to_device <= '0';
+			assert device_data_out = std_logic_vector(to_unsigned(i, 8));
+			if device_chip_select = '1' and device_write = '1' then
+				wait until device_chip_select = '0' or device_write = '0';
+			end if;
+			wait_for_ticks(1);
+		end loop;
+
+		-- gpib-to-host fast write slow reads to test fifo full behavior
+		for i in 16#20# to 16#2f# loop
 			request_xfer_from_device <= '1';
 			if device_chip_select = '0' or device_read = '0' then
 				wait until device_chip_select = '1' and device_read = '1';
 			end if;
+			wait_for_ticks(1);
 			request_xfer_from_device <= '0';
 			device_data_in <= std_logic_vector(to_unsigned(i, 8)); 
 			if device_chip_select = '1' and device_read = '1' then
 				wait until device_chip_select = '0' or device_read = '0';
 			end if;
+			wait_for_ticks(1);
+		end loop;
+
+		-- gpib-to-host slow write fast reads to test fifo full behavior
+		for i in 16#30# to 16#3f# loop
+			request_xfer_from_device <= '1';
+			if device_chip_select = '0' or device_read = '0' then
+				wait until device_chip_select = '1' and device_read = '1';
+			end if;
+			wait_for_ticks(1);
+			request_xfer_from_device <= '0';
+			device_data_in <= std_logic_vector(to_unsigned(i, 8)); 
+			if device_chip_select = '1' and device_read = '1' then
+				wait until device_chip_select = '0' or device_read = '0';
+			end if;
+			wait_for_ticks(1);
 		end loop;
 
 		assert false report "end of device process" severity note;
