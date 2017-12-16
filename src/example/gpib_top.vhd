@@ -79,6 +79,10 @@ architecture structural of gpib_top is
 	signal cb7210p2_dma_read_inverted : std_logic;
 	signal cb7210p2_dma_write_inverted : std_logic;
 	signal cb7210p2_dma_ack_inverted : std_logic;
+	signal cb7210p2_dma_in_request : std_logic;
+	signal cb7210p2_dma_out_request : std_logic;
+	signal cb7210p2_dma_data_in : std_logic_vector(7 downto 0);
+	signal cb7210p2_dma_data_out : std_logic_vector(7 downto 0);
 	
 	signal fifo_host_to_gpib_dma_request : std_logic;
 	signal fifo_gpib_to_host_dma_request : std_logic;
@@ -160,7 +164,7 @@ begin
 			outputs(7) => filtered_SRQ
 		);
 	
-	my_dma_fifos : entity work.dma_fifs
+	my_dma_fifos : entity work.dma_fifos
 		generic map(fifo_depth => 4)
 		port map(
 			clock => clock,
@@ -175,9 +179,9 @@ begin
 			gpib_to_host_dma_request => fifo_gpib_to_host_dma_request,
 			request_xfer_to_device => cb7210p2_dma_in_request,
 			request_xfer_from_device => cb7210p2_dma_out_request,
-			device_chip_select => "not" cb7210p2_dma_ack_inverted,
-			device_read => "not" cb7210p2_dma_read_inverted,
-			device_write => "not" cb7210p2_dma_write_inverted,
+			device_chip_select => "not"(cb7210p2_dma_ack_inverted),
+			device_read => "not"(cb7210p2_dma_read_inverted),
+			device_write => "not"(cb7210p2_dma_write_inverted),
 			device_data_in => cb7210p2_dma_data_in,
 			device_data_out => cb7210p2_dma_data_out
 		);
