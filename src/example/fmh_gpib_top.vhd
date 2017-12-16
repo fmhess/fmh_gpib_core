@@ -76,6 +76,9 @@ architecture structural of gpib_top is
 	
 	signal cb7210p2_dma_bus_in_request : std_logic;
 	signal cb7210p2_dma_bus_out_request : std_logic;
+	signal cb7210p2_dma_read : std_logic;
+	signal cb7210p2_dma_write : std_logic;
+	signal cb7210p2_dma_ack : std_logic;
 	signal cb7210p2_dma_read_inverted : std_logic;
 	signal cb7210p2_dma_write_inverted : std_logic;
 	signal cb7210p2_dma_ack_inverted : std_logic;
@@ -179,9 +182,9 @@ begin
 			gpib_to_host_dma_request => fifo_gpib_to_host_dma_request,
 			request_xfer_to_device => cb7210p2_dma_in_request,
 			request_xfer_from_device => cb7210p2_dma_out_request,
-			device_chip_select => "not"(cb7210p2_dma_ack_inverted),
-			device_read => "not"(cb7210p2_dma_read_inverted),
-			device_write => "not"(cb7210p2_dma_write_inverted),
+			device_chip_select => cb7210p2_dma_ack,
+			device_read => cb7210p2_dma_read,
+			device_write => cb7210p2_dma_write,
 			device_data_in => cb7210p2_dma_data_in,
 			device_data_out => cb7210p2_dma_data_out
 		);
@@ -231,26 +234,26 @@ begin
 			gpib_DIO_inverted_out => ungated_DIO_inverted_out
 		);
 
-	dma_count_dout <= std_logic_vector(dma_count);
+	dma_count_data_out <= std_logic_vector(dma_count);
 
 	-- sync reset deassertion
-	process (reset, clk)
+	process (reset, clock)
 	begin
 		if to_X01(reset) = '1' then
 			safe_reset <= '1';
-		elsif rising_edge(clk) then
+		elsif rising_edge(clock) then
 			safe_reset <= '0';
 		end if;
 	end process;
 	
 	-- dma transfer counter (at interfact between fifos and gpib chip)
-	process(safe_reset, clk) is
+	process(safe_reset, clock) is
 		variable prev_cb7210p2_dma_ack_inverted : std_logic;
 	begin
 		if safe_reset = '1' then
 			dma_count <= (others => '0');
 			prev_cb7210p2_dma_ack_inverted := '1';
-		elsif rising_edge(clk) then
+		elsif rising_edge(clock) then
 			-- Reset counter when written to.
 			if (dma_count_chip_select = '1') and (dma_count_write = '1') then
 				dma_count <= (others => '0');
@@ -263,7 +266,7 @@ begin
 	end process;
 
 	-- handle gating by gpib_disable
-	process (safe_reset, clk)
+	process (safe_reset, clock)
 	begin
 		if to_X01(safe_reset) = '1' then
 			-- inputs
@@ -280,7 +283,7 @@ begin
 			gpib_te <= '0';
 			gpib_pe <= '0';
 			gpib_dc <= '0';
-		elsif rising_edge(clk) then
+		elsif rising_edge(clock) then
 			if to_X01(gpib_disable) = '1' then
 				-- inputs
 				gated_ATN <= '1';
@@ -325,4 +328,8 @@ begin
 	gpib_ren <= 'Z' when gpib_disable = '1' else ungated_REN_inverted_out;
 	gpib_srq <= 'Z' when gpib_disable = '1' else ungated_SRQ_inverted_out;
 	
+	cb7210p2_dma_read_inverted <= not cb7210p2_dma_read;
+	cb7210p2_dma_write_inverted <= not cb7210p2_dma_write;
+	cb7210p2_dma_ack_inverted <= not cb7210p2_dma_ack;
+
 end architecture structural;
