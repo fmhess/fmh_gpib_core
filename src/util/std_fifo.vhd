@@ -46,11 +46,15 @@ begin
 				
 				Full  <= '0';
 				Empty <= '1';
+				DataOut <= (others => '0');
+				for i in 0 to FIFO_DEPTH - 1 loop
+					Memory(i) := (others => '0');
+				end loop;
 			else
+				-- Unconditionally update data output for zero latency reads
+				DataOut <= Memory(Tail);
 				if (ReadEn = '1') then
 					if ((Looped = true) or (Head /= Tail)) then
-						-- Update data output
-						DataOut <= Memory(Tail);
 						
 						-- Update Tail pointer as needed
 						if (Tail = FIFO_DEPTH - 1) then

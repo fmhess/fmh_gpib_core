@@ -47,13 +47,31 @@ package test_common is
 	procedure host_write (addr: in std_logic_vector;
 		byte : in std_logic_vector(7 downto 0);
 		signal clock : in std_logic;
-		signal chip_select_inverted : in std_logic;
+		signal chip_select : out std_logic;
 		signal address : out std_logic_vector;
-		signal write_inverted : in std_logic;
+		signal write : out std_logic;
+		signal host_data_bus : out std_logic_vector(7 downto 0);
+		invert_cs_etc : in std_logic
+	);
+	procedure host_write (addr: in std_logic_vector;
+		byte : in std_logic_vector(7 downto 0);
+		signal clock : in std_logic;
+		signal chip_select_inverted : out std_logic;
+		signal address : out std_logic_vector;
+		signal write_inverted : out std_logic;
 		signal host_data_bus : out std_logic_vector(7 downto 0)
 	);
 
 	-- read a byte from device register
+	procedure host_read (addr: in std_logic_vector;
+		result: out std_logic_vector(7 downto 0);
+		signal clock : in std_logic;
+		signal chip_select : out std_logic;
+		signal address : out std_logic_vector;
+		signal read : out std_logic;
+		signal host_data_bus : in std_logic_vector(7 downto 0);
+		invert_cs_etc : in std_logic
+	);
 	procedure host_read (addr: in std_logic_vector;
 		result: out std_logic_vector(7 downto 0);
 		signal clock : in std_logic;
@@ -177,27 +195,66 @@ package body test_common is
 	procedure host_write (addr: in std_logic_vector;
 		byte : in std_logic_vector(7 downto 0);
 		signal clock : in std_logic;
+		signal chip_select : out std_logic;
+		signal address : out std_logic_vector;
+		signal write : out std_logic;
+		signal host_data_bus : out std_logic_vector(7 downto 0);
+		invert_cs_etc : in std_logic
+	) is
+	begin
+		wait until rising_edge(clock);
+		write <= '1' xor invert_cs_etc;
+		chip_select <= '1' xor invert_cs_etc;
+		address <= addr;
+		host_data_bus <= byte;
+		wait_for_ticks(1, clock);
+
+		write <= '0' xor invert_cs_etc;
+		chip_select <= '0' xor invert_cs_etc;
+		for i in address'LOW to address'HIGH loop
+			address(i) <= '0';
+		end loop;
+		host_data_bus <= (others => '0');
+		wait until rising_edge(clock);
+	end procedure host_write;
+
+	procedure host_write (addr: in std_logic_vector;
+		byte : in std_logic_vector(7 downto 0);
+		signal clock : in std_logic;
 		signal chip_select_inverted : out std_logic;
 		signal address : out std_logic_vector;
 		signal write_inverted : out std_logic;
 		signal host_data_bus : out std_logic_vector(7 downto 0)
 	) is
 	begin
+		host_write(addr, byte, clock, chip_select_inverted, address, 
+			write_inverted, host_data_bus, '1');
+	end host_write;
+	
+	procedure host_read (addr: in std_logic_vector;
+		result: out std_logic_vector(7 downto 0);
+		signal clock : in std_logic;
+		signal chip_select : out std_logic;
+		signal address : out std_logic_vector;
+		signal read : out std_logic;
+		signal host_data_bus : in std_logic_vector(7 downto 0);
+		invert_cs_etc : in std_logic
+	) is
+	begin
 		wait until rising_edge(clock);
-		write_inverted <= '0';
-		chip_select_inverted <= '0';
+		read <= '1' xor invert_cs_etc;
+		chip_select <= '1' xor invert_cs_etc;
 		address <= addr;
-		host_data_bus <= byte;
-		wait_for_ticks(1, clock);
+		wait_for_ticks(2, clock);
 
-		write_inverted <= '1';
-		chip_select_inverted <= '1';
+		read <= '0' xor invert_cs_etc;
+		chip_select <= '0' xor invert_cs_etc;
 		for i in address'LOW to address'HIGH loop
 			address(i) <= '0';
 		end loop;
-		host_data_bus <= (others => 'Z');
+		result := host_data_bus;
 		wait until rising_edge(clock);
-	end procedure host_write;
+	end procedure host_read;
 
 	procedure host_read (addr: in std_logic_vector;
 		result: out std_logic_vector(7 downto 0);
@@ -208,18 +265,8 @@ package body test_common is
 		signal host_data_bus : in std_logic_vector(7 downto 0)
 	) is
 	begin
-		wait until rising_edge(clock);
-		read_inverted <= '0';
-		chip_select_inverted <= '0';
-		address <= addr;
-		wait_for_ticks(2, clock);
-
-		read_inverted <= '1';
-		chip_select_inverted <= '1';
-		for i in address'LOW to address'HIGH loop
-			address(i) <= '0';
-		end loop;
-		result := host_data_bus;
-		wait until rising_edge(clock);
-	end procedure host_read;
+		host_read(addr, result, clock, chip_select_inverted,
+			address, read_inverted, host_data_bus, '1');
+	end host_read;
+	
 end package body test_common;

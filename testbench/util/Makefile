@@ -1,5 +1,7 @@
 .PHONY: all
-all: gpib_transceiver_testbench.fst std_fifo_testbench.fst
+all: gpib_transceiver_testbench.fst \
+	std_fifo_testbench.fst \
+	dma_fifos_testbench.fst
 
 GPIB_TRANSCEIVER_TEST_SRC = \
 	../../src/util/gpib_transceiver.vhd \
@@ -16,6 +18,15 @@ std_fifo_testbench.fst: $(STD_FIFO_TEST_SRC)
 	nvc -a $(STD_FIFO_TEST_SRC)
 	nvc -e std_fifo_testbench
 	nvc -r std_fifo_testbench --wave
+
+DMA_FIFOS_TEST_SRC = \
+	../../src/util/dma_fifos.vhd \
+	../test_common.vhd \
+	dma_fifos_testbench.vhd
+dma_fifos_testbench.fst: $(DMA_FIFOS_TEST_SRC)
+	nvc -a $(DMA_FIFOS_TEST_SRC)
+	nvc -e dma_fifos_testbench
+	nvc -r dma_fifos_testbench --wave
 
 .PHONY: clean
 clean:

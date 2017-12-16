@@ -17,7 +17,7 @@ use work.frontend_cb7210p2;
 entity gpib_top is
 	port (
 		clk : in std_logic;
-		reset : in  std_logic; -- inverted
+		reset : in  std_logic;
 
 		-- gpib chip registers, avalon mm io port
 		avalon_cs : in std_logic; -- inverted
@@ -78,7 +78,6 @@ architecture structural of gpib_top is
 	signal cb7210p2_dma_ack_inverted : std_logic;
 	
 	signal dma_count: unsigned (10 downto 0); -- Count of bytes into 7210.
-	signal gpib_reset  : std_logic; -- Invert reset signal to GPIB
 	signal dma_transfer_active : std_logic;
 	
 	signal filtered_ATN : std_logic;
@@ -120,7 +119,7 @@ begin
 	my_dma_translator : entity work.dma_translator_cb7210p2_to_pl330
 		port map (
 			clock => clk,
-			reset => gpib_reset,
+			reset => safe_reset,
 			pl330_dma_ack => dma_ack,
 			pl330_dma_single => dma_single,
 			pl330_dma_req => dma_req,
@@ -134,7 +133,7 @@ begin
 			threshold => 10
 		)
 		port map(
-			reset => gpib_reset,
+			reset => safe_reset,
 			input_clock => clk,
 			output_clock => clk,
 			inputs(0) => gpib_atn,
@@ -161,13 +160,13 @@ begin
 			clock_frequency_KHz => 60000)
 		port map (
 			clock => clk,
+			reset => safe_reset,
 			chip_select_inverted => avalon_cs,
 			dma_bus_in_ack_inverted => cb7210p2_dma_ack_inverted,
 			dma_bus_out_ack_inverted => cb7210p2_dma_ack_inverted,
 			dma_read_inverted => cb7210p2_dma_read_inverted,
 			dma_write_inverted => cb7210p2_dma_write_inverted,
 			read_inverted => avalon_rd,
-			reset => gpib_reset,
 			address => avalon_addr(2 downto 0),
 			write_inverted => avalon_wr,
 			host_data_bus_in => avalon_din,
@@ -200,17 +199,15 @@ begin
 			gpib_DIO_inverted_out => ungated_DIO_inverted_out
 		);
 
-	gpib_reset <= not safe_reset;
-
 	dma_count_dout <= std_logic_vector(dma_count);
 
 	-- sync reset deassertion
 	process (reset, clk)
 	begin
-		if to_X01(reset) = '0' then
-			safe_reset <= '0';
-		elsif rising_edge(clk) then
+		if to_X01(reset) = '1' then
 			safe_reset <= '1';
+		elsif rising_edge(clk) then
+			safe_reset <= '0';
 		end if;
 	end process;
 	
@@ -218,7 +215,7 @@ begin
 	process(safe_reset, clk) is
 		variable prev_dma_cs : std_logic;
 	begin
-		if safe_reset = '0' then
+		if safe_reset = '1' then
 			dma_count <= (others => '0');
 			prev_dma_cs := '1';
 		elsif rising_edge(clk) then
@@ -236,7 +233,7 @@ begin
 	-- handle gating by gpib_disable
 	process (safe_reset, clk)
 	begin
-		if to_X01(safe_reset) = '0' then
+		if to_X01(safe_reset) = '1' then
 			-- inputs
 			gated_ATN <= '1';
 			gated_DAV <= '1';
