@@ -235,7 +235,9 @@ begin
 				host_to_gpib_dma_request <= '0';
 			end if;			
 			if (gpib_to_host_request_enable = '1' and gpib_to_host_fifo_empty = '0') then
-				gpib_to_host_dma_request <= '1';
+				if host_read_selected = '0' and gpib_to_host_fifo_read_enable = '0' then
+					gpib_to_host_dma_request <= '1';
+				end if;
 			else
 				gpib_to_host_dma_request <= '0';
 			end if;
