@@ -82,8 +82,6 @@ architecture structural of gpib_top is
 	signal cb7210p2_dma_read_inverted : std_logic;
 	signal cb7210p2_dma_write_inverted : std_logic;
 	signal cb7210p2_dma_ack_inverted : std_logic;
-	signal cb7210p2_dma_in_request : std_logic;
-	signal cb7210p2_dma_out_request : std_logic;
 	signal cb7210p2_dma_data_in : std_logic_vector(7 downto 0);
 	signal cb7210p2_dma_data_out : std_logic_vector(7 downto 0);
 	
@@ -180,13 +178,13 @@ begin
 			host_data_out => dma_fifos_data_out,
 			host_to_gpib_dma_request => fifo_host_to_gpib_dma_request,
 			gpib_to_host_dma_request => fifo_gpib_to_host_dma_request,
-			request_xfer_to_device => cb7210p2_dma_in_request,
-			request_xfer_from_device => cb7210p2_dma_out_request,
+			request_xfer_to_device => cb7210p2_dma_bus_in_request,
+			request_xfer_from_device => cb7210p2_dma_bus_out_request,
 			device_chip_select => cb7210p2_dma_ack,
 			device_read => cb7210p2_dma_read,
 			device_write => cb7210p2_dma_write,
-			device_data_in => cb7210p2_dma_data_in,
-			device_data_out => cb7210p2_dma_data_out
+			device_data_in => cb7210p2_dma_data_out,
+			device_data_out => cb7210p2_dma_data_in
 		);
 		
 	my_cb7210p2 : entity work.frontend_cb7210p2
