@@ -462,7 +462,6 @@ begin
 	
 	-- accept reads from host
 	process (soft_reset, clock)
-		variable prev_acceptor_handshake_state : AH_state;
 		variable prev_controller_state_p2 : C_state_p2;
 		variable prev_source_handshake_state : SH_state;
 		variable prev_in_remote_state : std_logic;
@@ -756,7 +755,6 @@ begin
 			gpib_to_host_dma_state <= dma_idle;
 			dma_bus_out_request <= 'L';
 			dma_bus_out <= (others => '0');
-			prev_acceptor_handshake_state := AIDS;
 			prev_controller_state_p2 := CSNS;
 			prev_source_handshake_state := SIDS;
 			prev_in_remote_state := '0';
@@ -932,7 +930,6 @@ begin
 				IFC_interrupt <= '1';
 			end if;
 
-			prev_acceptor_handshake_state := acceptor_handshake_state;
 			prev_controller_state_p2 := controller_state_p2;
 			prev_source_handshake_state := source_handshake_state;
 			prev_in_remote_state := in_remote_state;
