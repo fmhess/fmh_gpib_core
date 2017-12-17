@@ -234,8 +234,8 @@ begin
 			gpib_DIO_inverted_out => ungated_DIO_inverted_out
 		);
 
-	dma_count_data_out <= ((10 downto 0) => std_logic_vector(dma_count),
-		others => '0');
+	dma_count_data_out(15 downto 11) <= (others => '0');
+	dma_count_data_out(10 downto 0) <= std_logic_vector(dma_count);
 
 	-- sync reset deassertion
 	process (reset, clock)
