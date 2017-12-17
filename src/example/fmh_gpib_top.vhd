@@ -47,8 +47,8 @@ entity gpib_top is
 		dma_count_chip_select : in std_logic;
 		dma_count_read : in  std_logic;
 		dma_count_write : in  std_logic;
-		dma_count_data_in : in  std_logic_vector(10 downto 0);
-		dma_count_data_out : out std_logic_vector(10 downto 0);
+		dma_count_data_in : in  std_logic_vector(15 downto 0);
+		dma_count_data_out : out std_logic_vector(15 downto 0);
 
 		-- gpib bus
 		gpib_data : inout std_logic_vector (7 downto 0);
@@ -234,7 +234,8 @@ begin
 			gpib_DIO_inverted_out => ungated_DIO_inverted_out
 		);
 
-	dma_count_data_out <= std_logic_vector(dma_count);
+	dma_count_data_out <= ((10 downto 0) => std_logic_vector(dma_count),
+		others => '0');
 
 	-- sync reset deassertion
 	process (reset, clock)
