@@ -1,6 +1,8 @@
--- this fifo code is based on public domain code from
+-- This fifo code is based on public domain code from
 -- http://www.deathbylogic.com/2013/07/vhdl-standard-fifo
---
+-- It has been modified to change the read enable into
+-- a read acknowledge, to support zero latency reads. All
+-- modifications are copyright Frank Mori Hess 2017
 
 library IEEE;
 USE IEEE.STD_LOGIC_1164.ALL;
@@ -16,7 +18,7 @@ entity STD_FIFO is
 		RST		: in  STD_LOGIC;
 		WriteEn	: in  STD_LOGIC;
 		DataIn	: in  STD_LOGIC_VECTOR (DATA_WIDTH - 1 downto 0);
-		ReadEn	: in  STD_LOGIC;
+		ReadAck	: in  STD_LOGIC;
 		DataOut	: out STD_LOGIC_VECTOR (DATA_WIDTH - 1 downto 0);
 		Empty	: out STD_LOGIC;
 		Full	: out STD_LOGIC
@@ -51,9 +53,7 @@ begin
 					Memory(i) := (others => '0');
 				end loop;
 			else
-				-- Unconditionally update data output for zero latency reads
-				DataOut <= Memory(Tail);
-				if (ReadEn = '1') then
+				if (ReadAck = '1') then
 					if ((Looped = true) or (Head /= Tail)) then
 						
 						-- Update Tail pointer as needed
@@ -73,7 +73,6 @@ begin
 					if ((Looped = false) or (Head /= Tail)) then
 						-- Write Data to Memory
 						Memory(Head) := DataIn;
-						DataOut <= Memory(Tail); -- update DataOut in case Head = Tail
 						
 						-- Increment Head pointer as needed
 						if (Head = FIFO_DEPTH - 1) then
@@ -86,6 +85,9 @@ begin
 					end if;
 				end if;
 				
+				-- Unconditionally update data output for zero latency reads
+				DataOut <= Memory(Tail);
+
 				-- Update Empty and Full flags
 				if (Head = Tail) then
 					if Looped then

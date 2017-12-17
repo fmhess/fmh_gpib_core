@@ -46,13 +46,13 @@ architecture dma_fifos_arch of dma_fifos is
 	signal host_to_gpib_fifo_write_enable : std_logic;
 	signal host_to_gpib_fifo_data_in : std_logic_vector(7 downto 0);
 	signal host_to_gpib_fifo_data_out : std_logic_vector(7 downto 0);
-	signal host_to_gpib_fifo_read_enable : std_logic;
+	signal host_to_gpib_fifo_read_ack : std_logic;
 	signal host_to_gpib_fifo_empty : std_logic;
 	signal host_to_gpib_fifo_full : std_logic;
 	
 	signal gpib_to_host_fifo_reset : std_logic;
 	signal gpib_to_host_fifo_write_enable : std_logic;
-	signal gpib_to_host_fifo_read_enable : std_logic;
+	signal gpib_to_host_fifo_read_ack : std_logic;
 	signal gpib_to_host_fifo_empty : std_logic;
 	signal gpib_to_host_fifo_full : std_logic;
 	signal gpib_to_host_fifo_data_out : std_logic_vector(7 downto 0);
@@ -75,7 +75,7 @@ begin
 			RST => host_to_gpib_fifo_reset,
 			WriteEn => host_to_gpib_fifo_write_enable,
 			DataIn => host_to_gpib_fifo_data_in,
-			ReadEn => host_to_gpib_fifo_read_enable,
+			ReadAck => host_to_gpib_fifo_read_ack,
 			DataOut => host_to_gpib_fifo_data_out,
 			Empty => host_to_gpib_fifo_empty,
 			Full => host_to_gpib_fifo_full
@@ -90,7 +90,7 @@ begin
 			RST => gpib_to_host_fifo_reset,
 			WriteEn => gpib_to_host_fifo_write_enable,
 			DataIn => device_data_in,
-			ReadEn => gpib_to_host_fifo_read_enable,
+			ReadAck => gpib_to_host_fifo_read_ack,
 			DataOut => gpib_to_host_fifo_data_out,
 			Empty => gpib_to_host_fifo_empty,
 			Full => gpib_to_host_fifo_full
@@ -121,7 +121,7 @@ begin
 		begin
 			case address is
 				when "0" => -- pop byte from gpib-to-host fifo
-					gpib_to_host_fifo_read_enable <= '1';
+					gpib_to_host_fifo_read_ack <= '1';
 					host_data_out <= gpib_to_host_fifo_data_out;
 				when "1" => -- host-to-gpib status register
 					host_data_out <= (
@@ -139,13 +139,13 @@ begin
 			host_to_gpib_fifo_reset <= '1';
 			host_to_gpib_fifo_write_enable <= '0';
 			host_to_gpib_request_enable <= '0';
-			host_to_gpib_fifo_read_enable <= '0';
+			host_to_gpib_fifo_read_ack <= '0';
 			host_to_gpib_fifo_data_in <= (others => '0');
 			host_to_gpib_dma_request <= '0';
 			host_data_out <= (others => '0');
 			
 			gpib_to_host_fifo_reset <= '1';
-			gpib_to_host_fifo_read_enable <= '0';
+			gpib_to_host_fifo_read_ack <= '0';
 			gpib_to_host_fifo_write_enable <= '0';
 			gpib_to_host_request_enable <= '0';
 			gpib_to_host_dma_request <= '0';
@@ -197,13 +197,13 @@ begin
 			if xfer_to_device_pending = '0' then
 				if request_xfer_to_device = '1' and host_to_gpib_fifo_empty = '0' then
 					xfer_to_device_pending <= '1';
-					host_to_gpib_fifo_read_enable <= '1';
+					host_to_gpib_fifo_read_ack <= '1';
 					device_data_out <= host_to_gpib_fifo_data_out;
 					device_chip_select <= '1';
 					device_write <= '1';
 				end if;
 			else -- xfer_to_device_pending = '1'
-				host_to_gpib_fifo_read_enable <= '0';
+				host_to_gpib_fifo_read_ack <= '0';
 				if request_xfer_to_device = '0' then
 					device_chip_select <= '0';
 					device_write <= '0';
@@ -239,14 +239,14 @@ begin
 				gpib_to_host_fifo_reset <= '0';
 			end if;
 			--clear various pulses
-			if host_to_gpib_fifo_read_enable = '1' then
-				host_to_gpib_fifo_read_enable <= '0';
+			if host_to_gpib_fifo_read_ack = '1' then
+				host_to_gpib_fifo_read_ack <= '0';
 			end if;
 			if host_to_gpib_fifo_write_enable = '1' then
 				host_to_gpib_fifo_write_enable <= '0';
 			end if;
-			if gpib_to_host_fifo_read_enable = '1' then
-				gpib_to_host_fifo_read_enable <= '0';
+			if gpib_to_host_fifo_read_ack = '1' then
+				gpib_to_host_fifo_read_ack <= '0';
 			end if;
 			if gpib_to_host_fifo_write_enable = '1' then
 				gpib_to_host_fifo_write_enable <= '0';
