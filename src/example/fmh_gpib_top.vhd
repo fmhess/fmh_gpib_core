@@ -15,7 +15,7 @@ use work.gpib_control_debounce_filter;
 use work.frontend_cb7210p2;
 use work.dma_fifos;
 
-entity gpib_top is
+entity fmh_gpib_top is
 	port (
 		clock : in std_logic;
 		reset : in  std_logic;
@@ -28,7 +28,7 @@ entity gpib_top is
 		avalon_data_in : in  std_logic_vector(7 downto 0);
 		avalon_data_out : out std_logic_vector(7 downto 0);
 
-		avalon_irq : out std_logic;
+		irq : out std_logic;
 
 		-- dma, avalon mm io port
 		dma_fifos_chip_select : in std_logic;
@@ -51,27 +51,27 @@ entity gpib_top is
 		dma_count_data_out : out std_logic_vector(15 downto 0);
 
 		-- gpib bus
-		gpib_data : inout std_logic_vector (7 downto 0);
-		gpib_atn : inout std_logic;
-		gpib_dav : inout std_logic;
-		gpib_eoi : inout std_logic;
-		gpib_ifc : inout std_logic;
-		gpib_nrfd : inout std_logic;
-		gpib_ndac : inout std_logic;
-		gpib_srq : inout std_logic;
-		gpib_ren : inout std_logic;
+		gpib_DIO_inverted : inout std_logic_vector (7 downto 0);
+		gpib_ATN_inverted : inout std_logic;
+		gpib_DAV_inverted : inout std_logic;
+		gpib_EOI_inverted : inout std_logic;
+		gpib_IFC_inverted : inout std_logic;
+		gpib_NRFD_inverted : inout std_logic;
+		gpib_NDAC_inverted : inout std_logic;
+		gpib_SRQ_inverted : inout std_logic;
+		gpib_REN_inverted : inout std_logic;
 
 		-- gpib transceiver control
-		gpib_pe : out std_logic;
-		gpib_dc : out std_logic;
-		gpib_te : out std_logic;
+		pullup_enable_inverted : out std_logic;
+		controller_in_charge : out std_logic;
+		talk_enable : out std_logic;
 
 		-- gpib bus disconnect
 		gpib_disable : in std_logic
 	);
-end gpib_top;
+end fmh_gpib_top;
 
-architecture structural of gpib_top is
+architecture structural of fmh_gpib_top is
 	signal safe_reset : std_logic;
 	
 	signal cb7210p2_dma_bus_in_request : std_logic;
@@ -88,7 +88,7 @@ architecture structural of gpib_top is
 	signal fifo_host_to_gpib_dma_request : std_logic;
 	signal fifo_gpib_to_host_dma_request : std_logic;
 	
-	signal dma_count: unsigned (10 downto 0); -- Count of bytes into 7210.
+	signal dma_count: unsigned (11 downto 0); -- Count of bytes in/out of 7210.
 	signal dma_transfer_active : std_logic;
 	
 	signal filtered_ATN : std_logic;
@@ -147,14 +147,14 @@ begin
 			reset => safe_reset,
 			input_clock => clock,
 			output_clock => clock,
-			inputs(0) => gpib_atn,
-			inputs(1) => gpib_dav,
-			inputs(2) => gpib_eoi,
-			inputs(3) => gpib_ifc,
-			inputs(4) => gpib_ndac,
-			inputs(5) => gpib_nrfd,
-			inputs(6) => gpib_ren,
-			inputs(7) => gpib_srq,
+			inputs(0) => gpib_ATN_inverted,
+			inputs(1) => gpib_DAV_inverted,
+			inputs(2) => gpib_EOI_inverted,
+			inputs(3) => gpib_IFC_inverted,
+			inputs(4) => gpib_NDAC_inverted,
+			inputs(5) => gpib_NRFD_inverted,
+			inputs(6) => gpib_REN_inverted,
+			inputs(7) => gpib_SRQ_inverted,
 			outputs(0) => filtered_ATN,
 			outputs(1) => filtered_DAV,
 			outputs(2) => filtered_EOI,
@@ -212,11 +212,11 @@ begin
 			gpib_NRFD_inverted_in => gated_NRFD,
 			gpib_REN_inverted_in => gated_REN,
 			gpib_SRQ_inverted_in => gated_SRQ,
-			gpib_DIO_inverted_in => gpib_data,
+			gpib_DIO_inverted_in => gpib_DIO_inverted,
 			tr1 => ungated_talk_enable,
 			not_controller_in_charge => ungated_not_controller_in_charge,
 			pullup_disable => ungated_pullup_disable,
-			interrupt => avalon_irq,
+			interrupt => irq,
 			dma_bus_in_request => cb7210p2_dma_bus_in_request,
 			dma_bus_out_request => cb7210p2_dma_bus_out_request,
 			host_data_bus_out => avalon_data_out,
@@ -232,8 +232,8 @@ begin
 			gpib_DIO_inverted_out => ungated_DIO_inverted_out
 		);
 
-	dma_count_data_out(15 downto 11) <= (others => '0');
-	dma_count_data_out(10 downto 0) <= std_logic_vector(dma_count);
+	dma_count_data_out(15 downto 12) <= (others => '0');
+	dma_count_data_out(11 downto 0) <= std_logic_vector(dma_count);
 
 	-- sync reset deassertion
 	process (reset, clock)
@@ -279,9 +279,9 @@ begin
 			gated_SRQ <= '1';
 
 			-- transceiver control
-			gpib_te <= '0';
-			gpib_pe <= '0';
-			gpib_dc <= '0';
+			talk_enable <= '0';
+			pullup_enable_inverted <= '0';
+			controller_in_charge <= '0';
 		elsif rising_edge(clock) then
 			if to_X01(gpib_disable) = '1' then
 				-- inputs
@@ -295,9 +295,9 @@ begin
 				gated_SRQ <= '1';
 
 				-- transceiver control
-				gpib_te <= '0';
-				gpib_pe <= '0';
-				gpib_dc <= '0';
+				talk_enable <= '0';
+				pullup_enable_inverted <= '0';
+				controller_in_charge <= '0';
 			else
 				-- inputs
  				gated_ATN <= filtered_ATN;
@@ -310,22 +310,22 @@ begin
  				gated_SRQ <= filtered_SRQ;
 
 				-- transceiver control
-				gpib_te <= ungated_talk_enable;
-				gpib_pe <= ungated_pullup_disable;
-				gpib_dc <= not ungated_not_controller_in_charge;
+				talk_enable <= ungated_talk_enable;
+				pullup_enable_inverted <= ungated_pullup_disable;
+				controller_in_charge <= not ungated_not_controller_in_charge;
 			end if;
 		end if;
 	end process;
 
-	gpib_data <= (others => 'Z') when gpib_disable = '1' else ungated_DIO_inverted_out;
-	gpib_atn <= 'Z' when gpib_disable = '1' else ungated_ATN_inverted_out;
-	gpib_dav <= 'Z' when gpib_disable = '1' else ungated_DAV_inverted_out;
-	gpib_eoi <= 'Z' when gpib_disable = '1' else ungated_EOI_inverted_out;
-	gpib_ifc <= 'Z' when gpib_disable = '1' else ungated_IFC_inverted_out;
-	gpib_ndac <= 'Z' when gpib_disable = '1' else ungated_NDAC_inverted_out;
-	gpib_nrfd <= 'Z' when gpib_disable = '1' else ungated_NRFD_inverted_out;
-	gpib_ren <= 'Z' when gpib_disable = '1' else ungated_REN_inverted_out;
-	gpib_srq <= 'Z' when gpib_disable = '1' else ungated_SRQ_inverted_out;
+	gpib_DIO_inverted <= (others => 'Z') when gpib_disable = '1' else ungated_DIO_inverted_out;
+	gpib_ATN_inverted <= 'Z' when gpib_disable = '1' else ungated_ATN_inverted_out;
+	gpib_DAV_inverted <= 'Z' when gpib_disable = '1' else ungated_DAV_inverted_out;
+	gpib_EOI_inverted <= 'Z' when gpib_disable = '1' else ungated_EOI_inverted_out;
+	gpib_IFC_inverted <= 'Z' when gpib_disable = '1' else ungated_IFC_inverted_out;
+	gpib_NDAC_inverted <= 'Z' when gpib_disable = '1' else ungated_NDAC_inverted_out;
+	gpib_NRFD_inverted <= 'Z' when gpib_disable = '1' else ungated_NRFD_inverted_out;
+	gpib_REN_inverted <= 'Z' when gpib_disable = '1' else ungated_REN_inverted_out;
+	gpib_SRQ_inverted <= 'Z' when gpib_disable = '1' else ungated_SRQ_inverted_out;
 	
 	cb7210p2_dma_read_inverted <= not cb7210p2_dma_read;
 	cb7210p2_dma_write_inverted <= not cb7210p2_dma_write;
