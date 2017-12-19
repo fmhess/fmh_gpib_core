@@ -161,7 +161,7 @@ begin
 		);
 	
 	my_dma_fifos : entity work.dma_fifos
-		generic map(fifo_depth => 4)
+		generic map(fifo_depth => 16)
 		port map(
 			clock => clock,
 			reset => safe_reset,

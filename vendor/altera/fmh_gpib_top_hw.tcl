@@ -72,7 +72,6 @@ add_fileset_file std_fifo.vhd VHDL PATH ../../src/util/std_fifo.vhd
 set_module_assignment embeddedsw.dts.group gpib
 set_module_assignment embeddedsw.dts.name fmh_gpib_core
 set_module_assignment embeddedsw.dts.params.dma-channel 0
-set_module_assignment embeddedsw.dts.params.reg-shift 4
 set_module_assignment embeddedsw.dts.vendor fmhess
 
 
