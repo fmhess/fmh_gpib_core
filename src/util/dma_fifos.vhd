@@ -108,6 +108,7 @@ begin
 				when "0" => -- push byte into host-to-gpib fifo
 					host_to_gpib_fifo_data_in <= data;
 					host_to_gpib_fifo_write_enable <= '1';
+					host_to_gpib_dma_request <= '0';
 				when "1" => -- control register
 					host_to_gpib_request_enable <= data(0);
 					host_to_gpib_fifo_reset <= data(1);
@@ -123,6 +124,7 @@ begin
 				when "0" => -- pop byte from gpib-to-host fifo
 					gpib_to_host_fifo_read_ack <= '1';
 					host_data_out <= gpib_to_host_fifo_data_out;
+					gpib_to_host_dma_request <= '0';
 				when "1" => -- host-to-gpib status register
 					host_data_out <= (
 						0 => host_to_gpib_fifo_empty,
@@ -167,7 +169,6 @@ begin
 				if host_write_selected = '1' then
 					host_write_pending <= '1';
 					handle_host_write(host_address, host_data_in);
-					host_to_gpib_dma_request <= '0';
 				elsif host_to_gpib_request_enable = '1' and host_to_gpib_fifo_full = '0' then
 					host_to_gpib_dma_request <= '1';
 				end if;
@@ -183,7 +184,6 @@ begin
 				if host_read_selected = '1' then
 					host_read_pending <= '1';
 					handle_host_read(host_address);
-					gpib_to_host_dma_request <= '0';
 				elsif (gpib_to_host_request_enable = '1' and gpib_to_host_fifo_empty = '0') then
 					gpib_to_host_dma_request <= '1';
 				end if;

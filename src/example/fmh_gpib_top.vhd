@@ -145,8 +145,8 @@ begin
 	
 	my_debounce_filter : entity work.gpib_control_debounce_filter
 		generic map(
-			length => 12,
-			threshold => 10
+			length => 6,
+			threshold => 5
 		)
 		port map(
 			reset => safe_reset,
