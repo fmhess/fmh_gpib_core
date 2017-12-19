@@ -4,7 +4,7 @@
 -- It puts a small fifo between the cb7210 dma port and the bus to
 -- prevent dma latency from becoming a bottleneck.
 -- There is also a "gpib_disable" input which disconnects the
--- gpib chip from the gpib bus, and a transfer counter.
+-- gpib chip from the gpib bus.
 -- The registers are shifted to be 32 bit aligned (the two LSB
 -- of the address inputs are ignored).
 --
@@ -37,23 +37,16 @@ entity fmh_gpib_top is
 
 		-- dma, avalon mm io port
 		dma_fifos_chip_select : in std_logic;
-		dma_fifos_address : in std_logic_vector(2 downto 0);
+		dma_fifos_address : in std_logic_vector(3 downto 0);
 		dma_fifos_read : in std_logic;
 		dma_fifos_write : in std_logic;
-		dma_fifos_data_in : in  std_logic_vector(7 downto 0);
-		dma_fifos_data_out : out std_logic_vector(7 downto 0);
+		dma_fifos_data_in : in  std_logic_vector(15 downto 0);
+		dma_fifos_data_out : out std_logic_vector(15 downto 0);
 
 		-- dma peripherial request
 		dma_single : out std_logic;
 		dma_req : out std_logic;
 		dma_ack : in  std_logic;
-
-		-- transfer counter, avalon mm io port
-		dma_count_chip_select : in std_logic;
-		dma_count_read : in  std_logic;
-		dma_count_write : in  std_logic;
-		dma_count_data_in : in  std_logic_vector(15 downto 0);
-		dma_count_data_out : out std_logic_vector(15 downto 0);
 
 		-- gpib bus
 		gpib_DIO_inverted : inout std_logic_vector (7 downto 0);
@@ -93,7 +86,6 @@ architecture structural of fmh_gpib_top is
 	signal fifo_host_to_gpib_dma_request : std_logic;
 	signal fifo_gpib_to_host_dma_request : std_logic;
 	
-	signal dma_count: unsigned (11 downto 0); -- Count of bytes in/out of 7210.
 	signal dma_transfer_active : std_logic;
 	
 	signal filtered_ATN_inverted : std_logic;
@@ -145,8 +137,8 @@ begin
 	
 	my_debounce_filter : entity work.gpib_control_debounce_filter
 		generic map(
-			length => 6,
-			threshold => 5
+			length => 12,
+			threshold => 10
 		)
 		port map(
 			reset => safe_reset,
@@ -175,7 +167,7 @@ begin
 		port map(
 			clock => clock,
 			reset => safe_reset,
-			host_address => dma_fifos_address(2 downto 2),
+			host_address => dma_fifos_address(3 downto 2),
 			host_chip_select => dma_fifos_chip_select,
 			host_read => dma_fifos_read,
 			host_write => dma_fifos_write,
@@ -237,9 +229,6 @@ begin
 			gpib_DIO_inverted_out => ungated_DIO_inverted_out
 		);
 
-	dma_count_data_out(15 downto 12) <= (others => '0');
-	dma_count_data_out(11 downto 0) <= std_logic_vector(dma_count);
-
 	-- sync reset deassertion
 	process (reset, clock)
 	begin
@@ -247,25 +236,6 @@ begin
 			safe_reset <= '1';
 		elsif rising_edge(clock) then
 			safe_reset <= '0';
-		end if;
-	end process;
-	
-	-- dma transfer counter (at interfact between fifos and gpib chip)
-	process(safe_reset, clock) is
-		variable prev_cb7210p2_dma_ack_inverted : std_logic;
-	begin
-		if safe_reset = '1' then
-			dma_count <= (others => '0');
-			prev_cb7210p2_dma_ack_inverted := '1';
-		elsif rising_edge(clock) then
-			-- Reset counter when written to.
-			if (dma_count_chip_select = '1') and (dma_count_write = '1') then
-				dma_count <= (others => '0');
-			-- count bytes on data transfer across dma bus port.
-			elsif cb7210p2_dma_ack_inverted = '1' and prev_cb7210p2_dma_ack_inverted = '0' then
-				dma_count <= dma_count + 1;
-			end if;
-			prev_cb7210p2_dma_ack_inverted := cb7210p2_dma_ack_inverted;
 		end if;
 	end process;
 

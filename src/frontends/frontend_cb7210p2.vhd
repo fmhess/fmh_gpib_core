@@ -815,9 +815,9 @@ begin
 						dma_bus_out <= gpib_to_host_byte;
 						gpib_to_host_byte_read <= '1';
 						gpib_to_host_dma_state <= dma_waiting_for_idle;
+						dma_bus_out_request <= 'L';
 					end if;
 				when dma_waiting_for_idle =>
-					dma_bus_out_request <= 'L';
 					if dma_read_selected = '0' then
 						gpib_to_host_dma_state <= dma_idle;
 					end if;
@@ -1379,7 +1379,6 @@ begin
 			-- host to gpib dma state machine
 			case host_to_gpib_dma_state is
 				when dma_idle =>
-					dma_bus_in_request <= 'L';
 					if DMA_output_enable = '1' and host_to_gpib_data_byte_latched = '0' then
 						dma_bus_in_request <= '1';
 					else
@@ -1388,9 +1387,9 @@ begin
 					if dma_write_selected = '1' then
 						write_host_to_gpib_data_byte(dma_bus_in);
 						host_to_gpib_dma_state <= dma_waiting_for_idle;
+						dma_bus_in_request <= 'L';
 					end if;
 				when dma_waiting_for_idle =>
-					dma_bus_in_request <= 'L';
 					if dma_write_selected = '0' then
 						host_to_gpib_dma_state <= dma_idle;
 					end if;

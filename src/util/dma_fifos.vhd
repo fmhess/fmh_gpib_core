@@ -18,12 +18,12 @@ entity dma_fifos is
 		reset : in std_logic;
 		
 		-- host bus port
-		host_address : in std_logic_vector(0 downto 0);
+		host_address : in std_logic_vector(1 downto 0);
 		host_chip_select : in std_logic;
 		host_read : in std_logic;
 		host_write : in std_logic;
-		host_data_in : in std_logic_vector(7 downto 0);
-		host_data_out : out std_logic_vector(7 downto 0);
+		host_data_in : in std_logic_vector(15 downto 0);
+		host_data_out : out std_logic_vector(15 downto 0);
 
 		host_to_gpib_dma_request : out std_logic;
 		gpib_to_host_dma_request : out std_logic;
@@ -40,7 +40,7 @@ entity dma_fifos is
 end dma_fifos;
  
 architecture dma_fifos_arch of dma_fifos is
-	constant num_address_lines : positive := 1;
+	constant num_address_lines : positive := 2;
 	
 	signal host_to_gpib_fifo_reset : std_logic;
 	signal host_to_gpib_fifo_write_enable : std_logic;
@@ -64,6 +64,8 @@ architecture dma_fifos_arch of dma_fifos is
 	signal xfer_from_device_state : xfer_from_device_enum;
 	signal host_to_gpib_request_enable : std_logic;
 	signal gpib_to_host_request_enable : std_logic;
+
+	signal xfer_count: unsigned (11 downto 0); -- Count of bytes in/out on the device side
 begin
 
 	host_to_gpib_fifo: entity work.std_fifo 
@@ -102,18 +104,20 @@ begin
 		variable host_read_selected : std_logic;
 
 		procedure handle_host_write(address : in std_logic_vector(num_address_lines - 1 downto 0); 
-			data : in std_logic_vector(7 downto 0)) is
+			data : in std_logic_vector(15 downto 0)) is
 		begin
 			case address is
-				when "0" => -- push byte into host-to-gpib fifo
-					host_to_gpib_fifo_data_in <= data;
+				when "00" => -- push byte into host-to-gpib fifo
+					host_to_gpib_fifo_data_in <= data(7 downto 0);
 					host_to_gpib_fifo_write_enable <= '1';
 					host_to_gpib_dma_request <= '0';
-				when "1" => -- control register
+				when "01" => -- control register
 					host_to_gpib_request_enable <= data(0);
 					host_to_gpib_fifo_reset <= data(1);
-					gpib_to_host_request_enable <= data(4);
-					gpib_to_host_fifo_reset <= data(5);
+					gpib_to_host_request_enable <= data(8);
+					gpib_to_host_fifo_reset <= data(9);
+				when "10" =>
+					xfer_count <= unsigned(data(11 downto 0));
 				when others =>
 			end case;
 		end handle_host_write;
@@ -121,18 +125,22 @@ begin
 		procedure handle_host_read(address : in std_logic_vector(num_address_lines - 1 downto 0)) is
 		begin
 			case address is
-				when "0" => -- pop byte from gpib-to-host fifo
+				when "00" => -- pop byte from gpib-to-host fifo
+					host_data_out(15 downto 8) <= (others => '0');
+					host_data_out(7 downto 0) <= gpib_to_host_fifo_data_out;
 					gpib_to_host_fifo_read_ack <= '1';
-					host_data_out <= gpib_to_host_fifo_data_out;
 					gpib_to_host_dma_request <= '0';
-				when "1" => -- host-to-gpib status register
+				when "01" => -- host-to-gpib status register
 					host_data_out <= (
 						0 => host_to_gpib_fifo_empty,
 						1 => host_to_gpib_fifo_full,
-						4 => gpib_to_host_fifo_empty,
-						5 => gpib_to_host_fifo_full,
+						8 => gpib_to_host_fifo_empty,
+						9 => gpib_to_host_fifo_full,
 						others => '0'
 					);
+				when "10" =>
+					host_data_out(15 downto 12) <= (others => '0');
+					host_data_out(11 downto 0) <= std_logic_vector(xfer_count);
 				when others =>
 			end case;
 		end handle_host_read;
@@ -161,6 +169,7 @@ begin
 			host_read_pending <= '0';
 			xfer_to_device_pending <= '0';
 			xfer_from_device_state <= xfer_from_device_idle;
+			xfer_count <= (others => '0');
 		elsif rising_edge(clock) then
 
 			-- host write state machine
@@ -195,16 +204,17 @@ begin
 
 			-- handle request for transfer to device
 			if xfer_to_device_pending = '0' then
-				if request_xfer_to_device = '1' and host_to_gpib_fifo_empty = '0' then
+				if to_X01(request_xfer_to_device) = '1' and host_to_gpib_fifo_empty = '0' and
+					xfer_count > 0 then
 					xfer_to_device_pending <= '1';
 					host_to_gpib_fifo_read_ack <= '1';
 					device_data_out <= host_to_gpib_fifo_data_out;
 					device_chip_select <= '1';
 					device_write <= '1';
+					xfer_count <= xfer_count - 1;
 				end if;
 			else -- xfer_to_device_pending = '1'
-				host_to_gpib_fifo_read_ack <= '0';
-				if request_xfer_to_device = '0' then
+				if to_X01(request_xfer_to_device) = '0' then
 					device_chip_select <= '0';
 					device_write <= '0';
 					xfer_to_device_pending <= '0';
@@ -214,21 +224,22 @@ begin
 			-- handle request for transfer from device
 			case xfer_from_device_state is
 				when xfer_from_device_idle =>
-					if request_xfer_from_device = '1' and gpib_to_host_fifo_full = '0' then
-						xfer_from_device_state <= xfer_from_device_active;
+					if to_X01(request_xfer_from_device) = '1' and gpib_to_host_fifo_full = '0' and
+						xfer_count > 0 then
+						xfer_from_device_state <= xfer_from_device_waiting;
 						device_chip_select <= '1';
 						device_read <= '1';
+						xfer_count <= xfer_count - 1;
+					end if;
+				when xfer_from_device_waiting =>
+					if to_X01(request_xfer_from_device) = '0' then
+						xfer_from_device_state <= xfer_from_device_active;
+						gpib_to_host_fifo_write_enable <= '1';
 					end if;
 				when xfer_from_device_active =>
-					gpib_to_host_fifo_write_enable <= '1';
-					xfer_from_device_state <= xfer_from_device_waiting;
-				when xfer_from_device_waiting =>
-					gpib_to_host_fifo_write_enable <= '0';
 					device_chip_select <= '0';
 					device_read <= '0';
-					if request_xfer_from_device = '0' then
-						xfer_from_device_state <= xfer_from_device_idle;
-					end if;
+					xfer_from_device_state <= xfer_from_device_idle;
 			end case;
 
 			-- clear fifo resets after they are set by hard or soft reset
