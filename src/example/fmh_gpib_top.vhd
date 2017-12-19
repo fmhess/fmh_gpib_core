@@ -5,8 +5,6 @@
 -- prevent dma latency from becoming a bottleneck.
 -- There is also a "gpib_disable" input which disconnects the
 -- gpib chip from the gpib bus.
--- The registers are shifted to be 32 bit aligned (the two LSB
--- of the address inputs are ignored).
 --
 -- Author: Frank Mori Hess fmh6jj@gmail.com
 -- Copyright 2017 Frank Mori Hess
@@ -29,7 +27,7 @@ entity fmh_gpib_top is
 		avalon_chip_select_inverted : in std_logic;
 		avalon_read_inverted : in std_logic;
 		avalon_write_inverted : in  std_logic;
-		avalon_address : in  std_logic_vector(8 downto 0);
+		avalon_address : in  std_logic_vector(6 downto 0);
 		avalon_data_in : in  std_logic_vector(7 downto 0);
 		avalon_data_out : out std_logic_vector(7 downto 0);
 
@@ -37,7 +35,7 @@ entity fmh_gpib_top is
 
 		-- dma, avalon mm io port
 		dma_fifos_chip_select : in std_logic;
-		dma_fifos_address : in std_logic_vector(3 downto 0);
+		dma_fifos_address : in std_logic_vector(1 downto 0);
 		dma_fifos_read : in std_logic;
 		dma_fifos_write : in std_logic;
 		dma_fifos_data_in : in  std_logic_vector(15 downto 0);
@@ -167,7 +165,7 @@ begin
 		port map(
 			clock => clock,
 			reset => safe_reset,
-			host_address => dma_fifos_address(3 downto 2),
+			host_address => dma_fifos_address(1 downto 0),
 			host_chip_select => dma_fifos_chip_select,
 			host_read => dma_fifos_read,
 			host_write => dma_fifos_write,
@@ -197,7 +195,7 @@ begin
 			dma_read_inverted => cb7210p2_dma_read_inverted,
 			dma_write_inverted => cb7210p2_dma_write_inverted,
 			read_inverted => avalon_read_inverted,
-			address => avalon_address(8 downto 2),
+			address => avalon_address,
 			write_inverted => avalon_write_inverted,
 			host_data_bus_in => avalon_data_in,
 			dma_bus_in => cb7210p2_dma_data_in,
