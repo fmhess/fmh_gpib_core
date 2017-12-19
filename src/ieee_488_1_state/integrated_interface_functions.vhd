@@ -537,9 +537,9 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 				elsif talker_state_p1_buffer = SPAS then
 					bus_DIO_inverted_out_buffer <= status_byte_buffer;
 				end if;
-			elsif source_handshake_state_buffer = STRS
-				-- DIO lines should already be in correct state from SDYS, just keep it steady until we are out of STRS
-				-- this allows the next output byte to be accepted by the chip without disturbing the state of the DIO
+			elsif source_handshake_state_buffer = STRS then
+				-- DIO lines should already be in correct state from SDYS, just keep it steady until we are out of STRS.
+				-- This allows the next output byte to be accepted by the chip without disturbing the state of the DIO
 				-- lines.
 				bus_DIO_inverted_out_buffer <= bus_DIO_inverted_out_buffer;
 			elsif to_X01(local_TCT) = '1' then
