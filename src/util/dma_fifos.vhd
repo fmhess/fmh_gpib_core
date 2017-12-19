@@ -110,7 +110,7 @@ begin
 				when "00" => -- push byte into host-to-gpib fifo
 					host_to_gpib_fifo_data_in <= data(7 downto 0);
 					host_to_gpib_fifo_write_enable <= '1';
-					host_to_gpib_dma_request <= '0';
+					host_to_gpib_dma_request <= '0'; -- make sure dma request gets cleared as early as possible
 				when "01" => -- control register
 					host_to_gpib_request_enable <= data(0);
 					host_to_gpib_fifo_reset <= data(1);
@@ -129,7 +129,7 @@ begin
 					host_data_out(15 downto 8) <= (others => '0');
 					host_data_out(7 downto 0) <= gpib_to_host_fifo_data_out;
 					gpib_to_host_fifo_read_ack <= '1';
-					gpib_to_host_dma_request <= '0';
+					gpib_to_host_dma_request <= '0'; -- make sure dma request gets cleared as early as possible
 				when "01" => -- host-to-gpib status register
 					host_data_out <= (
 						0 => host_to_gpib_fifo_empty,
@@ -178,8 +178,8 @@ begin
 				if host_write_selected = '1' then
 					host_write_pending <= '1';
 					handle_host_write(host_address, host_data_in);
-				elsif host_to_gpib_request_enable = '1' and host_to_gpib_fifo_full = '0' then
-					host_to_gpib_dma_request <= '1';
+				else
+					host_to_gpib_dma_request <= host_to_gpib_request_enable and not host_to_gpib_fifo_full;
 				end if;
 			else -- host_write_pending = '1'
 				if host_write_selected = '0' then
@@ -193,8 +193,8 @@ begin
 				if host_read_selected = '1' then
 					host_read_pending <= '1';
 					handle_host_read(host_address);
-				elsif (gpib_to_host_request_enable = '1' and gpib_to_host_fifo_empty = '0') then
-					gpib_to_host_dma_request <= '1';
+				else
+					gpib_to_host_dma_request <= gpib_to_host_request_enable and not gpib_to_host_fifo_empty;
 				end if;
 			else -- host_read_pending = '1'
 				if host_read_selected = '0' then
