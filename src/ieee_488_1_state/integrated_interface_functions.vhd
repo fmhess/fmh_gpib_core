@@ -529,7 +529,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			bus_DIO_inverted_out_buffer <= (others => 'Z');  
 		elsif rising_edge(clock) then
 		
-			if (source_handshake_state_buffer = SDYS or source_handshake_state_buffer = STRS) then
+			if (source_handshake_state_buffer = SDYS) then
 				if talker_state_p1_buffer = TACS then
 					bus_DIO_inverted_out_buffer <= not internal_host_to_gpib_data_byte;
 				elsif controller_state_p1_buffer = CACS then
@@ -537,6 +537,11 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 				elsif talker_state_p1_buffer = SPAS then
 					bus_DIO_inverted_out_buffer <= status_byte_buffer;
 				end if;
+			elsif source_handshake_state_buffer = STRS
+				-- DIO lines should already be in correct state from SDYS, just keep it steady until we are out of STRS
+				-- this allows the next output byte to be accepted by the chip without disturbing the state of the DIO
+				-- lines.
+				bus_DIO_inverted_out_buffer <= bus_DIO_inverted_out_buffer;
 			elsif to_X01(local_TCT) = '1' then
 				bus_DIO_inverted_out_buffer <= not "00001001";
 			elsif parallel_poll_state_p1_buffer = PPAS then

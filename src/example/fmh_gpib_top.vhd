@@ -19,6 +19,9 @@ use work.frontend_cb7210p2;
 use work.dma_fifos;
 
 entity fmh_gpib_top is
+	generic (
+		clock_frequency_KHz := 60000
+	)
 	port (
 		clock : in std_logic;
 		reset : in  std_logic;
@@ -161,7 +164,7 @@ begin
 		);
 	
 	my_dma_fifos : entity work.dma_fifos
-		generic map(fifo_depth => 16)
+		generic map(fifo_depth => 4)
 		port map(
 			clock => clock,
 			reset => safe_reset,
@@ -185,7 +188,7 @@ begin
 	my_cb7210p2 : entity work.frontend_cb7210p2
 		generic map(
 			num_address_lines => 7,
-			clock_frequency_KHz => 60000)
+			clock_frequency_KHz => clock_frequency_KHz)
 		port map (
 			clock => clock,
 			reset => safe_reset,
