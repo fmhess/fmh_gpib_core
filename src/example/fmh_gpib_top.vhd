@@ -1,7 +1,12 @@
--- a cb7210 with digital filtering of the gpib control lines,
--- and dma translation suitable for an ARM PL330 DMA controller.
+-- a cb7210 with digital filtering of the gpib control lines, and
+-- dma translation suitable for "synopsys" style dma peripheral
+-- requests (the ARM DMA-330 DMA controller on Altera's Cyclone V HPS).
+-- It puts a small fifo between the cb7210 dma port and the bus to
+-- prevent dma latency from becoming a bottleneck.
 -- There is also a "gpib_disable" input which disconnects the
--- gpib chip from the gpib bus, and a dma transfer counter.
+-- gpib chip from the gpib bus, and a transfer counter.
+-- The registers are shifted to be 32 bit aligned (the two LSB
+-- of the address inputs are ignored).
 --
 -- Author: Frank Mori Hess fmh6jj@gmail.com
 -- Copyright 2017 Frank Mori Hess
@@ -24,7 +29,7 @@ entity fmh_gpib_top is
 		avalon_chip_select_inverted : in std_logic;
 		avalon_read_inverted : in std_logic;
 		avalon_write_inverted : in  std_logic;
-		avalon_address : in  std_logic_vector(6 downto 0);
+		avalon_address : in  std_logic_vector(8 downto 0);
 		avalon_data_in : in  std_logic_vector(7 downto 0);
 		avalon_data_out : out std_logic_vector(7 downto 0);
 
@@ -32,7 +37,7 @@ entity fmh_gpib_top is
 
 		-- dma, avalon mm io port
 		dma_fifos_chip_select : in std_logic;
-		dma_fifos_address : in std_logic_vector(0 downto 0);
+		dma_fifos_address : in std_logic_vector(2 downto 0);
 		dma_fifos_read : in std_logic;
 		dma_fifos_write : in std_logic;
 		dma_fifos_data_in : in  std_logic_vector(7 downto 0);
@@ -91,24 +96,24 @@ architecture structural of fmh_gpib_top is
 	signal dma_count: unsigned (11 downto 0); -- Count of bytes in/out of 7210.
 	signal dma_transfer_active : std_logic;
 	
-	signal filtered_ATN : std_logic;
-	signal filtered_DAV : std_logic;
-	signal filtered_EOI : std_logic;
-	signal filtered_IFC : std_logic;
-	signal filtered_NDAC : std_logic;
-	signal filtered_NRFD : std_logic;
-	signal filtered_REN : std_logic;
-	signal filtered_SRQ : std_logic;
+	signal filtered_ATN_inverted : std_logic;
+	signal filtered_DAV_inverted : std_logic;
+	signal filtered_EOI_inverted : std_logic;
+	signal filtered_IFC_inverted : std_logic;
+	signal filtered_NDAC_inverted : std_logic;
+	signal filtered_NRFD_inverted : std_logic;
+	signal filtered_REN_inverted : std_logic;
+	signal filtered_SRQ_inverted : std_logic;
 
 	-- gpib control line inputs gated by gpib_disable.  We don't need to disable input gpib data lines.
-	signal gated_ATN : std_logic;
-	signal gated_DAV : std_logic;
-	signal gated_EOI : std_logic;
-	signal gated_IFC : std_logic;
-	signal gated_NDAC : std_logic;
-	signal gated_NRFD : std_logic;
-	signal gated_REN : std_logic;
-	signal gated_SRQ : std_logic;
+	signal gated_ATN_inverted : std_logic;
+	signal gated_DAV_inverted : std_logic;
+	signal gated_EOI_inverted : std_logic;
+	signal gated_IFC_inverted : std_logic;
+	signal gated_NDAC_inverted : std_logic;
+	signal gated_NRFD_inverted : std_logic;
+	signal gated_REN_inverted : std_logic;
+	signal gated_SRQ_inverted : std_logic;
 	
 	-- raw gpib control lines and data coming from the gpib chip, before they have been gated by gpib_disable
 	signal ungated_ATN_inverted_out : std_logic;
@@ -155,14 +160,14 @@ begin
 			inputs(5) => gpib_NRFD_inverted,
 			inputs(6) => gpib_REN_inverted,
 			inputs(7) => gpib_SRQ_inverted,
-			outputs(0) => filtered_ATN,
-			outputs(1) => filtered_DAV,
-			outputs(2) => filtered_EOI,
-			outputs(3) => filtered_IFC,
-			outputs(4) => filtered_NDAC,
-			outputs(5) => filtered_NRFD,
-			outputs(6) => filtered_REN,
-			outputs(7) => filtered_SRQ
+			outputs(0) => filtered_ATN_inverted,
+			outputs(1) => filtered_DAV_inverted,
+			outputs(2) => filtered_EOI_inverted,
+			outputs(3) => filtered_IFC_inverted,
+			outputs(4) => filtered_NDAC_inverted,
+			outputs(5) => filtered_NRFD_inverted,
+			outputs(6) => filtered_REN_inverted,
+			outputs(7) => filtered_SRQ_inverted
 		);
 	
 	my_dma_fifos : entity work.dma_fifos
@@ -170,7 +175,7 @@ begin
 		port map(
 			clock => clock,
 			reset => safe_reset,
-			host_address => dma_fifos_address,
+			host_address => dma_fifos_address(2 downto 2),
 			host_chip_select => dma_fifos_chip_select,
 			host_read => dma_fifos_read,
 			host_write => dma_fifos_write,
@@ -200,18 +205,18 @@ begin
 			dma_read_inverted => cb7210p2_dma_read_inverted,
 			dma_write_inverted => cb7210p2_dma_write_inverted,
 			read_inverted => avalon_read_inverted,
-			address => avalon_address,
+			address => avalon_address(8 downto 2),
 			write_inverted => avalon_write_inverted,
 			host_data_bus_in => avalon_data_in,
 			dma_bus_in => cb7210p2_dma_data_in,
-			gpib_ATN_inverted_in => gated_ATN,
-			gpib_DAV_inverted_in => gated_DAV,
-			gpib_EOI_inverted_in => gated_EOI,
-			gpib_IFC_inverted_in => gated_IFC,
-			gpib_NDAC_inverted_in => gated_NDAC,
-			gpib_NRFD_inverted_in => gated_NRFD,
-			gpib_REN_inverted_in => gated_REN,
-			gpib_SRQ_inverted_in => gated_SRQ,
+			gpib_ATN_inverted_in => gated_ATN_inverted,
+			gpib_DAV_inverted_in => gated_DAV_inverted,
+			gpib_EOI_inverted_in => gated_EOI_inverted,
+			gpib_IFC_inverted_in => gated_IFC_inverted,
+			gpib_NDAC_inverted_in => gated_NDAC_inverted,
+			gpib_NRFD_inverted_in => gated_NRFD_inverted,
+			gpib_REN_inverted_in => gated_REN_inverted,
+			gpib_SRQ_inverted_in => gated_SRQ_inverted,
 			gpib_DIO_inverted_in => gpib_DIO_inverted,
 			tr1 => ungated_talk_enable,
 			not_controller_in_charge => ungated_not_controller_in_charge,
@@ -269,14 +274,14 @@ begin
 	begin
 		if to_X01(safe_reset) = '1' then
 			-- inputs
-			gated_ATN <= '1';
-			gated_DAV <= '1';
-			gated_EOI <= '1';
-			gated_IFC <= '1';
-			gated_NDAC <= '1';
-			gated_NRFD <= '1';
-			gated_REN <= '1';
-			gated_SRQ <= '1';
+			gated_ATN_inverted <= '1';
+			gated_DAV_inverted <= '1';
+			gated_EOI_inverted <= '1';
+			gated_IFC_inverted <= '1';
+			gated_NDAC_inverted <= '1';
+			gated_NRFD_inverted <= '1';
+			gated_REN_inverted <= '1';
+			gated_SRQ_inverted <= '1';
 
 			-- transceiver control
 			talk_enable <= '0';
@@ -285,14 +290,14 @@ begin
 		elsif rising_edge(clock) then
 			if to_X01(gpib_disable) = '1' then
 				-- inputs
-				gated_ATN <= '1';
-				gated_DAV <= '1';
-				gated_EOI <= '1';
-				gated_IFC <= '1';
-				gated_NDAC <= '1';
-				gated_NRFD <= '1';
-				gated_REN <= '1';
-				gated_SRQ <= '1';
+				gated_ATN_inverted <= '1';
+				gated_DAV_inverted <= '1';
+				gated_EOI_inverted <= '1';
+				gated_IFC_inverted <= '1';
+				gated_NDAC_inverted <= '1';
+				gated_NRFD_inverted <= '1';
+				gated_REN_inverted <= '1';
+				gated_SRQ_inverted <= '1';
 
 				-- transceiver control
 				talk_enable <= '0';
@@ -300,14 +305,14 @@ begin
 				controller_in_charge <= '0';
 			else
 				-- inputs
- 				gated_ATN <= filtered_ATN;
- 				gated_DAV <= filtered_DAV;
- 				gated_EOI <= filtered_EOI;
- 				gated_IFC <= filtered_IFC;
- 				gated_NDAC <= filtered_NDAC;
- 				gated_NRFD <= filtered_NRFD;
- 				gated_REN <= filtered_REN;
- 				gated_SRQ <= filtered_SRQ;
+ 				gated_ATN_inverted <= filtered_ATN_inverted;
+ 				gated_DAV_inverted <= filtered_DAV_inverted;
+ 				gated_EOI_inverted <= filtered_EOI_inverted;
+ 				gated_IFC_inverted <= filtered_IFC_inverted;
+ 				gated_NDAC_inverted <= filtered_NDAC_inverted;
+ 				gated_NRFD_inverted <= filtered_NRFD_inverted;
+ 				gated_REN_inverted <= filtered_REN_inverted;
+ 				gated_SRQ_inverted <= filtered_SRQ_inverted;
 
 				-- transceiver control
 				talk_enable <= ungated_talk_enable;
