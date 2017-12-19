@@ -172,7 +172,7 @@ begin
 					host_to_gpib_dma_request <= '1';
 				end if;
 			else -- host_write_pending = '1'
-				if host_write_selected = '0' then
+				if host_write_selected = '1' then
 					host_write_pending <= '0';
 				end if;
 			end if;
@@ -188,7 +188,7 @@ begin
 					gpib_to_host_dma_request <= '1';
 				end if;
 			else -- host_read_pending = '1'
-				if host_read_selected = '0' then
+				if host_read_selected = '1' then
 					host_read_pending <= '0';
 				end if;
 			end if;
