@@ -9,9 +9,11 @@ The underlying GPIB logic is separated from the register interface
 so that multiple front end register layouts may be implemented on top
 of the common core.
 
-See src/example/gpib_top.vhd for an example of how the cb7210.2-style
-frontend might be connected to a ARM PL330 dma controller and
-a digital filter for the GPIB control lines.
+See src/example/fmh_gpib_top.vhd for an example of how the cb7210.2-style
+frontend might be used.  It includes a fifo with a transfer counter to
+accelerate DMA transfers and a digital filter for the GPIB control lines.
+A corresponding component file usable by Altera's Quartus tools can be
+found under vendor/altera/.
 
 The latest version of this IP core may be found at:
 
