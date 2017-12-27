@@ -22,7 +22,7 @@ ARCHITECTURE behavior OF std_fifo_testbench IS
 			RST		: in std_logic;
 			DataIn	: in std_logic_vector(7 downto 0);
 			WriteEn	: in std_logic;
-			ReadEn	: in std_logic;
+			ReadAck	: in std_logic;
 			DataOut	: out std_logic_vector(7 downto 0);
 			Full	: out std_logic;
 			Empty	: out std_logic
@@ -33,7 +33,7 @@ ARCHITECTURE behavior OF std_fifo_testbench IS
 	signal CLK		: std_logic := '0';
 	signal RST		: std_logic := '0';
 	signal DataIn	: std_logic_vector(7 downto 0) := (others => '0');
-	signal ReadEn	: std_logic := '0';
+	signal ReadAck	: std_logic := '0';
 	signal WriteEn	: std_logic := '0';
 	
 	--Outputs
@@ -54,7 +54,7 @@ BEGIN
 			RST		=> RST,
 			DataIn	=> DataIn,
 			WriteEn	=> WriteEn,
-			ReadEn	=> ReadEn,
+			ReadAck	=> ReadAck,
 			DataOut	=> DataOut,
 			Full	=> Full,
 			Empty	=> Empty
@@ -135,15 +135,15 @@ BEGIN
 		
 		wait for CLK_period * 40;
 			
-		ReadEn <= '1';
+		ReadAck <= '1';
 		
 		wait for CLK_period * 60;
 		
-		ReadEn <= '0';
+		ReadAck <= '0';
 		
 		wait for CLK_period * 256 * 2;
 		
-		ReadEn <= '1';
+		ReadAck <= '1';
 		
 		assert false report "end of read process" severity note;
 		read_process_finished := true;

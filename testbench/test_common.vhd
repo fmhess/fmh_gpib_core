@@ -45,40 +45,40 @@ package test_common is
 	
 	-- write a byte from host to device register
 	procedure host_write (addr: in std_logic_vector;
-		byte : in std_logic_vector(7 downto 0);
+		byte : in std_logic_vector;
 		signal clock : in std_logic;
 		signal chip_select : out std_logic;
 		signal address : out std_logic_vector;
 		signal write : out std_logic;
-		signal host_data_bus : out std_logic_vector(7 downto 0);
+		signal host_data_bus : out std_logic_vector;
 		invert_cs_etc : in std_logic
 	);
 	procedure host_write (addr: in std_logic_vector;
-		byte : in std_logic_vector(7 downto 0);
+		byte : in std_logic_vector;
 		signal clock : in std_logic;
 		signal chip_select_inverted : out std_logic;
 		signal address : out std_logic_vector;
 		signal write_inverted : out std_logic;
-		signal host_data_bus : out std_logic_vector(7 downto 0)
+		signal host_data_bus : out std_logic_vector
 	);
 
 	-- read a byte from device register
 	procedure host_read (addr: in std_logic_vector;
-		result: out std_logic_vector(7 downto 0);
+		result: out std_logic_vector;
 		signal clock : in std_logic;
 		signal chip_select : out std_logic;
 		signal address : out std_logic_vector;
 		signal read : out std_logic;
-		signal host_data_bus : in std_logic_vector(7 downto 0);
+		signal host_data_bus : in std_logic_vector;
 		invert_cs_etc : in std_logic
 	);
 	procedure host_read (addr: in std_logic_vector;
-		result: out std_logic_vector(7 downto 0);
+		result: out std_logic_vector;
 		signal clock : in std_logic;
 		signal chip_select_inverted : out std_logic;
 		signal address : out std_logic_vector;
 		signal read_inverted : out std_logic;
-		signal host_data_bus : in std_logic_vector(7 downto 0)
+		signal host_data_bus : in std_logic_vector
 	);
 	
 end test_common;
@@ -193,12 +193,12 @@ package body test_common is
 	end procedure gpib_setup_bus;
 	
 	procedure host_write (addr: in std_logic_vector;
-		byte : in std_logic_vector(7 downto 0);
+		byte : in std_logic_vector;
 		signal clock : in std_logic;
 		signal chip_select : out std_logic;
 		signal address : out std_logic_vector;
 		signal write : out std_logic;
-		signal host_data_bus : out std_logic_vector(7 downto 0);
+		signal host_data_bus : out std_logic_vector;
 		invert_cs_etc : in std_logic
 	) is
 	begin
@@ -214,17 +214,19 @@ package body test_common is
 		for i in address'LOW to address'HIGH loop
 			address(i) <= '0';
 		end loop;
-		host_data_bus <= (others => '0');
+		for i in host_data_bus'LOW to host_data_bus'HIGH loop
+			host_data_bus(i) <= '0';
+		end loop;
 		wait until rising_edge(clock);
 	end procedure host_write;
 
 	procedure host_write (addr: in std_logic_vector;
-		byte : in std_logic_vector(7 downto 0);
+		byte : in std_logic_vector;
 		signal clock : in std_logic;
 		signal chip_select_inverted : out std_logic;
 		signal address : out std_logic_vector;
 		signal write_inverted : out std_logic;
-		signal host_data_bus : out std_logic_vector(7 downto 0)
+		signal host_data_bus : out std_logic_vector
 	) is
 	begin
 		host_write(addr, byte, clock, chip_select_inverted, address, 
@@ -232,12 +234,12 @@ package body test_common is
 	end host_write;
 	
 	procedure host_read (addr: in std_logic_vector;
-		result: out std_logic_vector(7 downto 0);
+		result: out std_logic_vector;
 		signal clock : in std_logic;
 		signal chip_select : out std_logic;
 		signal address : out std_logic_vector;
 		signal read : out std_logic;
-		signal host_data_bus : in std_logic_vector(7 downto 0);
+		signal host_data_bus : in std_logic_vector;
 		invert_cs_etc : in std_logic
 	) is
 	begin
@@ -257,12 +259,12 @@ package body test_common is
 	end procedure host_read;
 
 	procedure host_read (addr: in std_logic_vector;
-		result: out std_logic_vector(7 downto 0);
+		result: out std_logic_vector;
 		signal clock : in std_logic;
 		signal chip_select_inverted : out std_logic;
 		signal address : out std_logic_vector;
 		signal read_inverted : out std_logic;
-		signal host_data_bus : in std_logic_vector(7 downto 0)
+		signal host_data_bus : in std_logic_vector
 	) is
 	begin
 		host_read(addr, result, clock, chip_select_inverted,

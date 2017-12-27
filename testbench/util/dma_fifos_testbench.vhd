@@ -18,12 +18,12 @@ architecture behav of dma_fifos_testbench is
 	signal clock : std_logic;
 	signal reset : std_logic;
 	
-	signal host_address : std_logic_vector(0 downto 0);
+	signal host_address : std_logic_vector(1 downto 0);
 	signal host_chip_select : std_logic;
 	signal host_read_sig : std_logic;
 	signal host_write_sig : std_logic;
-	signal host_data_in : std_logic_vector(7 downto 0);
-	signal host_data_out : std_logic_vector(7 downto 0);
+	signal host_data_in : std_logic_vector(15 downto 0);
+	signal host_data_out : std_logic_vector(15 downto 0);
 
 	signal gpib_to_host_dma_request : std_logic;
 	signal host_to_gpib_dma_request : std_logic;
@@ -36,7 +36,7 @@ architecture behav of dma_fifos_testbench is
 	signal device_data_in : std_logic_vector(7 downto 0);
 	signal device_data_out : std_logic_vector(7 downto 0);
 
-	constant num_address_lines : positive := 1;
+	constant num_address_lines : positive := 2;
 	
 	constant clock_half_period : time := 10 ns;
 	shared variable host_process_finished : boolean := false;
@@ -95,10 +95,10 @@ begin
 
 	-- host
 	process
-		variable host_read_result : std_logic_vector(7 downto 0);
+		variable host_read_result : std_logic_vector(15 downto 0);
 		
 		procedure host_write (addr: in std_logic_vector(num_address_lines - 1 downto 0);
-			byte : in std_logic_vector(7 downto 0)) is
+			byte : in std_logic_vector(15 downto 0)) is
 		begin
 			host_write (addr, byte,
 				clock,
@@ -111,7 +111,7 @@ begin
 		end procedure host_write;
 
 		procedure host_read (addr: in std_logic_vector(num_address_lines - 1 downto 0);
-			result: out std_logic_vector(7 downto 0)) is
+			result: out std_logic_vector(15 downto 0)) is
 		begin
 			host_read (addr, result,
 				clock,
@@ -133,7 +133,9 @@ begin
 		wait_for_ticks(1);
 		
 		-- enable host-to-gpib dma requests
-		host_write("1", "00000001");
+		host_write("01", "0000000000000001");
+		-- init xfer count
+		host_write("10", std_logic_vector(to_unsigned(16#20#, 16)));
 		
 		-- host-to-gpib fast write slow reads tests fifo full behavior
 		for i in 16#0# to 16#f# loop
@@ -141,7 +143,7 @@ begin
 				wait until host_to_gpib_dma_request = '1';
 			end if;
 			wait_for_ticks(1);
-			host_write("0", std_logic_vector(to_unsigned(i, 8)));
+			host_write("00", std_logic_vector(to_unsigned(i, 16)));
 		end loop;
 		
 		-- host-to-gpib slow write fast reads tests fifo empty behavior
@@ -150,11 +152,13 @@ begin
 				wait until host_to_gpib_dma_request = '1';
 			end if;
 			wait_for_ticks(5);
-			host_write("0", std_logic_vector(to_unsigned(i, 8)));
+			host_write("00", std_logic_vector(to_unsigned(i, 16)));
 		end loop;
 
 		-- enable gpib-to-host dma requests
-		host_write("1", "00010000");
+		host_write("01", "0000000100000000");
+		-- init xfer count
+		host_write("10", std_logic_vector(to_unsigned(16#20#, 16)));
 
 		-- gpib-to-host fast write slow read tests fifo full behavior
 		for i in 16#20# to 16#2f# loop
@@ -162,8 +166,8 @@ begin
 				wait until gpib_to_host_dma_request = '1';
 			end if;
 			wait_for_ticks(5); -- slow down response to let fifo gradually fill up
-			host_read("0", host_read_result);
-			assert host_read_result = std_logic_vector(to_unsigned(i, 8));
+			host_read("00", host_read_result);
+			assert host_read_result = std_logic_vector(to_unsigned(i, 16));
 		end loop;
 
 		-- gpib-to-host slow write fast read tests fifo empty behavior
@@ -172,8 +176,8 @@ begin
 				wait until gpib_to_host_dma_request = '1';
 			end if;
 			wait_for_ticks(1);
-			host_read("0", host_read_result);
-			assert host_read_result = std_logic_vector(to_unsigned(i, 8));
+			host_read("00", host_read_result);
+			assert host_read_result = std_logic_vector(to_unsigned(i, 16));
 		end loop;
 
 		wait_for_ticks(1);
