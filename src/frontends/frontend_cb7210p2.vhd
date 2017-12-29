@@ -37,7 +37,7 @@ entity frontend_cb7210p2 is
 		-- a flat register map.  Address lines 3 through 6 are equivalent to the register page
 		-- selected by the page select auxilliary command.
 		num_address_lines : positive := 7;
-		clock_frequency_KHz : positive := 20000;
+		clock_frequency_KHz : positive;
 		-- you must have enough counter bits to generate a 2 microsecond delay given your clock speed.
 		num_counter_bits : integer := 8);
 	port(

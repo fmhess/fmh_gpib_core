@@ -20,7 +20,7 @@ use work.dma_fifos;
 
 entity fmh_gpib_top is
 	generic (
-		clock_frequency_KHz : positive := 60000
+		clock_frequency_KHz : positive
 	);
 	port (
 		clock : in std_logic;
