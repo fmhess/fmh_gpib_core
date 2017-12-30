@@ -37,6 +37,8 @@ architecture behav of frontend_cb7210p2_testbench is
 	signal chip_select_inverted : std_logic;
 	signal dma_bus_ack_inverted : std_logic;
 	signal dma_bus_request : std_logic;
+	signal dma_bus_in_request : std_logic;
+	signal dma_bus_out_request : std_logic;
 	signal dma_bus : std_logic_vector(7 downto 0);
 	signal dma_read_inverted : std_logic;
 	signal dma_write_inverted : std_logic;
@@ -81,8 +83,8 @@ architecture behav of frontend_cb7210p2_testbench is
 			tr2  => tr2, 
 			tr3  => tr3,
 			interrupt  => interrupt, 
-			dma_bus_out_request  => dma_bus_request, 
-			dma_bus_in_request  => dma_bus_request, 
+			dma_bus_out_request  => dma_bus_out_request, 
+			dma_bus_in_request  => dma_bus_in_request, 
 			dma_bus_out  => dma_bus, 
 			dma_bus_in  => dma_bus, 
 			host_data_bus_in  => host_data_bus_in, 
@@ -892,6 +894,8 @@ architecture behav of frontend_cb7210p2_testbench is
 		wait;
 	end process;
 
+	dma_bus_request <= dma_bus_in_request or dma_bus_out_request;
+	
 	talk_enable <= tr1;
 	not_controller_in_charge <= not tr2;
 	system_controller <= '0';

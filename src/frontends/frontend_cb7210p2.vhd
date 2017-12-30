@@ -753,7 +753,7 @@ begin
 			host_read_from_bus_state <= host_io_idle;
 			host_data_bus_out_buffer <= (others => '0');
 			gpib_to_host_dma_state <= dma_idle;
-			dma_bus_out_request <= 'L';
+			dma_bus_out_request <= '0';
 			dma_bus_out <= (others => '0');
 			prev_controller_state_p2 := CSNS;
 			prev_source_handshake_state := SIDS;
@@ -809,13 +809,13 @@ begin
 					if DMA_input_enable = '1' and gpib_to_host_byte_latched = '1' then
 						dma_bus_out_request <= '1';
 					else
-						dma_bus_out_request <= 'L';
+						dma_bus_out_request <= '0';
 					end if;
 					if dma_read_selected = '1' then
 						dma_bus_out <= gpib_to_host_byte;
 						gpib_to_host_byte_read <= '1';
 						gpib_to_host_dma_state <= dma_waiting_for_idle;
-						dma_bus_out_request <= 'L';
+						dma_bus_out_request <= '0';
 					end if;
 				when dma_waiting_for_idle =>
 					if dma_read_selected = '0' then
@@ -1353,7 +1353,7 @@ begin
 			register_page <= (others => '0');
 			pon_pulse <= '0';
 			soft_reset_pulse <= '0';
-			dma_bus_in_request <= 'L';
+			dma_bus_in_request <= '0';
 			release_RFD_holdoff_pulse <= '0';
 			trigger_aux_command_pulse <= '0';
 			clear_rtl := false;
@@ -1382,12 +1382,12 @@ begin
 					if DMA_output_enable = '1' and host_to_gpib_data_byte_latched = '0' then
 						dma_bus_in_request <= '1';
 					else
-						dma_bus_in_request <= 'L';
+						dma_bus_in_request <= '0';
 					end if;
 					if dma_write_selected = '1' then
 						write_host_to_gpib_data_byte(dma_bus_in);
 						host_to_gpib_dma_state <= dma_waiting_for_idle;
-						dma_bus_in_request <= 'L';
+						dma_bus_in_request <= '0';
 					end if;
 				when dma_waiting_for_idle =>
 					if dma_write_selected = '0' then

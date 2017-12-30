@@ -50,7 +50,8 @@ architecture behav of dual_cb7210p2_testbench is
 
 	signal device_chip_select_inverted : std_logic;
 	signal device_dma_bus_ack_inverted : std_logic;
-	signal device_dma_bus_request : std_logic;
+	signal device_dma_bus_in_request : std_logic;
+	signal device_dma_bus_out_request : std_logic;
 	signal device_dma_bus : std_logic_vector(7 downto 0);
 	signal device_dma_read_inverted : std_logic;
 	signal device_dma_write_inverted : std_logic;
@@ -61,7 +62,8 @@ architecture behav of dual_cb7210p2_testbench is
 
 	signal controller_chip_select_inverted : std_logic;
 	signal controller_dma_bus_ack_inverted : std_logic;
-	signal controller_dma_bus_request : std_logic;
+	signal controller_dma_bus_in_request : std_logic;
+	signal controller_dma_bus_out_request : std_logic;
 	signal controller_dma_bus : std_logic_vector(7 downto 0);
 	signal controller_dma_read_inverted : std_logic;
 	signal controller_dma_write_inverted : std_logic;
@@ -124,8 +126,8 @@ architecture behav of dual_cb7210p2_testbench is
 			not_controller_in_charge => device_not_controller_in_charge,
 			system_controller => device_system_controller,
 			interrupt  => device_interrupt, 
-			dma_bus_out_request  => device_dma_bus_request, 
-			dma_bus_in_request  => device_dma_bus_request, 
+			dma_bus_out_request  => device_dma_bus_out_request, 
+			dma_bus_in_request  => device_dma_bus_in_request, 
 			dma_bus_out  => device_dma_bus, 
 			dma_bus_in  => device_dma_bus, 
 			host_data_bus_in  => device_host_data_bus_in, 
@@ -197,8 +199,8 @@ architecture behav of dual_cb7210p2_testbench is
 			not_controller_in_charge => controller_not_controller_in_charge,
 			system_controller => controller_system_controller,
 			interrupt  => controller_interrupt, 
-			dma_bus_out_request  => controller_dma_bus_request, 
-			dma_bus_in_request  => controller_dma_bus_request, 
+			dma_bus_out_request  => controller_dma_bus_out_request, 
+			dma_bus_in_request  => controller_dma_bus_in_request, 
 			dma_bus_out  => controller_dma_bus, 
 			dma_bus_in  => controller_dma_bus, 
 			host_data_bus_in  => controller_host_data_bus_in, 
