@@ -19,6 +19,11 @@ The latest version of this IP core may be found at:
 
 https://github.com/fmhess/fmh_gpib_core
 
+A linux driver for fmh_gpib_core is provided by the Linux-GPIB
+package (the "fmh_gpib" driver), see: 
+
+http://linux-gpib.sourceforge.net
+
 This package is copyright Frank Mori Hess 2017, all rights reserved.
 If you wish to obtain a license to use this IP core, contact the author:
 Frank Mori Hess fmh6jj@gmail.com .
