@@ -116,8 +116,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal local_parallel_poll_config : std_logic;
 	signal local_parallel_poll_sense : std_logic;
 	signal local_parallel_poll_response_line : std_logic_vector(2 downto 0);
-	signal parallel_poll_disable : std_logic;
-	signal local_parallel_poll_config_or_disable : std_logic;
+	signal local_parallel_poll_disable : std_logic;
 	signal no_listeners : std_logic;
 	signal first_T1_terminal_count : unsigned(num_counter_bits - 1 downto 0);
 	signal T1_terminal_count : unsigned(num_counter_bits - 1 downto 0);
@@ -357,7 +356,7 @@ begin
 			command_valid => command_valid,
 			command_invalid => command_invalid,
 			enable_secondary_addressing => enable_secondary_addressing,
-			local_parallel_poll_config => local_parallel_poll_config_or_disable,
+			local_parallel_poll_config => local_parallel_poll_config,
 			local_parallel_poll_sense => local_parallel_poll_sense,
 			local_parallel_poll_response_line => local_parallel_poll_response_line,
 			check_for_listeners => '1',
@@ -1096,7 +1095,7 @@ begin
 						when "001" => -- reference clock frequency
 							-- TODO
 						when "011" => -- parallel poll register
-							parallel_poll_disable <= write_data(4) ;
+							local_parallel_poll_disable <= write_data(4) ;
 							local_parallel_poll_sense <= write_data(3);
 							local_parallel_poll_response_line <= write_data(2 downto 0);
 						when "100" => -- aux A register
@@ -1274,7 +1273,7 @@ begin
 				rsv <= '0';
 				pending_rsv <= '0';
 				lon <= '0';
-				parallel_poll_disable <= '0';
+				local_parallel_poll_disable <= '1';
 				ltn <= '0';
 				lun <= '0';
 				rpp <= '0';
@@ -1499,8 +1498,7 @@ begin
 		end if;
 	end process;
 
-	lpe <= local_parallel_poll_config and not parallel_poll_disable;
-	local_parallel_poll_config_or_disable <= local_parallel_poll_config or parallel_poll_disable;
+	lpe <= local_parallel_poll_config and not local_parallel_poll_disable;
 	
 	controller_in_charge_buffer <= '0' when controller_state_p1 = CIDS or controller_state_p1 = CADS else '1';
 	not_controller_in_charge <= not controller_in_charge_buffer;
