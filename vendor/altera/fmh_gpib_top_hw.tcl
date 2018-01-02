@@ -78,7 +78,7 @@ set_module_assignment embeddedsw.dts.group gpib
 set_module_assignment embeddedsw.dts.name fmh_gpib_core
 set_module_assignment embeddedsw.dts.params.dma-channel 0
 set_module_assignment embeddedsw.dts.vendor fmhess
-
+set_module_assignment embeddedsw.dts.compatible {fmhess,fmh_gpib_core}
 
 # 
 # display items
