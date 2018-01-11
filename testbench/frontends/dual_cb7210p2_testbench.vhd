@@ -350,6 +350,15 @@ architecture behav of dual_cb7210p2_testbench is
 			end loop;
 		end wait_for_interrupt;
 
+		procedure init_device is
+		begin
+
+			-- soft reset
+			host_write_byte(7 downto 0) := "00000010";
+			host_write("000101", host_write_byte); -- aux mode register
+
+		end init_device;
+
 		procedure setup_basic_io_test is
 		begin
 
@@ -445,6 +454,60 @@ architecture behav of dual_cb7210p2_testbench is
 			end if;
 			
 		end pass_control_test;
+
+		procedure setup_rfd_holdoff_test is
+		begin
+			-- set primary address
+			device_primary_address := 4;
+			host_write_byte(7 downto 5) := "000";
+			host_write_byte(4 downto 0) := std_logic_vector(to_unsigned(device_primary_address, 5));
+			host_write("000110", host_write_byte); -- address register 0/1
+
+			-- turn off secondary addressing
+			device_secondary_address := to_integer(unsigned(NO_ADDRESS_CONFIGURED));
+			host_write_byte(7 downto 5) := "111";
+			host_write_byte(4 downto 0) := (others => '0');
+			host_write("000110", host_write_byte); --address register 0/1
+			host_write("000100", X"31"); -- address mode register, transmit/receive mode 0x3 address mode 1
+			
+			host_write("001110", "00000000"); -- interrupt mask register 0
+			host_write("000001", "00111011"); -- interrupt mask register 1, DI, DO, DEC, DET, END interrupt enables
+			host_write("000010", "00000001"); -- interrupt mask register 2, ADSC interrupt enable
+			
+			host_write("000101", "10000010"); -- aux A register, holdoff on end
+		end setup_rfd_holdoff_test;
+
+		procedure rfd_holdoff_test is
+		begin
+			-- wait to be addressed as listener
+			host_read("000100", host_read_result); -- address status register
+			if host_read_result(2) /= '1' then -- if not already addressed as listener
+				for i in 0 to loop_timeout loop
+					wait_for_interrupt(X"00", X"00", X"01"); -- wait for address status change interrupt
+					
+					host_read("000100", host_read_result); -- address status register
+					if host_read_result(2) = '1' then -- addressed as listener
+						exit;
+					end if;
+					assert i < loop_timeout;
+				end loop;
+			end if;
+			
+			-- receive a data byte with EOI asserted
+			wait_for_interrupt(X"00", X"01", X"00"); -- wait for DI interrupt
+			host_read("000000", host_read_result);
+			assert host_read_result = std_logic_vector(to_unsigned(35, 8));
+			-- check that we saw EOI
+			host_read("000111", host_read_result);
+			assert host_read_result(7) = '1';
+			-- check that holdoff is still in effect after we read the byte
+			wait_for_ticks(10);
+			assert to_X01(bus_NRFD_inverted) = '0';
+			-- release holdoff
+			host_write("000101", "00000011"); -- aux mode register, release rfd holdoff
+			wait_for_ticks(3);
+			assert to_X01(bus_NRFD_inverted) = '1';
+		end rfd_holdoff_test;
 	begin
 		device_chip_select_inverted <= '1';
 		device_dma_bus_ack_inverted <= '1';
@@ -463,7 +526,8 @@ architecture behav of dual_cb7210p2_testbench is
 		wait until rising_edge(device_clock);	
 		device_reset <= '0';
 		wait until rising_edge(device_clock);	
-		
+
+		init_device;
 		setup_basic_io_test;
 
 		sync_with_controller(1);
@@ -482,8 +546,16 @@ architecture behav of dual_cb7210p2_testbench is
 
 		-- need to reinit stuff if we want to add more tests here, 
 		-- the pass control test leaves us controller
+		init_device;
+		setup_rfd_holdoff_test;
+		
+		sync_with_controller(5);
+		
+		rfd_holdoff_test;
 
-		wait until rising_edge(device_clock);	
+		sync_with_controller(6);
+
+		wait_for_ticks(10);	
 		assert false report "end of device process" severity note;
 		device_process_finished := true;
 		wait;
@@ -669,6 +741,24 @@ architecture behav of dual_cb7210p2_testbench is
 			wait_for_CO;
 		end receive_setup;
 
+		procedure init_controller is
+		begin
+
+			-- soft reset
+			host_write_byte(7 downto 0) := "00000010";
+			host_write("000101", host_write_byte); -- aux mode register
+
+			host_write("000101", "00011111"); -- set REN
+			host_write("000101", "00011110"); -- set IFC
+			wait_for_ticks(3);
+			assert to_X01(bus_IFC_inverted) = '0';
+			wait for 101 us;
+			host_write("000101", "00010110"); -- release IFC
+			wait_for_ticks(3);
+			assert to_X01(bus_IFC_inverted) = '1';
+			assert to_X01(bus_REN_inverted) = '0';
+		end init_controller;
+
 		procedure setup_basic_io_test is
 		begin
 
@@ -682,19 +772,6 @@ architecture behav of dual_cb7210p2_testbench is
 			host_write("000001", "00000011"); -- interrupt mask register 1, DI, DO interrupt enables
 			host_write("000010", "00001001"); -- interrupt mask register 2, ADSR and CO interrupt enables
 
-			assert to_X01(bus_REN_inverted) = '1';
-			host_write("000101", "00011111"); -- set REN
-			
-			assert to_X01(bus_IFC_inverted) = '1';
-			host_write("000101", "00011110"); -- set IFC
-			wait_for_ticks(3);
-			assert to_X01(bus_IFC_inverted) = '0';
-			wait for 100 us;
-			host_write("000101", "00010110"); -- release IFC
-			wait_for_ticks(3);
-			assert to_X01(bus_IFC_inverted) = '1';
-
-			assert to_X01(bus_REN_inverted) = '0';
 		end setup_basic_io_test;
 		
 		procedure basic_io_test is
@@ -783,6 +860,33 @@ architecture behav of dual_cb7210p2_testbench is
 			end if;
 		end pass_control_test;
 		
+		procedure rfd_holdoff_test is
+		begin
+			-- set primary address
+			host_write_byte(7 downto 5) := "000";
+			host_write_byte(4 downto 0) := std_logic_vector(to_unsigned(controller_primary_address, 5));
+			host_write("000110", host_write_byte); -- address register 0/1
+			host_write("000100", X"31"); -- address mode register, transmit/receive mode 0x3 address mode 1
+
+			host_write("001110", "00000000"); -- interrupt mask register 0
+			host_write("000001", "00000011"); -- interrupt mask register 1, DI, DO interrupt enables
+			host_write("000010", "00001001"); -- interrupt mask register 2, ADSR and CO interrupt enables
+
+			send_setup;
+			
+			host_write("000101", "00010000"); -- gts			
+			wait_for_ticks(5);
+			assert to_X01(bus_ATN_inverted) = '1';
+
+			-- send data byte with EOI asserted 
+			wait_for_interrupt(X"00", X"02", X"00"); -- wait for DO interrupt
+			host_write("000101", "00000110"); -- send eoi
+			host_write_byte := std_logic_vector(to_unsigned(35, 8));
+			host_write("000000", host_write_byte);
+
+			wait_for_interrupt(X"00", X"02", X"00"); -- wait for DO interrupt
+		end rfd_holdoff_test;
+
 	begin
 		controller_chip_select_inverted <= '1';
 		controller_dma_bus_ack_inverted <= '1';
@@ -802,6 +906,7 @@ architecture behav of dual_cb7210p2_testbench is
 		controller_reset <= '0';
 		wait until rising_edge(controller_clock);	
 		
+		init_controller;
 		setup_basic_io_test;
 		
 		sync_with_device(1);
@@ -820,8 +925,15 @@ architecture behav of dual_cb7210p2_testbench is
 		
 		-- need to reinit stuff if we want to add more tests here, 
 		-- the pass control test leaves us not controller
+		init_controller;
 
-		wait until rising_edge(controller_clock);	
+		sync_with_device (5);
+		
+		rfd_holdoff_test;
+
+		sync_with_device (6);
+
+		wait_for_ticks(10);	
 		assert false report "end of controller process" severity note;
 		controller_process_finished := true;
 		wait;
