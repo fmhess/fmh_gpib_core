@@ -583,28 +583,39 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			RFD_holdoff <= '0';
 			prev_acceptor_handshake_state := AIDS;
 		elsif rising_edge(clock) then
-			if prev_acceptor_handshake_state /= ACDS and 
-				acceptor_handshake_state_buffer = ACDS and
+			if acceptor_handshake_state_buffer = ACDS and
 				to_bit(ATN) = '0' then
-				if RFD_holdoff_mode /= continuous_mode then
-					gpib_to_host_byte_latched_buffer <= '1';
-					gpib_to_host_byte <= not bus_DIO_inverted_in;
+				-- first cycle in ACDS
+				if prev_acceptor_handshake_state /= ACDS then 
+					-- we clear end/eos signals on entering ACDS, we will
+					-- set them to their new values on the next cycle.  This
+					-- insures a rising edge will be generated for each byte accepted
+					gpib_to_host_byte_end <= '0';
+					gpib_to_host_byte_eos <= '0';
+
+					case RFD_holdoff_mode is
+						when holdoff_normal =>
+						when holdoff_on_all =>
+							RFD_holdoff <= '1';
+						when holdoff_on_end =>
+							if to_X01(END_msg or EOS) = '1' then
+								RFD_holdoff <= '1';
+							end if;
+						when continuous_mode =>
+							if to_X01(END_msg or EOS) = '1' then
+								RFD_holdoff <= '1';
+							end if;
+					end case;
+				else -- second cycle in ACDS
+					-- we delayed setting gpib_to_host_byte_latched until second cycle so
+					-- it gets set at the same time as the associated end/eos signals.
+					if RFD_holdoff_mode /= continuous_mode then
+						gpib_to_host_byte_latched_buffer <= '1';
+						gpib_to_host_byte <= not bus_DIO_inverted_in;
+					end if;
+					gpib_to_host_byte_end <= END_msg;
+					gpib_to_host_byte_eos <= EOS;
 				end if;
-				gpib_to_host_byte_end <= END_msg;
-				gpib_to_host_byte_eos <= EOS;
-				case RFD_holdoff_mode is
-					when holdoff_normal =>
-					when holdoff_on_all =>
-						RFD_holdoff <= '1';
-					when holdoff_on_end =>
-						if to_X01(END_msg or EOS) = '1' then
-							RFD_holdoff <= '1';
-						end if;
-					when continuous_mode =>
-						if to_X01(END_msg or EOS) = '1' then
-							RFD_holdoff <= '1';
-						end if;
-				end case;
 			elsif to_X01(gpib_to_host_byte_read) = '1' then
 				gpib_to_host_byte_latched_buffer <= '0';
 			end if;
