@@ -495,9 +495,9 @@ architecture behav of dual_cb7210p2_testbench is
 		end setup_rfd_holdoff_test;
 
 		procedure rfd_holdoff_test is
-		variable isr0_result: std_logic_vector(7 downto 0);
-		variable isr1_result: std_logic_vector(7 downto 0);
-		variable isr2_result: std_logic_vector(7 downto 0);
+			variable isr0_result: std_logic_vector(7 downto 0);
+			variable isr1_result: std_logic_vector(7 downto 0);
+			variable isr2_result: std_logic_vector(7 downto 0);
 		begin
 			-- wait to be addressed as listener
 			host_read("000100", host_read_result); -- address status register
