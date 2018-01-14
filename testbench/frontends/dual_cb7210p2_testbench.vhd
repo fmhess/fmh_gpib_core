@@ -321,8 +321,12 @@ architecture behav of dual_cb7210p2_testbench is
 		variable host_write_byte : std_logic_vector(7 downto 0);
 	
 		procedure wait_for_interrupt(isr0_wait_mask : std_logic_vector;
-			isr1_wait_mask : std_logic_vector; isr2_wait_mask : std_logic_vector) is
+			isr1_wait_mask : std_logic_vector; isr2_wait_mask : std_logic_vector;
+			isr0_result : out std_logic_vector(7 downto 0); 
+			isr1_result : out std_logic_vector(7 downto 0);
+			isr2_result : out std_logic_vector(7 downto 0)) is
 			variable wait_satisfied : boolean;
+			variable read_buffer: std_logic_vector(7 downto 0);
 		begin
 			wait_satisfied := false;
 			for i in 0 to loop_timeout loop
@@ -330,16 +334,19 @@ architecture behav of dual_cb7210p2_testbench is
 					wait until device_interrupt = '1';
 				end if;
 				-- read clear interrupts
-				host_read("001110", host_read_result); -- isr0
-				if (host_read_result and isr0_wait_mask) /= X"00" then
+				host_read("001110", read_buffer); -- isr0
+				isr0_result := read_buffer;
+				if (read_buffer and isr0_wait_mask) /= X"00" then
 					wait_satisfied := true;
 				end if;
-				host_read("000001", host_read_result); -- isr1
-				if (host_read_result and isr1_wait_mask) /= X"00" then
+				host_read("000001", read_buffer); -- isr1
+				isr1_result := read_buffer;
+				if (read_buffer and isr1_wait_mask) /= X"00" then
 					wait_satisfied := true;
 				end if;
-				host_read("000010", host_read_result); -- isr2
-				if (host_read_result and isr2_wait_mask) /= X"00" then
+				host_read("000010", read_buffer); -- isr2
+				isr2_result := read_buffer;
+				if (read_buffer and isr2_wait_mask) /= X"00" then
 					wait_satisfied := true;
 				end if;
 				
@@ -348,6 +355,16 @@ architecture behav of dual_cb7210p2_testbench is
 				end if;
 				assert i < loop_timeout;
 			end loop;
+		end wait_for_interrupt;
+
+		procedure wait_for_interrupt(isr0_wait_mask : std_logic_vector;
+			isr1_wait_mask : std_logic_vector; isr2_wait_mask : std_logic_vector) is
+			variable isr0_result: std_logic_vector(7 downto 0);
+			variable isr1_result: std_logic_vector(7 downto 0);
+			variable isr2_result: std_logic_vector(7 downto 0);
+		begin
+			wait_for_interrupt(isr0_wait_mask, isr1_wait_mask, isr2_wait_mask,
+				isr0_result, isr1_result, isr2_result);
 		end wait_for_interrupt;
 
 		procedure init_device is
@@ -478,6 +495,9 @@ architecture behav of dual_cb7210p2_testbench is
 		end setup_rfd_holdoff_test;
 
 		procedure rfd_holdoff_test is
+		variable isr0_result: std_logic_vector(7 downto 0);
+		variable isr1_result: std_logic_vector(7 downto 0);
+		variable isr2_result: std_logic_vector(7 downto 0);
 		begin
 			-- wait to be addressed as listener
 			host_read("000100", host_read_result); -- address status register
@@ -493,20 +513,26 @@ architecture behav of dual_cb7210p2_testbench is
 				end loop;
 			end if;
 			
-			-- receive a data byte with EOI asserted
-			wait_for_interrupt(X"00", X"01", X"00"); -- wait for DI interrupt
-			host_read("000000", host_read_result);
-			assert host_read_result = std_logic_vector(to_unsigned(35, 8));
-			-- check that we saw EOI
-			host_read("000111", host_read_result);
-			assert host_read_result(7) = '1';
-			-- check that holdoff is still in effect after we read the byte
-			wait_for_ticks(10);
-			assert to_X01(bus_NRFD_inverted) = '0';
-			-- release holdoff
-			host_write("000101", "00000011"); -- aux mode register, release rfd holdoff
-			wait_for_ticks(3);
-			assert to_X01(bus_NRFD_inverted) = '1';
+			-- we used to have a bug where the chip would fail to generate an END interrupt
+			-- on receiving the second of two consecutive data bytes with EOI asserted.  So
+			-- let's test that.
+			for n in 16#80# to 16#81# loop
+				-- receive a data byte with EOI asserted
+				wait_for_interrupt(X"00", X"11", X"00", isr0_result, isr1_result, isr2_result); -- wait for DI/END interrupt
+				assert isr1_result(0) = '1' and isr1_result(4) = '1';
+				host_read("000000", host_read_result);
+				assert host_read_result = std_logic_vector(to_unsigned(n, 8));
+				-- check that we saw EOI using address1 reg
+				host_read("000111", host_read_result);
+				assert host_read_result(7) = '1';
+				-- check that holdoff is still in effect after we read the byte
+				wait_for_ticks(10);
+				assert to_X01(bus_NRFD_inverted) = '0';
+				-- release holdoff
+				host_write("000101", "00000011"); -- aux mode register, release rfd holdoff
+				wait_for_ticks(3);
+				assert to_X01(bus_NRFD_inverted) = '1';
+			end loop;
 		end rfd_holdoff_test;
 	begin
 		device_chip_select_inverted <= '1';
@@ -878,11 +904,13 @@ architecture behav of dual_cb7210p2_testbench is
 			wait_for_ticks(5);
 			assert to_X01(bus_ATN_inverted) = '1';
 
-			-- send data byte with EOI asserted 
-			wait_for_interrupt(X"00", X"02", X"00"); -- wait for DO interrupt
-			host_write("000101", "00000110"); -- send eoi
-			host_write_byte := std_logic_vector(to_unsigned(35, 8));
-			host_write("000000", host_write_byte);
+			for n in 16#80# to 16#81# loop
+				-- send data byte with EOI asserted 
+				wait_for_interrupt(X"00", X"02", X"00"); -- wait for DO interrupt
+				host_write("000101", "00000110"); -- send eoi
+				host_write_byte := std_logic_vector(to_unsigned(n, 8));
+				host_write("000000", host_write_byte);
+			end loop;
 
 			wait_for_interrupt(X"00", X"02", X"00"); -- wait for DO interrupt
 		end rfd_holdoff_test;
