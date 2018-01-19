@@ -68,6 +68,7 @@ architecture behav of integrated_interface_functions_testbench is
 	signal source_handshake_state : SH_state;
 	signal parallel_poll_state_p1 : PP_state_p1;
 	signal RFD_holdoff_mode : RFD_holdoff_enum;
+	signal set_RFD_holdoff_pulse : std_logic;
 	signal release_RFD_holdoff_pulse : std_logic;
 	signal host_to_gpib_auto_EOI_on_EOS : std_logic;
 	signal address_passthrough : std_logic;
@@ -179,6 +180,7 @@ architecture behav of integrated_interface_functions_testbench is
 			parallel_poll_state_p1 => parallel_poll_state_p1,
 			local_STB => local_STB,
 			RFD_holdoff_mode => RFD_holdoff_mode,
+			set_RFD_holdoff_pulse => set_RFD_holdoff_pulse,
 			release_RFD_holdoff_pulse => release_RFD_holdoff_pulse,
 			address_passthrough => address_passthrough,
 			command_passthrough => command_passthrough,
@@ -339,6 +341,7 @@ architecture behav of integrated_interface_functions_testbench is
 		tcs <= '0';
 		local_STB <= (others => '0');
 		RFD_holdoff_mode <= holdoff_normal;
+		set_RFD_holdoff_pulse <= '0';
 		release_RFD_holdoff_pulse <= '0';
 		assert_END_in_SPAS <= '0';
 		DAC_holdoff_on_DCAS <= '0';

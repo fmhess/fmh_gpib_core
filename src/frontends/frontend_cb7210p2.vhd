@@ -12,6 +12,8 @@
 --   only accepts data bytes, not command bytes 
 -- * a dedicated command byte out register at offset 0x10 (register page 2, offset 0) which
 --   only accepts commmand bytes, not data bytes 
+-- * a "RFD holdoff ASAP" auxilliary command, which causes an RFD holdoff to take effect
+--   as soon as possible (IEEE 488.1 forbids rdy from becoming false while in ACRS).
 --
 -- Features which could be implemented if anyone cares:
 -- * Setting clock frequency by writing to the auxiliary mode register.  Clock frequency
@@ -200,6 +202,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal enable_gpib_to_host_EOS : std_logic;
 	signal configured_RFD_holdoff_mode : RFD_holdoff_enum;
 	signal RFD_holdoff_mode : RFD_holdoff_enum;
+	signal set_RFD_holdoff_pulse : std_logic;
 	signal release_RFD_holdoff_pulse : std_logic;
 	signal parallel_poll_flag : std_logic;
 	signal use_SRQS_as_ist : std_logic;
@@ -401,6 +404,7 @@ begin
 			talker_state_p3 => talker_state_p3,
 			local_STB => local_STB,
 			RFD_holdoff_mode => RFD_holdoff_mode,
+			set_RFD_holdoff_pulse => set_RFD_holdoff_pulse,
 			release_RFD_holdoff_pulse => release_RFD_holdoff_pulse,
 			address_passthrough => address_passthrough_active,
 			command_passthrough => command_passthrough_active,
@@ -1010,6 +1014,8 @@ begin
 					listen_with_continuous_mode <= '1';
 				when "11100" => -- local unlisten (pulse)
 					lun <= '1';
+				when "10101" => -- request RFD holdoff ASAP (extension, does not take effect until out of ACRS to comply with IEEE 488.1)
+					set_RFD_holdoff_pulse <= '1';
 				when "11101" => -- execute parallel poll
 					rpp <= '1';
 				when "10110" => -- clear IFC 
@@ -1354,6 +1360,7 @@ begin
 			soft_reset_pulse <= '0';
 			dma_bus_in_request <= '0';
 			release_RFD_holdoff_pulse <= '0';
+			set_RFD_holdoff_pulse <= '0';
 			trigger_aux_command_pulse <= '0';
 			clear_rtl := false;
 			handle_soft_reset('1');
@@ -1426,6 +1433,9 @@ begin
 			end if;
 			if release_RFD_holdoff_pulse /= '0' then
 				release_RFD_holdoff_pulse <= '0';
+			end if;
+			if set_RFD_holdoff_pulse /= '0' then
+				set_RFD_holdoff_pulse <= '0';
 			end if;
 			if trigger_aux_command_pulse /= '0' then
 				trigger_aux_command_pulse <= '0';

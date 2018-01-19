@@ -81,6 +81,8 @@ entity integrated_interface_functions is
 		host_to_gpib_command_byte_write : in std_logic;
 		local_STB : in std_logic_vector(7 downto 0);
 		RFD_holdoff_mode : in RFD_holdoff_enum;
+		-- pulse to set rfd holdoff (does not cause rdy to go false until out of ACRS, to comply with IEEE 488.1)
+		set_RFD_holdoff_pulse : in std_logic;
 		-- pulse to release rfd holdoff
 		release_RFD_holdoff_pulse : in std_logic;
 		DAC_holdoff_on_DTAS : in std_logic;
@@ -574,6 +576,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	-- deal with byte read by host from gpib bus
 	process(pon, clock) 
 		variable prev_acceptor_handshake_state : AH_state;
+		variable in_or_entering_ACRS : std_logic;
 	begin
 		if to_bit(pon) = '1' then
 			gpib_to_host_byte_latched_buffer <= '0';
@@ -582,6 +585,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			gpib_to_host_byte_eos <= '0';
 			RFD_holdoff <= '0';
 			prev_acceptor_handshake_state := AIDS;
+			in_or_entering_ACRS := '0';
 		elsif rising_edge(clock) then
 			if acceptor_handshake_state_buffer = ACDS and
 				to_bit(ATN) = '0' then
@@ -620,18 +624,28 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 				gpib_to_host_byte_latched_buffer <= '0';
 			end if;
 
+			if to_X01(set_RFD_holdoff_pulse) = '1' then
+				RFD_holdoff <= '1';
+			end if;
 			if to_X01(release_RFD_holdoff_pulse) = '1' then
 				RFD_holdoff <= '0';
 			end if;
 			
+			if acceptor_handshake_state_buffer = ACRS or
+				(acceptor_handshake_state_buffer = ANRS and ((to_X01(ATN) = '1' and to_X01(DAV) = '0') or to_X01(rdy) = '1') and to_X01(tcs) = '0') or
+				(acceptor_handshake_state_buffer = ACDS and to_X01(DAV) = '0') then
+				in_or_entering_ACRS := '1';
+			else
+				in_or_entering_ACRS := '0';
+			end if;
 			if RFD_holdoff_mode = continuous_mode then
 				if acceptor_handshake_state_buffer = ACDS then
 					rdy <= '0';
 				else
-					rdy <= not RFD_holdoff;
+					rdy <= not (RFD_holdoff and not in_or_entering_ACRS);
 				end if;
 			else
-				rdy <= not gpib_to_host_byte_latched_buffer and not RFD_holdoff;
+				rdy <= not gpib_to_host_byte_latched_buffer and not (RFD_holdoff and not in_or_entering_ACRS);
 			end if;
 			
 			prev_acceptor_handshake_state := acceptor_handshake_state_buffer;
