@@ -636,25 +636,34 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 
 	-- set rdy local message
 	process(pon, clock) 
+		variable entering_ACRS : std_logic;
 		variable in_or_entering_ACRS : std_logic;
 	begin
 		if to_bit(pon) = '1' then
-			in_or_entering_ACRS := '0';
+			entering_ACRS := '0';
 		elsif rising_edge(clock) then
-			if acceptor_handshake_state_buffer = ACRS or
-				(acceptor_handshake_state_buffer = ANRS and ((to_X01(ATN) = '1' and to_X01(DAV) = '0') or to_X01(rdy) = '1') and to_X01(tcs) = '0') or
+			if (acceptor_handshake_state_buffer = ANRS and ((to_X01(ATN) = '1' and to_X01(DAV) = '0') or to_X01(rdy) = '1') and to_X01(tcs) = '0') or
 				(acceptor_handshake_state_buffer = ACDS and to_X01(DAV) = '0') then
-				in_or_entering_ACRS := '1';
+				entering_ACRS := '1';
 			else
-				in_or_entering_ACRS := '0';
+				entering_ACRS := '0';
 			end if;
-			if RFD_holdoff = '1' then 
-				-- don't let RFD_holdoff make rdy transition false during ACRS (which is prohibited by 488.1)
-				if in_or_entering_ACRS = '0' then
+
+			if entering_ACRS = '1' then
+				if ATN = '1' then
+					-- Proactively clear rdy when entering ACRS with ATN asserted, since 488.1 prohibits rdy from transitioning false
+					-- when we are already in ACRS.  This produces a transition to ANRS if ATN is deasserted in ACRS, allowing a RFD holdoff 
+					-- to take effect, while still complying with the letter (and ultimately the intent I believe) of IEEE 488.1.
 					rdy <= '0';
 				else
 					rdy <= rdy;
 				end if;
+			elsif acceptor_handshake_state_buffer = ACRS then
+				rdy <= rdy;
+			-- after this point it is ok to let rdy transition false since we are definitely 
+			-- not in or entering ACRS.
+			elsif RFD_holdoff = '1' then 
+				rdy <= '0';
 			else
 				if RFD_holdoff_mode = continuous_mode then
 					if acceptor_handshake_state_buffer = ACDS then

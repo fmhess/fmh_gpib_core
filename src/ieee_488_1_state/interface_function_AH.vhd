@@ -31,8 +31,6 @@ architecture interface_function_AH_arch of interface_function_AH is
  
 	signal acceptor_handshake_state_buffer : AH_state;
 	signal addressed : boolean;
-	-- state of rdy on previous clock cycle.  rdy is not allowed to transition false during ACRS
-	signal old_rdy : std_logic;
 begin
  
 	acceptor_handshake_state <= acceptor_handshake_state_buffer;
@@ -42,12 +40,14 @@ begin
 		-- used to delay in ACDS for an extra clock cycle so there is time to see if we need to
 		-- do a DAC holdoff due to DTAS or DCAS
 		variable T3_delay_satisfied : boolean; 
+		-- state of rdy on previous ACRS clock cycle.  Used to assert rdy is not transitioned false during ACRS
+		variable old_ACRS_rdy : std_logic;
 	begin
 		if pon = '1' then
 			acceptor_handshake_state_buffer <= AIDS;
 			T3_delay_satisfied := false;
+			old_ACRS_rdy := '0';
 		elsif rising_edge(clock) then
-			old_rdy <= rdy;
 			
 			case acceptor_handshake_state_buffer is
 				when AIDS =>
@@ -67,9 +67,10 @@ begin
 					elsif to_X01(ATN) = '0' and to_X01(rdy) = '0' then
 						acceptor_handshake_state_buffer <= ANRS;
 					end if;
-					if to_X01(old_rdy) = '1' and to_X01(rdy) = '0' then
+					if to_X01(old_ACRS_rdy) = '1' and to_X01(rdy) = '0' then
 						assert false report "rdy is not permitted to transition false during ACRS.";
 					end if;
+					old_ACRS_rdy := to_X01(rdy);
 				when ACDS =>
 					if (to_X01(rdy) = '0' and to_X01(ATN) = '0') or 
 						(DAC_holdoff = '0' and T3_delay_satisfied and to_X01(ATN) = '1') then
@@ -88,6 +89,9 @@ begin
 				acceptor_handshake_state_buffer <= AIDS;
 			end if;
 
+			if acceptor_handshake_state_buffer /= ACRS then
+				old_ACRS_rdy := '0';
+			end if;
 		end if;
 	end process;
 
