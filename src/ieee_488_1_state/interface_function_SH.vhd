@@ -97,19 +97,9 @@ begin
 					end if;
 				when STRS =>
 					if interrupt then
-						-- jump two states in one cycle in the extremely likely case it is ok
-						if to_bit(nba) = '0' then
-							source_handshake_state_buffer <= SIDS;
-						else
-							source_handshake_state_buffer <= SIWS;
-						end if;
+						source_handshake_state_buffer <= SIWS;
 					elsif to_bit(DAC) = '1' then
-						-- jump two states in one cycle in the extremely likely case it is ok
-						if to_bit(nba) = '0' then
-							source_handshake_state_buffer <= SGNS;
-						else
-							source_handshake_state_buffer <= SWNS;
-						end if;
+						source_handshake_state_buffer <= SWNS;
 					end if;
 				when SWNS =>
 					if to_bit(nba) = '0' then

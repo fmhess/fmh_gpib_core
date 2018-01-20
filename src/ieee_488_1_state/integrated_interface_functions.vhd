@@ -585,7 +585,6 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			gpib_to_host_byte_eos <= '0';
 			RFD_holdoff <= '0';
 			prev_acceptor_handshake_state := AIDS;
-			in_or_entering_ACRS := '0';
 		elsif rising_edge(clock) then
 			if acceptor_handshake_state_buffer = ACDS and
 				to_bit(ATN) = '0' then
@@ -631,6 +630,17 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 				RFD_holdoff <= '0';
 			end if;
 			
+			prev_acceptor_handshake_state := acceptor_handshake_state_buffer;
+		end if;
+	end process;
+
+	-- set rdy local message
+	process(pon, clock) 
+		variable in_or_entering_ACRS : std_logic;
+	begin
+		if to_bit(pon) = '1' then
+			in_or_entering_ACRS := '0';
+		elsif rising_edge(clock) then
 			if acceptor_handshake_state_buffer = ACRS or
 				(acceptor_handshake_state_buffer = ANRS and ((to_X01(ATN) = '1' and to_X01(DAV) = '0') or to_X01(rdy) = '1') and to_X01(tcs) = '0') or
 				(acceptor_handshake_state_buffer = ACDS and to_X01(DAV) = '0') then
@@ -638,20 +648,27 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			else
 				in_or_entering_ACRS := '0';
 			end if;
-			if RFD_holdoff_mode = continuous_mode then
-				if acceptor_handshake_state_buffer = ACDS then
+			if RFD_holdoff = '1' then 
+				-- don't let RFD_holdoff make rdy transition false during ACRS (which is prohibited by 488.1)
+				if in_or_entering_ACRS = '0' then
 					rdy <= '0';
 				else
-					rdy <= not (RFD_holdoff and not in_or_entering_ACRS);
+					rdy <= rdy;
 				end if;
 			else
-				rdy <= not gpib_to_host_byte_latched_buffer and not (RFD_holdoff and not in_or_entering_ACRS);
+				if RFD_holdoff_mode = continuous_mode then
+					if acceptor_handshake_state_buffer = ACDS then
+						rdy <= '0';
+					else
+						rdy <= '1';
+					end if;
+				else
+					rdy <= not gpib_to_host_byte_latched_buffer;
+				end if;
 			end if;
-			
-			prev_acceptor_handshake_state := acceptor_handshake_state_buffer;
 		end if;
 	end process;
-
+		
 	gpib_to_host_byte_latched <= gpib_to_host_byte_latched_buffer;
 	
 	-- deal with byte written by host to gpib bus
