@@ -85,7 +85,10 @@ architecture structural of fmh_gpib_top is
 	signal cb7210p2_dma_data_out : std_logic_vector(7 downto 0);
 	
 	signal fifo_host_to_gpib_dma_request : std_logic;
+	signal fifo_host_to_gpib_dma_request_enable : std_logic;
 	signal fifo_gpib_to_host_dma_request : std_logic;
+	signal fifo_gpib_to_host_dma_request_enable : std_logic;
+	signal fifo_dma_request_enable : std_logic;
 	
 	signal dma_transfer_active : std_logic;
 	
@@ -133,7 +136,8 @@ begin
 			pl330_dma_single => dma_single,
 			pl330_dma_req => dma_req,
 			cb7210p2_dma_in_request => fifo_host_to_gpib_dma_request,
-			cb7210p2_dma_out_request => fifo_gpib_to_host_dma_request
+			cb7210p2_dma_out_request => fifo_gpib_to_host_dma_request,
+			cb7210p2_dma_request_enable => fifo_dma_request_enable
 		);
 	
 	my_debounce_filter : entity work.gpib_control_debounce_filter
@@ -175,7 +179,9 @@ begin
 			host_data_in => dma_fifos_data_in,
 			host_data_out => dma_fifos_data_out,
 			host_to_gpib_dma_request => fifo_host_to_gpib_dma_request,
+			host_to_gpib_dma_request_enable => fifo_host_to_gpib_dma_request_enable,
 			gpib_to_host_dma_request => fifo_gpib_to_host_dma_request,
+			gpib_to_host_dma_request_enable => fifo_gpib_to_host_dma_request_enable,
 			request_xfer_to_device => cb7210p2_dma_bus_in_request,
 			request_xfer_from_device => cb7210p2_dma_bus_out_request,
 			device_chip_select => cb7210p2_dma_ack,
@@ -307,4 +313,6 @@ begin
 	cb7210p2_dma_write_inverted <= not cb7210p2_dma_write;
 	cb7210p2_dma_ack_inverted <= not cb7210p2_dma_ack;
 
+	fifo_dma_request_enable <= fifo_host_to_gpib_dma_request_enable or fifo_gpib_to_host_dma_request_enable;
+	
 end architecture structural;
