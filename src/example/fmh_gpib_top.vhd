@@ -85,10 +85,8 @@ architecture structural of fmh_gpib_top is
 	signal cb7210p2_dma_data_out : std_logic_vector(7 downto 0);
 	
 	signal fifo_host_to_gpib_dma_request : std_logic;
-	signal fifo_host_to_gpib_dma_request_enable : std_logic;
 	signal fifo_gpib_to_host_dma_request : std_logic;
-	signal fifo_gpib_to_host_dma_request_enable : std_logic;
-	signal fifo_dma_request_enable : std_logic;
+	signal fifo_dma_request : std_logic;
 	
 	signal dma_transfer_active : std_logic;
 	
@@ -128,18 +126,6 @@ architecture structural of fmh_gpib_top is
 	signal ungated_not_controller_in_charge : std_logic;
 	
 begin
-	my_dma_translator : entity work.dma_translator_cb7210p2_to_pl330
-		port map (
-			clock => clock,
-			reset => safe_reset,
-			pl330_dma_ack => dma_ack,
-			pl330_dma_single => dma_single,
-			pl330_dma_req => dma_req,
-			cb7210p2_dma_in_request => fifo_host_to_gpib_dma_request,
-			cb7210p2_dma_out_request => fifo_gpib_to_host_dma_request,
-			cb7210p2_dma_request_enable => fifo_dma_request_enable
-		);
-	
 	my_debounce_filter : entity work.gpib_control_debounce_filter
 		generic map(
 			length => 12,
@@ -179,9 +165,7 @@ begin
 			host_data_in => dma_fifos_data_in,
 			host_data_out => dma_fifos_data_out,
 			host_to_gpib_dma_request => fifo_host_to_gpib_dma_request,
-			host_to_gpib_dma_request_enable => fifo_host_to_gpib_dma_request_enable,
 			gpib_to_host_dma_request => fifo_gpib_to_host_dma_request,
-			gpib_to_host_dma_request_enable => fifo_gpib_to_host_dma_request_enable,
 			request_xfer_to_device => cb7210p2_dma_bus_in_request,
 			request_xfer_from_device => cb7210p2_dma_bus_out_request,
 			device_chip_select => cb7210p2_dma_ack,
@@ -299,6 +283,19 @@ begin
 		end if;
 	end process;
 
+	-- dma requests
+	process (safe_reset, clock)
+	begin
+		if to_X01(safe_reset) = '1' then
+			fifo_dma_request <= '0';
+		elsif rising_edge(clock) then
+			fifo_dma_request <= (fifo_host_to_gpib_dma_request or fifo_gpib_to_host_dma_request) and not dma_ack;
+		end if;
+	end process;
+	
+	dma_single <= fifo_dma_request;
+	dma_req <= fifo_dma_request;
+
 	gpib_DIO_inverted <= (others => 'Z') when gpib_disable = '1' else ungated_DIO_inverted_out;
 	gpib_ATN_inverted <= 'Z' when gpib_disable = '1' else ungated_ATN_inverted_out;
 	gpib_DAV_inverted <= 'Z' when gpib_disable = '1' else ungated_DAV_inverted_out;
@@ -313,6 +310,4 @@ begin
 	cb7210p2_dma_write_inverted <= not cb7210p2_dma_write;
 	cb7210p2_dma_ack_inverted <= not cb7210p2_dma_ack;
 
-	fifo_dma_request_enable <= fifo_host_to_gpib_dma_request_enable or fifo_gpib_to_host_dma_request_enable;
-	
 end architecture structural;

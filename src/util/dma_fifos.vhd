@@ -26,9 +26,7 @@ entity dma_fifos is
 		host_data_out : out std_logic_vector(15 downto 0);
 
 		host_to_gpib_dma_request : out std_logic;
-		host_to_gpib_dma_request_enable : out std_logic;
 		gpib_to_host_dma_request : out std_logic;
-		gpib_to_host_dma_request_enable : out std_logic;
 		request_xfer_to_device : in std_logic;
 		request_xfer_from_device : in std_logic;
 		
@@ -64,8 +62,8 @@ architecture dma_fifos_arch of dma_fifos is
 	signal xfer_to_device_pending : std_logic;
 	type xfer_from_device_enum is (xfer_from_device_idle, xfer_from_device_active, xfer_from_device_waiting);
 	signal xfer_from_device_state : xfer_from_device_enum;
-	signal host_to_gpib_request_enable_buffer : std_logic;
-	signal gpib_to_host_request_enable_buffer : std_logic;
+	signal host_to_gpib_request_enable : std_logic;
+	signal gpib_to_host_request_enable : std_logic;
 
 	signal xfer_count: unsigned (11 downto 0); -- Count of bytes in/out on the device side
 begin
@@ -114,9 +112,9 @@ begin
 					host_to_gpib_fifo_write_enable <= '1';
 					host_to_gpib_dma_request <= '0'; -- make sure dma request gets cleared as early as possible
 				when "01" => -- control register
-					host_to_gpib_request_enable_buffer <= data(0);
+					host_to_gpib_request_enable <= data(0);
 					host_to_gpib_fifo_reset <= data(1);
-					gpib_to_host_request_enable_buffer <= data(8);
+					gpib_to_host_request_enable <= data(8);
 					gpib_to_host_fifo_reset <= data(9);
 				when "10" =>
 					xfer_count <= unsigned(data(11 downto 0));
@@ -150,7 +148,7 @@ begin
 		if to_X01(reset) = '1' then
 			host_to_gpib_fifo_reset <= '1';
 			host_to_gpib_fifo_write_enable <= '0';
-			host_to_gpib_request_enable_buffer <= '0';
+			host_to_gpib_request_enable <= '0';
 			host_to_gpib_fifo_read_ack <= '0';
 			host_to_gpib_fifo_data_in <= (others => '0');
 			host_to_gpib_dma_request <= '0';
@@ -159,7 +157,7 @@ begin
 			gpib_to_host_fifo_reset <= '1';
 			gpib_to_host_fifo_read_ack <= '0';
 			gpib_to_host_fifo_write_enable <= '0';
-			gpib_to_host_request_enable_buffer <= '0';
+			gpib_to_host_request_enable <= '0';
 			gpib_to_host_dma_request <= '0';
 		
 			device_chip_select <= '0';
@@ -181,7 +179,7 @@ begin
 					host_write_pending <= '1';
 					handle_host_write(host_address, host_data_in);
 				else
-					host_to_gpib_dma_request <= host_to_gpib_request_enable_buffer and not host_to_gpib_fifo_full;
+					host_to_gpib_dma_request <= host_to_gpib_request_enable and not host_to_gpib_fifo_full;
 				end if;
 			else -- host_write_pending = '1'
 				if host_write_selected = '0' then
@@ -196,7 +194,7 @@ begin
 					host_read_pending <= '1';
 					handle_host_read(host_address);
 				else
-					gpib_to_host_dma_request <= gpib_to_host_request_enable_buffer and not gpib_to_host_fifo_empty;
+					gpib_to_host_dma_request <= gpib_to_host_request_enable and not gpib_to_host_fifo_empty;
 				end if;
 			else -- host_read_pending = '1'
 				if host_read_selected = '0' then
@@ -267,7 +265,4 @@ begin
 			
 		end if;
 	end process;
-
-	host_to_gpib_dma_request_enable <= host_to_gpib_request_enable_buffer;
-	gpib_to_host_dma_request_enable <= gpib_to_host_request_enable_buffer;
 end dma_fifos_arch;
