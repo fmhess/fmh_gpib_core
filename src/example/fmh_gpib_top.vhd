@@ -13,7 +13,6 @@
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
-use work.dma_translator_cb7210p2_to_pl330;
 use work.gpib_control_debounce_filter;
 use work.frontend_cb7210p2;
 use work.dma_fifos;

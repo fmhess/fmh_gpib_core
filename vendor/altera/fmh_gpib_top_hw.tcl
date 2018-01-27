@@ -56,7 +56,7 @@ add_fileset_file interface_function_TE.vhd VHDL PATH ../../src/ieee_488_1_state/
 add_fileset_file interface_function_common.vhd VHDL PATH ../../src/ieee_488_1_state/interface_function_common.vhd
 add_fileset_file remote_message_decoder.vhd VHDL PATH ../../src/ieee_488_1_state/remote_message_decoder.vhd
 add_fileset_file dma_fifos.vhd VHDL PATH ../../src/util/dma_fifos.vhd
-add_fileset_file dma_translator_cb7210p2_to_pl330.vhd VHDL PATH ../../src/util/dma_translator_cb7210p2_to_pl330.vhd
+add_fileset_file std_fifo.vhd VHDL PATH ../../src/util/std_fifo.vhd
 add_fileset_file gpib_control_debounce_filter.vhd VHDL PATH ../../src/util/gpib_control_debounce_filter.vhd
 add_fileset_file std_fifo.vhd VHDL PATH ../../src/util/std_fifo.vhd
 
@@ -76,7 +76,8 @@ set_parameter_property clock_frequency_KHz HDL_PARAMETER true
 # 
 set_module_assignment embeddedsw.dts.group gpib
 set_module_assignment embeddedsw.dts.name fmh_gpib_core
-set_module_assignment embeddedsw.dts.params.dma-channel 0
+set_module_assignment embeddedsw.dts.params.dmas {&pdma 0}
+set_module_assignment embeddedsw.dts.params.dma-names rxtx
 set_module_assignment embeddedsw.dts.vendor fmhess
 set_module_assignment embeddedsw.dts.compatible {fmhess,fmh_gpib_core}
 
