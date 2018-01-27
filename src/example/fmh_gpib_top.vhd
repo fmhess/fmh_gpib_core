@@ -83,9 +83,10 @@ architecture structural of fmh_gpib_top is
 	signal cb7210p2_dma_data_in : std_logic_vector(7 downto 0);
 	signal cb7210p2_dma_data_out : std_logic_vector(7 downto 0);
 	
-	signal fifo_host_to_gpib_dma_request : std_logic;
-	signal fifo_gpib_to_host_dma_request : std_logic;
-	signal fifo_dma_request : std_logic;
+	signal fifo_host_to_gpib_dma_single_request : std_logic;
+	signal fifo_host_to_gpib_dma_burst_request : std_logic;
+	signal fifo_gpib_to_host_dma_single_request : std_logic;
+	signal fifo_gpib_to_host_dma_burst_request : std_logic;
 	
 	signal dma_transfer_active : std_logic;
 	
@@ -153,7 +154,7 @@ begin
 		);
 	
 	my_dma_fifos : entity work.dma_fifos
-		generic map(fifo_depth => 4)
+		generic map(fifo_depth => 32)
 		port map(
 			clock => clock,
 			reset => safe_reset,
@@ -283,17 +284,8 @@ begin
 	end process;
 
 	-- dma requests
-	process (safe_reset, clock)
-	begin
-		if to_X01(safe_reset) = '1' then
-			fifo_dma_request <= '0';
-		elsif rising_edge(clock) then
-			fifo_dma_request <= (fifo_host_to_gpib_dma_request or fifo_gpib_to_host_dma_request) and not dma_ack;
-		end if;
-	end process;
-	
-	dma_single <= fifo_dma_request;
-	dma_req <= fifo_dma_request;
+	dma_single <= (fifo_host_to_gpib_dma_single_request or fifo_gpib_to_host_dma_single_request) and not dma_ack;
+	dma_req <= (fifo_host_to_gpib_dma_burst_request or fifo_gpib_to_host_dma_burst_request) and not dma_ack;
 
 	gpib_DIO_inverted <= (others => 'Z') when gpib_disable = '1' else ungated_DIO_inverted_out;
 	gpib_ATN_inverted <= 'Z' when gpib_disable = '1' else ungated_ATN_inverted_out;

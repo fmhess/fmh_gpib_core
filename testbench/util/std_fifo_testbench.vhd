@@ -5,30 +5,13 @@
 LIBRARY IEEE;
 USE IEEE.STD_LOGIC_1164.ALL;
 USE IEEE.NUMERIC_STD.ALL;
+use work.std_fifo;
 
 ENTITY std_fifo_testbench IS
 END std_fifo_testbench;
 
 ARCHITECTURE behavior OF std_fifo_testbench IS 
-	
-	-- Component Declaration for the Unit Under Test (UUT)
-	component STD_FIFO
-		Generic (
-			constant DATA_WIDTH  : positive := 8;
-			constant FIFO_DEPTH	: positive := 16
-		);
-		port (
-			CLK		: in std_logic;
-			RST		: in std_logic;
-			DataIn	: in std_logic_vector(7 downto 0);
-			WriteEn	: in std_logic;
-			ReadAck	: in std_logic;
-			DataOut	: out std_logic_vector(7 downto 0);
-			Full	: out std_logic;
-			Empty	: out std_logic
-		);
-	end component;
-	
+
 	--Inputs
 	signal CLK		: std_logic := '0';
 	signal RST		: std_logic := '0';
@@ -40,6 +23,7 @@ ARCHITECTURE behavior OF std_fifo_testbench IS
 	signal DataOut	: std_logic_vector(7 downto 0);
 	signal Empty	: std_logic;
 	signal Full		: std_logic;
+	signal Contents		: natural range 0 to 16;
 	
 	-- Clock period definitions
 	constant CLK_period : time := 10 ns;
@@ -48,7 +32,10 @@ ARCHITECTURE behavior OF std_fifo_testbench IS
 BEGIN
 
 	-- Instantiate the Unit Under Test (UUT)
-	uut: STD_FIFO
+	uut: entity work.STD_FIFO
+		GENERIC MAP ( DATA_WIDTH => 8,
+			FIFO_DEPTH => 16
+		)
 		PORT MAP (
 			CLK		=> CLK,
 			RST		=> RST,
@@ -57,7 +44,8 @@ BEGIN
 			ReadAck	=> ReadAck,
 			DataOut	=> DataOut,
 			Full	=> Full,
-			Empty	=> Empty
+			Empty	=> Empty,
+			Contents => Contents
 		);
 	
 	-- Clock process definitions

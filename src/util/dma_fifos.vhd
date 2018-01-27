@@ -11,7 +11,7 @@ use work.std_fifo;
 
 entity dma_fifos is
 	generic(
-		fifo_depth : positive := 4
+		fifo_depth : positive := 32
 	);
 	port(
 		clock : in std_logic;
@@ -25,8 +25,10 @@ entity dma_fifos is
 		host_data_in : in std_logic_vector(15 downto 0);
 		host_data_out : out std_logic_vector(15 downto 0);
 
-		host_to_gpib_dma_request : out std_logic;
-		gpib_to_host_dma_request : out std_logic;
+		host_to_gpib_dma_single_request : out std_logic;
+		host_to_gpib_dma_burst_request : out std_logic;
+		gpib_to_host_dma_single_request : out std_logic;
+		gpib_to_host_dma_burst_request : out std_logic;
 		request_xfer_to_device : in std_logic;
 		request_xfer_from_device : in std_logic;
 		
@@ -41,6 +43,7 @@ end dma_fifos;
  
 architecture dma_fifos_arch of dma_fifos is
 	constant num_address_lines : positive := 2;
+	constant max_burst : natural := fifo_depth / 2;
 	
 	signal host_to_gpib_fifo_reset : std_logic;
 	signal host_to_gpib_fifo_write_enable : std_logic;
@@ -49,12 +52,14 @@ architecture dma_fifos_arch of dma_fifos is
 	signal host_to_gpib_fifo_read_ack : std_logic;
 	signal host_to_gpib_fifo_empty : std_logic;
 	signal host_to_gpib_fifo_full : std_logic;
+	signal host_to_gpib_fifo_contents : natural range 0 to fifo_depth;
 	
 	signal gpib_to_host_fifo_reset : std_logic;
 	signal gpib_to_host_fifo_write_enable : std_logic;
 	signal gpib_to_host_fifo_read_ack : std_logic;
 	signal gpib_to_host_fifo_empty : std_logic;
 	signal gpib_to_host_fifo_full : std_logic;
+	signal gpib_to_host_fifo_contents : natural range 0 to fifo_depth;
 	signal gpib_to_host_fifo_data_out : std_logic_vector(7 downto 0);
 
 	signal host_write_pending : std_logic;
@@ -80,7 +85,8 @@ begin
 			ReadAck => host_to_gpib_fifo_read_ack,
 			DataOut => host_to_gpib_fifo_data_out,
 			Empty => host_to_gpib_fifo_empty,
-			Full => host_to_gpib_fifo_full
+			Full => host_to_gpib_fifo_full,
+			Contents => host_to_gpib_fifo_contents
 		);
 
 	gpib_to_host_fifo: entity work.std_fifo 
@@ -95,7 +101,8 @@ begin
 			ReadAck => gpib_to_host_fifo_read_ack,
 			DataOut => gpib_to_host_fifo_data_out,
 			Empty => gpib_to_host_fifo_empty,
-			Full => gpib_to_host_fifo_full
+			Full => gpib_to_host_fifo_full,
+			Contents => gpib_to_host_fifo_contents
 		);
 		
 	-- process host reads and writes
@@ -110,7 +117,14 @@ begin
 				when "00" => -- push byte into host-to-gpib fifo
 					host_to_gpib_fifo_data_in <= data(7 downto 0);
 					host_to_gpib_fifo_write_enable <= '1';
-					host_to_gpib_dma_request <= '0'; -- make sure dma request gets cleared as early as possible
+
+					-- immediately clear dma requests taking into account a byte is currently being pushed into the fifo
+					if host_to_gpib_fifo_contents >= fifo_depth - 1 then
+						host_to_gpib_dma_single_request <= '0';
+					end if;
+					if host_to_gpib_fifo_contents >= max_burst then
+						host_to_gpib_dma_burst_request <= '0';
+					end if;
 				when "01" => -- control register
 					host_to_gpib_request_enable <= data(0);
 					host_to_gpib_fifo_reset <= data(1);
@@ -129,7 +143,14 @@ begin
 					host_data_out(15 downto 8) <= (others => '0');
 					host_data_out(7 downto 0) <= gpib_to_host_fifo_data_out;
 					gpib_to_host_fifo_read_ack <= '1';
-					gpib_to_host_dma_request <= '0'; -- make sure dma request gets cleared as early as possible
+					
+					-- immediately clear dma requests taking into account a byte is currently being popped out of the fifo
+					if gpib_to_host_fifo_contents <= 1 then
+						gpib_to_host_dma_single_request <= '0';
+					end if;
+					if gpib_to_host_fifo_contents <= max_burst then
+						gpib_to_host_dma_burst_request <= '0';
+					end if;
 				when "01" => -- host-to-gpib status register
 					host_data_out <= (
 						0 => host_to_gpib_fifo_empty,
@@ -151,14 +172,16 @@ begin
 			host_to_gpib_request_enable <= '0';
 			host_to_gpib_fifo_read_ack <= '0';
 			host_to_gpib_fifo_data_in <= (others => '0');
-			host_to_gpib_dma_request <= '0';
+			host_to_gpib_dma_single_request <= '0';
+			host_to_gpib_dma_burst_request <= '0';
 			host_data_out <= (others => '0');
 			
 			gpib_to_host_fifo_reset <= '1';
 			gpib_to_host_fifo_read_ack <= '0';
 			gpib_to_host_fifo_write_enable <= '0';
 			gpib_to_host_request_enable <= '0';
-			gpib_to_host_dma_request <= '0';
+			gpib_to_host_dma_single_request <= '0';
+			gpib_to_host_dma_burst_request <= '0';
 		
 			device_chip_select <= '0';
 			device_write <= '0';
@@ -179,7 +202,12 @@ begin
 					host_write_pending <= '1';
 					handle_host_write(host_address, host_data_in);
 				else
-					host_to_gpib_dma_request <= host_to_gpib_request_enable and not host_to_gpib_fifo_full;
+					host_to_gpib_dma_single_request <= host_to_gpib_request_enable and not host_to_gpib_fifo_full;
+					if host_to_gpib_request_enable = '1' and host_to_gpib_fifo_contents <= max_burst then
+						host_to_gpib_dma_burst_request <= '1';
+					else 
+						host_to_gpib_dma_burst_request <= '0';
+					end if;
 				end if;
 			else -- host_write_pending = '1'
 				if host_write_selected = '0' then
@@ -194,7 +222,12 @@ begin
 					host_read_pending <= '1';
 					handle_host_read(host_address);
 				else
-					gpib_to_host_dma_request <= gpib_to_host_request_enable and not gpib_to_host_fifo_empty;
+					gpib_to_host_dma_single_request <= gpib_to_host_request_enable and not gpib_to_host_fifo_empty;
+					if gpib_to_host_request_enable = '1' and gpib_to_host_fifo_contents >= max_burst then
+						gpib_to_host_dma_burst_request <= '1';
+					else
+						gpib_to_host_dma_burst_request <= '0';
+					end if;
 				end if;
 			else -- host_read_pending = '1'
 				if host_read_selected = '0' then

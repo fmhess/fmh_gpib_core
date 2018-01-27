@@ -21,7 +21,8 @@ entity STD_FIFO is
 		ReadAck	: in  STD_LOGIC;
 		DataOut	: out STD_LOGIC_VECTOR (DATA_WIDTH - 1 downto 0);
 		Empty	: out STD_LOGIC;
-		Full	: out STD_LOGIC
+		Full	: out STD_LOGIC;
+		Contents	: out natural range 0 TO FIFO_DEPTH
 	);
 end STD_FIFO;
 
@@ -48,6 +49,7 @@ begin
 				
 				Full  <= '0';
 				Empty <= '1';
+				Contents <= 0;
 				DataOut <= (others => '0');
 				for i in 0 to FIFO_DEPTH - 1 loop
 					Memory(i) := (others => '0');
@@ -98,6 +100,12 @@ begin
 				else
 					Empty	<= '0';
 					Full	<= '0';
+				end if;
+				
+				if (Looped) then
+					Contents <= FIFO_DEPTH + (Head - Tail);
+				else
+					Contents <= Head - Tail;
 				end if;
 			end if;
 		end if;
