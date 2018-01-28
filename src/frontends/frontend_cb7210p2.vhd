@@ -756,6 +756,7 @@ begin
 			host_read_from_bus_state <= host_io_idle;
 			host_data_bus_out_buffer <= (others => '0');
 			gpib_to_host_dma_state <= dma_idle;
+			gpib_to_host_byte_read <= '0';
 			dma_bus_out_request <= '0';
 			dma_bus_out <= (others => '0');
 			prev_controller_state_p2 := CSNS;
@@ -1300,6 +1301,8 @@ begin
 				gpib_address_1 <= (others => '0');
 				enable_talker_gpib_address_1 <= '0';
 				enable_listener_gpib_address_1 <= '0';
+				host_to_gpib_byte <= (others => '0');
+				host_to_gpib_data_byte_end <= '0';
 				host_to_gpib_data_byte_write <= '0';
 				host_to_gpib_command_byte_write <= '0';
 				send_eoi := '0';
