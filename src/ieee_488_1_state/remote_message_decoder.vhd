@@ -94,9 +94,9 @@ begin
 	DAV <= not bus_DAV_inverted;
 	DCL <= '1' when UCG_buffer = '1' and not bus_DIO_inverted(3 downto 0) = "0100" and not bus_ATN_inverted = '1' else
 		'0';
-	END_msg <= bus_ATN_inverted and not bus_EOI_inverted;
+	END_msg <= to_X01(bus_ATN_inverted) and not bus_EOI_inverted;
 	EOS <= '1' when enable_EOS_detection = '1' and EOS_match(not bus_DIO_inverted, configured_eos_character, ignore_eos_bit_7)
-		and bus_ATN_inverted = '1' else
+		and to_X01(bus_ATN_inverted) = '1' else
 		'0';
 	GET <= '1' when ACG_buffer = '1' and not bus_DIO_inverted(3 downto 0) = "1000" and not bus_ATN_inverted = '1' else
 		'0';
@@ -145,7 +145,7 @@ begin
 		'0';
 	REN <= not bus_REN_inverted;
 	RFD <= to_X01(bus_NRFD_inverted);
-	RQS <= not bus_DIO_inverted(6) and bus_ATN_inverted;
+	RQS <= not bus_DIO_inverted(6) and to_X01(bus_ATN_inverted);
 	
 	SCG_buffer <= '1' when not bus_DIO_inverted(6 downto 5) = "11" and not bus_ATN_inverted = '1' else
 		'0';
