@@ -589,7 +589,6 @@ architecture behav of frontend_cb7210p2_testbench is
 		begin
 			
 			-- remote parallel poll mode
-			host_write("101", "01100000"); -- enabled 
 			host_write("101", "11100000"); -- aux reg I, remote mode 
 			host_write("101", "10100000"); -- don't use SRQ as ist, use parallel poll flag (bit 4)
 			host_write("101", "00001001"); -- set parallel poll flag to 1
@@ -602,7 +601,7 @@ architecture behav of frontend_cb7210p2_testbench is
 			-- do parallel poll
 			bus_ATN_inverted <= '0';
 			bus_EOI_inverted <= '0';
-			wait_for_ticks(4);
+			wait for 2us;
 			assert not bus_DIO_inverted = "00100000";
 			
 			bus_ATN_inverted <= 'H';
@@ -617,7 +616,7 @@ architecture behav of frontend_cb7210p2_testbench is
 			-- do parallel poll
 			bus_ATN_inverted <= '0';
 			bus_EOI_inverted <= '0';
-			wait_for_ticks(3);
+			wait for 2us;
 			assert not bus_DIO_inverted = "00000000";
 
 			bus_ATN_inverted <= 'H';
@@ -625,7 +624,7 @@ architecture behav of frontend_cb7210p2_testbench is
 			wait_for_ticks(1);
 			
 			-- local parallel poll mode
-			host_write("101", "01100111"); -- enabled, sense 0, line 7 
+			host_write("101", "01100111"); -- local enabled, sense 0, line 7 
 			host_write("101", "11100100"); -- aux reg I, local mode 
 			host_write("101", "10100000"); -- don't use SRQ as ist, use parallel poll flag (bit 4)
 			host_write("101", "00000001"); -- set parallel poll flag to 0
@@ -633,7 +632,7 @@ architecture behav of frontend_cb7210p2_testbench is
 			-- do parallel poll
 			bus_ATN_inverted <= '0';
 			bus_EOI_inverted <= '0';
-			wait_for_ticks(4);
+			wait for 2us;
 			assert not bus_DIO_inverted = "10000000";
 			
 			bus_ATN_inverted <= 'H';
@@ -641,15 +640,15 @@ architecture behav of frontend_cb7210p2_testbench is
 			wait_for_ticks(1);
 
 			-- disable parallel poll 
-			host_write("101", "01110000"); -- disabled
-			host_write("101", "11100000"); -- aux reg I, remote mode 
+			host_write("101", "01110000"); -- local disabled
+			host_write("101", "11100100"); -- aux reg I, local mode 
 			host_write("101", "10100000"); -- don't use SRQ as ist, use parallel poll flag (bit 4)
 			host_write("101", "00000001"); -- set parallel poll flag to 0
 			
 			-- do parallel poll
 			bus_ATN_inverted <= '0';
 			bus_EOI_inverted <= '0';
-			wait_for_ticks(4);
+			wait for 2us;
 			assert not bus_DIO_inverted = "00000000";
 			
 			bus_ATN_inverted <= 'H';
