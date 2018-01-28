@@ -56,7 +56,8 @@ architecture behav of gpib_transceiver_testbench is
 			device_REN => device_REN,
 			device_SRQ => device_SRQ,
 			bus_DIO => bus_DIO,
-			bus_ATN => bus_ATN,
+			bus_ATN_in => bus_ATN,
+			bus_ATN_out => bus_ATN,
 			bus_DAV => bus_DAV,
 			bus_EOI => bus_EOI,
 			bus_IFC => bus_IFC,
@@ -81,160 +82,92 @@ architecture behav of gpib_transceiver_testbench is
 	end process;
 	
 	process
-		-- wait wait for a condition with a hard coded timeout to avoid infinite test loops on failure
-		procedure wait_for_ticks (num_clock_cycles : in integer) is
-			begin
-				for i in 1 to num_clock_cycles loop
-					wait until rising_edge(clock);
-				end loop;
-			end procedure wait_for_ticks;
-		
 	begin
-		-- test DIO lines
-		not_controller_in_charge <= '1';
+		device_DIO <= (others => '1');
+		device_ATN <= '1';
+		device_DAV <= '1';
+		device_EOI <= '1';
+		device_IFC <= '1';
+		device_NDAC <= '1';
+		device_NRFD <= '1';
+		device_REN <= '1';
+		device_SRQ <= '1';
+		bus_ATN <= 'H';
 		system_controller <= '0';
-		talk_enable <= '0';
 		pullup_disable <= '1';
-		bus_DIO <= (others => 'H');
+		talk_enable <= '1';
+		not_controller_in_charge <= '1';
 		wait until rising_edge(clock);
 
-		bus_DIO <= X"55";
-		device_DIO <= (others => 'Z');
-		wait until rising_edge(clock);
-		assert device_DIO = X"55";
-		
-		talk_enable <= '1';
+		-- test DIO lines
 		device_DIO <= X"aa";
-		bus_DIO <= (others => 'Z');
 		wait until rising_edge(clock);
 		assert bus_DIO = X"aa";
 		
 		pullup_disable <= '0';
-		bus_DIO <= (others => 'H');
 		wait until rising_edge(clock);
 		assert bus_DIO = "H0H0H0H0";
 		
 		-- test control lines
 		
-		bus_DIO <= (others => 'H');
 		device_DIO <= (others => 'H');
 		
-		bus_ATN <= '1';
-		bus_SRQ <= 'Z';
-		device_ATN <= 'Z';
 		device_SRQ <= '1';
 		wait until rising_edge(clock);
-		assert device_ATN = '1';
 		assert bus_SRQ = 'H';
 		
 		not_controller_in_charge <= '0';
 		device_ATN <= '0';
-		device_SRQ <= 'Z';
-		bus_ATN <= 'Z';
-		bus_SRQ <= '0';
 		wait until rising_edge(clock);
 		assert bus_ATN = '0';
-		assert to_X01(device_SRQ) = '0';
-
-		bus_REN <= '0';
-		bus_IFC <= '1';
-		device_REN <= 'Z';
-		device_IFC <= 'Z';
-		wait until rising_edge(clock);
-		assert device_REN = '0';
-		assert device_IFC = '1';
 
 		system_controller <= '1';
 		device_REN <= '1';
 		device_IFC <= '0';
-		bus_REN <= 'Z';
-		bus_IFC <= 'Z';
 		wait until rising_edge(clock);
 		assert bus_REN = '1';
 		assert bus_IFC = '0';
 
 		talk_enable <= '1';
 		device_DAV <= '0'; 
-		device_NDAC <= 'Z';
-		device_NRFD <= 'Z';
-		bus_DAV <= 'Z';
-		bus_NDAC <= '0';
-		bus_NRFD <= '1';
 		wait until rising_edge(clock);
 		assert bus_DAV = '0';
-		assert to_X01(device_NDAC) = '0';
-		assert to_X01(device_NRFD) = '1';
 
 		talk_enable <= '0';
-		device_DAV <= 'Z'; 
+		device_DAV <= '1'; 
 		device_NDAC <= '1';
 		device_NRFD <= '0';
-		bus_DAV <= '1';
-		bus_NDAC <= 'Z';
-		bus_NRFD <= 'Z';
 		wait until rising_edge(clock);
-		assert device_DAV = '1';
 		assert to_X01(bus_NDAC) = '1';
 		assert bus_NRFD = '0';
 
 		-- test transmit EOI
 		
 		not_controller_in_charge <= '1';
-		bus_ATN <= '1';
-		device_ATN <= 'Z';
+		device_ATN <= '1';
 		talk_enable <= '1';
-		device_NRFD <= 'Z';
-		device_NDAC <= 'Z';
+		device_NRFD <= '1';
+		device_NDAC <= '1';
 		wait until rising_edge(clock);
 		
 		device_EOI <= '1';
-		bus_EOI <= 'Z';
 		wait until rising_edge(clock);
 		assert bus_EOI = '1';
 		
 		not_controller_in_charge <= '0';
-		bus_ATN <= 'Z';
 		wait until rising_edge(clock);
 		talk_enable <= '0';
 		wait until rising_edge(clock);
 		device_ATN <= '0';
 		device_EOI <= '0';
-		bus_EOI <= 'Z';
 		wait until rising_edge(clock);
 		assert bus_EOI = '0';
 
 		not_controller_in_charge <= '0';
 		talk_enable <= '0';
 		device_EOI <= '0';
-		bus_EOI <= 'Z';
 		wait until rising_edge(clock);
 		assert bus_EOI = '0';
-
-		-- test receive EOI
-
-		not_controller_in_charge <= '1';
-		talk_enable <= '1';
-		bus_ATN <= '0';
-		device_EOI <= 'Z';
-		bus_EOI <= '0';
-		wait until rising_edge(clock);
-		assert device_EOI = '0';
-
-		not_controller_in_charge <= '0';
-		talk_enable <= '0';
-		device_ATN <= '1';
-		bus_ATN <= 'Z';
-		device_EOI <= 'Z';
-		bus_EOI <= '1';
-		wait until rising_edge(clock);
-		assert device_EOI = '1';
-
-		not_controller_in_charge <= '1';
-		talk_enable <= '0';
-		device_EOI <= 'Z';
-		bus_EOI <= '1';
-		wait until rising_edge(clock);
-		assert device_EOI = '1';
 
 		wait until rising_edge(clock);
 		assert false report "end of test" severity note;
@@ -243,9 +176,14 @@ architecture behav of gpib_transceiver_testbench is
 	end process;
 
 	--pullup resistors
-	bus_DIO <= "HHHHHHHH";
+	bus_DIO <= (others => 'H');
+	bus_ATN <= 'H';
+	bus_DAV <= 'H';
+	bus_EOI <= 'H';
+	bus_IFC <= 'H';
 	bus_NDAC <= 'H';
 	bus_NRFD <= 'H';
+	bus_REN <= 'H';
 	bus_SRQ <= 'H';
 
 end behav;

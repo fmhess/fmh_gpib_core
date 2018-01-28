@@ -112,15 +112,15 @@ architecture behav of integrated_interface_functions_testbench is
 	my_integrated_interface_functions: entity work.integrated_interface_functions 
 		port map (
 			clock => clock,
-			bus_DIO_inverted_in => device_DIO_inverted,
-			bus_REN_inverted_in => device_REN_inverted,
-			bus_IFC_inverted_in => device_IFC_inverted,
-			bus_SRQ_inverted_in => device_SRQ_inverted,
-			bus_EOI_inverted_in => device_EOI_inverted,
-			bus_ATN_inverted_in => device_ATN_inverted,
-			bus_NDAC_inverted_in => device_NDAC_inverted,
-			bus_NRFD_inverted_in => device_NRFD_inverted,
-			bus_DAV_inverted_in => device_DAV_inverted,
+			bus_DIO_inverted_in => bus_DIO_inverted,
+			bus_REN_inverted_in => bus_REN_inverted,
+			bus_IFC_inverted_in => bus_IFC_inverted,
+			bus_SRQ_inverted_in => bus_SRQ_inverted,
+			bus_EOI_inverted_in => bus_EOI_inverted,
+			bus_ATN_inverted_in => bus_ATN_inverted,
+			bus_NDAC_inverted_in => bus_NDAC_inverted,
+			bus_NRFD_inverted_in => bus_NRFD_inverted,
+			bus_DAV_inverted_in => bus_DAV_inverted,
 			bus_DIO_inverted_out => device_DIO_inverted,
 			bus_REN_inverted_out => device_REN_inverted,
 			bus_IFC_inverted_out => device_IFC_inverted,
@@ -203,7 +203,8 @@ architecture behav of integrated_interface_functions_testbench is
 			device_REN => device_REN_inverted,
 			device_SRQ => device_SRQ_inverted,
 			bus_DIO => bus_DIO_inverted,
-			bus_ATN => bus_ATN_inverted,
+			bus_ATN_in => bus_ATN_inverted,
+			bus_ATN_out => bus_ATN_inverted,
 			bus_DAV => bus_DAV_inverted,
 			bus_EOI => bus_EOI_inverted,
 			bus_IFC => bus_IFC_inverted,
@@ -346,6 +347,15 @@ architecture behav of integrated_interface_functions_testbench is
 		assert_END_in_SPAS <= '0';
 		DAC_holdoff_on_DCAS <= '0';
 		DAC_holdoff_on_DTAS <= '0';
+		bus_DIO_inverted <= (others => 'Z');
+		bus_ATN_inverted <= 'Z';
+		bus_DAV_inverted <= 'Z';
+		bus_EOI_inverted <= 'Z';
+		bus_IFC_inverted <= 'Z';
+		bus_NDAC_inverted <= 'Z';
+		bus_NRFD_inverted <= 'Z';
+		bus_REN_inverted <= 'Z';
+		bus_SRQ_inverted <= 'Z';
 
 		pon <= '1';
 		wait until rising_edge(clock);	
@@ -455,6 +465,7 @@ architecture behav of integrated_interface_functions_testbench is
 	end process;
 
 	-- simulate weak pullup resistors on bus
+	bus_DIO_inverted <= (others => 'H');
 	bus_ATN_inverted <= 'H';
 	bus_DAV_inverted <= 'H';
 	bus_EOI_inverted <= 'H';

@@ -209,7 +209,7 @@ begin
 			wait_for_ticks(1);
 			request_xfer_to_device <= '0';
 			wait_for_ticks(6); -- slow down reads so host fills up fifo and has to wait
-			assert device_data_out = std_logic_vector(to_unsigned(i, 8)) severity warning;
+			assert device_data_out = std_logic_vector(to_unsigned(i, 8));
 			if device_chip_select = '1' and device_write = '1' then
 				wait until device_chip_select = '0' or device_write = '0';
 			end if;
