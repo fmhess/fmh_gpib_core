@@ -195,7 +195,6 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	signal local_RQS : std_logic;
 	signal local_SRQ : std_logic;
 	signal local_IDY : std_logic;
-	signal local_EOI : std_logic;
 	signal local_TCT : std_logic;
 	
 	signal acceptor_handshake_state_buffer : AH_state;
