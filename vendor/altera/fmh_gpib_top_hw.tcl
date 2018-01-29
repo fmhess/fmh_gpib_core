@@ -76,7 +76,7 @@ set_parameter_property clock_frequency_KHz HDL_PARAMETER true
 # 
 set_module_assignment embeddedsw.dts.group gpib
 set_module_assignment embeddedsw.dts.name fmh_gpib_core
-set_module_assignment embeddedsw.dts.params.dmas {&pdma 0}
+set_module_assignment embeddedsw.dts.params.dmas {< &pdma 0 >}
 set_module_assignment embeddedsw.dts.params.dma-names rxtx
 set_module_assignment embeddedsw.dts.vendor fmhess
 set_module_assignment embeddedsw.dts.compatible {fmhess,fmh_gpib_core}
