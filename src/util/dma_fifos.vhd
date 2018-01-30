@@ -162,6 +162,9 @@ begin
 				when "10" =>
 					host_data_out(15 downto 12) <= (others => '0');
 					host_data_out(11 downto 0) <= std_logic_vector(xfer_count);
+				when "11" =>
+					host_data_out(15 downto 8) <= (others => '0');
+					host_data_out(7 downto 0) <= std_logic_vector(to_unsigned(max_burst, 8));
 				when others =>
 			end case;
 		end handle_host_read;
