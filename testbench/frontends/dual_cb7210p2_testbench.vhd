@@ -113,8 +113,7 @@ architecture behav of dual_cb7210p2_testbench is
 		port map (
 			clock => device_clock,
 			chip_select_inverted => device_chip_select_inverted, 
-			dma_bus_out_ack_inverted => device_dma_bus_ack_inverted,
-			dma_bus_in_ack_inverted => device_dma_bus_ack_inverted,
+			dma_bus_ack_inverted => device_dma_bus_ack_inverted,
 			dma_read_inverted => device_dma_read_inverted,
 			dma_write_inverted => device_dma_write_inverted,
 			read_inverted => device_read_inverted,
@@ -187,8 +186,7 @@ architecture behav of dual_cb7210p2_testbench is
 		port map (
 			clock => controller_clock,
 			chip_select_inverted => controller_chip_select_inverted, 
-			dma_bus_out_ack_inverted => controller_dma_bus_ack_inverted,
-			dma_bus_in_ack_inverted => controller_dma_bus_ack_inverted,
+			dma_bus_ack_inverted => controller_dma_bus_ack_inverted,
 			dma_read_inverted => controller_dma_read_inverted,
 			dma_write_inverted => controller_dma_write_inverted,
 			read_inverted => controller_read_inverted,

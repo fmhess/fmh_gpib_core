@@ -71,8 +71,7 @@ architecture behav of frontend_cb7210p2_testbench is
 		port map (
 			clock => clock,
 			chip_select_inverted => chip_select_inverted, 
-			dma_bus_out_ack_inverted => dma_bus_ack_inverted,
-			dma_bus_in_ack_inverted => dma_bus_ack_inverted,
+			dma_bus_ack_inverted => dma_bus_ack_inverted,
 			dma_read_inverted => dma_read_inverted,
 			dma_write_inverted => dma_write_inverted,
 			read_inverted => read_inverted,

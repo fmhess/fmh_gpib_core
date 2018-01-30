@@ -45,8 +45,7 @@ entity frontend_cb7210p2 is
 	port(
 		clock : in std_logic;
 		chip_select_inverted : in std_logic;
-		dma_bus_in_ack_inverted : in std_logic;
-		dma_bus_out_ack_inverted : in std_logic;
+		dma_bus_ack_inverted : in std_logic;
 		dma_read_inverted : in std_logic;
 		dma_write_inverted : in std_logic;
 		read_inverted : in std_logic;
@@ -459,8 +458,8 @@ begin
 	
 	host_write_selected <= not write_inverted and not chip_select_inverted;
 	host_read_selected <= not read_inverted and not chip_select_inverted;
-	dma_write_selected <= not dma_write_inverted and not dma_bus_in_ack_inverted;
-	dma_read_selected <= not dma_read_inverted and not dma_bus_out_ack_inverted;
+	dma_write_selected <= not dma_write_inverted and not dma_bus_ack_inverted;
+	dma_read_selected <= not dma_read_inverted and not dma_bus_ack_inverted;
 	host_data_bus_out <= host_data_bus_out_buffer;
 	
 	-- accept reads from host
