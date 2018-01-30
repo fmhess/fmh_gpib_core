@@ -19,7 +19,10 @@ use work.dma_fifos;
 
 entity fmh_gpib_top is
 	generic (
-		clock_frequency_KHz : positive
+		clock_frequency_KHz : positive;
+		fifo_depth : positive := 32; -- must be at least 2, the maximum dma burst length is half the fifo depth
+		filter_length : positive := 12; -- number of input samples the gpib control line filter stores (sampled on rising and falling clock edges)
+		filter_threshold : positive := 10 -- number of matching input samples required to change filter output 
 	);
 	port (
 		clock : in std_logic;
@@ -128,8 +131,8 @@ architecture structural of fmh_gpib_top is
 begin
 	my_debounce_filter : entity work.gpib_control_debounce_filter
 		generic map(
-			length => 12,
-			threshold => 10
+			length => filter_length,
+			threshold => filter_threshold
 		)
 		port map(
 			reset => safe_reset,
@@ -154,7 +157,7 @@ begin
 		);
 	
 	my_dma_fifos : entity work.dma_fifos
-		generic map(fifo_depth => 32)
+		generic map(fifo_depth => fifo_depth)
 		port map(
 			clock => clock,
 			reset => safe_reset,
