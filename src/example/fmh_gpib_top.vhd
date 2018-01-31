@@ -288,8 +288,29 @@ begin
 	end process;
 
 	-- dma requests
-	dma_single <= (fifo_host_to_gpib_dma_single_request or fifo_gpib_to_host_dma_single_request) and not dma_ack;
-	dma_req <= (fifo_host_to_gpib_dma_burst_request or fifo_gpib_to_host_dma_burst_request) and not dma_ack;
+	process (safe_reset, clock)
+	begin
+		if to_X01(safe_reset) = '1' then
+			dma_single <= '0';
+			dma_req <= '0';
+		elsif rising_edge(clock) then
+			-- altera's dma fifo example code for their "synopsys style" dma protocol on the
+			-- cyclone V HPS claims that dma requests should never be de-asserted
+			-- unless a dma_ack is received.  They must be de-asserted on receiving a dma_ack in
+			-- order to "ack the ack".
+			if to_X01(dma_ack) = '1' then
+				dma_single <= '0';
+				dma_req <= '0';
+			else
+				if (fifo_host_to_gpib_dma_single_request or fifo_gpib_to_host_dma_single_request) = '1' then
+					dma_single <= '1';
+				end if;
+				if (fifo_host_to_gpib_dma_burst_request or fifo_gpib_to_host_dma_burst_request) = '1' then
+					dma_req <= '1';
+				end if;
+			end if;
+		end if;
+	end process;
 
 	gpib_DIO_inverted <= (others => 'Z') when gpib_disable = '1' else ungated_DIO_inverted_out;
 	gpib_ATN_inverted <= 'Z' when gpib_disable = '1' else ungated_ATN_inverted_out;

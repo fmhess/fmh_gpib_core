@@ -166,6 +166,18 @@ architecture behav of fmh_gpib_top_testbench is
 			);
 		end procedure host_read;
 
+		procedure do_dma_ack is
+		begin
+			wait_for_ticks(1);
+			dma_ack <= '1';
+			if to_X01(dma_req) = '1' or to_X01(dma_single) = '1' then
+				wait until to_X01(dma_req) = '0' and to_X01(dma_single) = '0';
+			end if;
+			wait_for_ticks(1);
+			dma_ack <= '0';
+			wait_for_ticks(1);
+		end procedure do_dma_ack;
+		
 		procedure dma_write (addr: in std_logic_vector(1 downto 0);
 			data : in std_logic_vector(15 downto 0)) is
 		begin
@@ -177,6 +189,7 @@ architecture behav of fmh_gpib_top_testbench is
 				dma_fifos_data_in,
 				'0'
 			);
+			do_dma_ack;
 		end procedure dma_write;
 
 		procedure dma_read (addr: in std_logic_vector(1 downto 0);
@@ -190,6 +203,7 @@ architecture behav of fmh_gpib_top_testbench is
 				dma_fifos_data_out,
 				'0'
 			);
+			do_dma_ack;
 		end procedure dma_read;
 
 		variable gpib_read_result : std_logic_vector(7 downto 0);
