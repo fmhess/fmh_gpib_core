@@ -69,8 +69,6 @@ architecture dma_fifos_arch of dma_fifos is
 	signal xfer_from_device_state : xfer_from_device_enum;
 	signal host_to_gpib_request_enable : std_logic;
 	signal gpib_to_host_request_enable : std_logic;
-
-	signal xfer_count: unsigned (11 downto 0); -- Count of bytes in/out on the device side
 begin
 
 	host_to_gpib_fifo: entity work.std_fifo 
@@ -109,6 +107,7 @@ begin
 	process(reset, clock)
 		variable host_write_selected : std_logic;
 		variable host_read_selected : std_logic;
+		variable xfer_count: unsigned (11 downto 0); -- Count of bytes in/out on the device side
 
 		procedure handle_host_write(address : in std_logic_vector(num_address_lines - 1 downto 0); 
 			data : in std_logic_vector(15 downto 0)) is
@@ -131,7 +130,7 @@ begin
 					gpib_to_host_request_enable <= data(8);
 					gpib_to_host_fifo_reset <= data(9);
 				when "10" =>
-					xfer_count <= unsigned(data(11 downto 0));
+					xfer_count := unsigned(data(11 downto 0));
 				when others =>
 			end case;
 		end handle_host_write;
@@ -195,7 +194,7 @@ begin
 			host_read_pending <= '0';
 			xfer_to_device_pending <= '0';
 			xfer_from_device_state <= xfer_from_device_idle;
-			xfer_count <= (others => '0');
+			xfer_count := (others => '0');
 		elsif rising_edge(clock) then
 
 			-- host write state machine
@@ -247,7 +246,7 @@ begin
 					device_data_out <= host_to_gpib_fifo_data_out;
 					device_chip_select <= '1';
 					device_write <= '1';
-					xfer_count <= xfer_count - 1;
+					xfer_count := xfer_count - 1;
 				end if;
 			else -- xfer_to_device_pending = '1'
 				if to_X01(request_xfer_to_device) = '0' then
@@ -265,7 +264,7 @@ begin
 						xfer_from_device_state <= xfer_from_device_waiting;
 						device_chip_select <= '1';
 						device_read <= '1';
-						xfer_count <= xfer_count - 1;
+						xfer_count := xfer_count - 1;
 					end if;
 				when xfer_from_device_waiting =>
 					if to_X01(request_xfer_from_device) = '0' then
