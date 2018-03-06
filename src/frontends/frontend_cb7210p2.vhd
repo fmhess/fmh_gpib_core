@@ -274,7 +274,8 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	
 	signal minor_addressed : std_logic;
 	signal minor_primary_addressed : std_logic;
-
+	signal RFD_holdoff_status : std_logic;
+	
 	-- overhead parameter is fixed number of clock ticks of overhead even when using a timing delay of zero
 	function to_clock_ticks (nanoseconds : in integer; overhead : in integer) return unsigned is
 		constant nanos_per_milli : integer := 1000000;
@@ -412,7 +413,8 @@ begin
 			DAC_holdoff_on_DTAS => DAC_holdoff_on_DTAS,
 			talk_enable => talk_enable_buffer,
 			pullup_disable => pullup_disable_buffer,
-			EOI_output_enable => EOI_output_enable_buffer
+			EOI_output_enable => EOI_output_enable_buffer,
+			RFD_holdoff_status => RFD_holdoff_status
 		);
 
 	-- latch external gpib signals on clock edge
@@ -564,7 +566,9 @@ begin
 					host_data_bus_out_buffer(0) <= gpib_to_host_byte_latched;
 					host_data_bus_out_buffer(1) <= DO_interrupt_condition;
 					host_data_bus_out_buffer(2) <= CO_interrupt_condition;
-					host_data_bus_out_buffer (7 downto 3) <= (others => '0');
+					host_data_bus_out_buffer(3) <= RFD_holdoff_status;
+					host_data_bus_out_buffer(4) <= end_interrupt_condition;
+					host_data_bus_out_buffer (7 downto 5) <= (others => '0');
 				when 16#b# => -- revision register
 					host_data_bus_out_buffer <= X"ff";
 				when 16#c# => -- state 1 register

@@ -129,7 +129,8 @@ entity integrated_interface_functions is
 		host_to_gpib_command_byte_latched : out std_logic;
 		talk_enable : out std_logic;
 		pullup_disable : out std_logic;
-		EOI_output_enable : out std_logic
+		EOI_output_enable : out std_logic;
+		RFD_holdoff_status : out std_logic
 	);
  
 end integrated_interface_functions;
@@ -815,5 +816,6 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 
 	address_passthrough <= address_passthrough_buffer when acceptor_handshake_state_buffer = ACDS else '0';
 	command_passthrough <= command_passthrough_buffer when acceptor_handshake_state_buffer = ACDS else '0';
-
+	
+	RFD_holdoff_status <= RFD_holdoff;
 end integrated_interface_functions_arch;
