@@ -33,7 +33,7 @@ integrated_interface_functions_testbench.fst: $(INTEGRATED_INTERFACE_FUNCTIONS_T
 	nvc -e integrated_interface_functions_testbench
 	nvc -r integrated_interface_functions_testbench --wave
 
-REMOTE_MESSAGE_DECODER_TEST_SRC = \
+REMOTE_MESSAGE_DECODER_TEST_SRC = ../../src/ieee_488_1_state/interface_function_common.vhd \
 	../../src/ieee_488_1_state/remote_message_decoder.vhd \
 	remote_message_decoder_testbench.vhd
 remote_message_decoder_testbench.fst: $(REMOTE_MESSAGE_DECODER_TEST_SRC)
