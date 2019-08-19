@@ -848,31 +848,33 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	RFD_holdoff_status <= RFD_holdoff;
 
 	-- update pending_rsv
-	process(pon, clock) 
+	process(pon, clock)
 		variable prev_source_handshake_state  : SH_state;
+		variable serial_poll_in_progress : boolean;
+		variable prev_serial_poll_in_progress : boolean;
 	begin
 		if to_X01(pon) = '1' then
 			pending_rsv <= '0';
 			prev_source_handshake_state := SIDS;
+			serial_poll_in_progress := false;
+			prev_serial_poll_in_progress := false;
 		elsif rising_edge(clock) then
+			serial_poll_in_progress := talker_state_p1_buffer = SPAS and service_request_state_buffer = APRS;
+		
 			-- Clear pending_rsv if the user explicitly cancels the service request.
 			if (reqf = '1') then 
 				pending_rsv <= '0';
 			-- if any service requests are definitely known to be pending 
 			elsif (reqt = '1' or set_rsv_state /= set_rsv_idle) then
 				pending_rsv <= '1';
-			-- otherwise clear pending_rsv when we are serial polled. We clear when 
-			-- the status byte is latched (upon entering SDYS).  We also clear
-			-- in NPRS to handle the corner case of the controller leaving
-			-- SPAS and APRS without ever actually reading the status byte
-			elsif (talker_state_p1_buffer = SPAS and 
-						source_handshake_state_buffer = SDYS and
-						prev_source_handshake_state /= SDYS) or
-					(service_request_state_buffer = NPRS) then
+			-- otherwise clear pending_rsv when we are serial polled.
+			elsif (serial_poll_in_progress = false and
+					prev_serial_poll_in_progress = true) then
 				pending_rsv <= '0';
 			end if;
 			
 			prev_source_handshake_state := source_handshake_state_buffer;
+			prev_serial_poll_in_progress := serial_poll_in_progress;
 		end if;
 	end process;
 end integrated_interface_functions_arch;
