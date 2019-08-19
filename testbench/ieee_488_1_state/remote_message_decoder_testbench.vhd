@@ -66,6 +66,7 @@ architecture behav of remote_message_decoder_testbench is
 	signal UNT : std_logic;
 	signal NIC : std_logic;
 	signal CFE : std_logic;
+	signal unrecognized_primary_command : std_logic;
 	
 	shared variable test_finished : boolean := false;
 
@@ -125,7 +126,8 @@ architecture behav of remote_message_decoder_testbench is
 			UNL => UNL,
 			UNT => UNT,
 			NIC => NIC,
-			CFE => CFE
+			CFE => CFE,
+			unrecognized_primary_command => unrecognized_primary_command
 		);
 	
 	process		
