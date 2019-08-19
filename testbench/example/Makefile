@@ -12,6 +12,7 @@ FMH_GPIB_TOP_TEST_SRC = \
 	../../src/ieee_488_1_state/interface_function_RL.vhd \
 	../../src/ieee_488_1_state/interface_function_SH.vhd \
 	../../src/ieee_488_1_state/interface_function_SR.vhd \
+	../../src/ieee_488_1_state/set_rsv_488_2.vhd \
 	../../src/ieee_488_1_state/interface_function_TE.vhd \
 	../../src/ieee_488_1_state/remote_message_decoder.vhd \
 	../../src/ieee_488_1_state/integrated_interface_functions.vhd \

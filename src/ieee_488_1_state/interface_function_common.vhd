@@ -28,6 +28,10 @@ package interface_function_common is
 	type TE_state_p1 is (TIDS, TADS, TACS, SPAS);
 	type TE_state_p2 is (TPIS, TPAS);
 	type TE_state_p3 is (SPIS, SPMS);
+
+	-- 488.2 states
+	-- the 488.2 names for the set rsv states collide with unrelated 488.1 states (SRIS and SRAS) so we make up new names
+	type set_rsv_enum is (set_rsv_idle, set_rsv_wait, set_rsv_active);
 	
 	type RFD_holdoff_enum is (holdoff_normal, holdoff_on_all, holdoff_on_end, continuous_mode);
 

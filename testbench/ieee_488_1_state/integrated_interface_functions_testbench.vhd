@@ -87,7 +87,8 @@ architecture behav of integrated_interface_functions_testbench is
 	signal gpib_to_host_byte_latched : std_logic;
 	signal rpp : std_logic;
 	signal rsc : std_logic;
-	signal rsv : std_logic;
+	signal set_reqt_pulse : std_logic;
+	signal set_reqf_pulse : std_logic;
 	signal rtl : std_logic;
 	signal sre : std_logic;
 	signal sic : std_logic;
@@ -139,13 +140,14 @@ architecture behav of integrated_interface_functions_testbench is
 			pon => pon,
 			rpp => rpp,
 			rsc => rsc,
-			rsv => rsv,
 			rtl => rtl,
 			sre => sre,
 			sic => sic,
 			tca => tca,
 			tcs => tcs,
 			ton => ton,
+			set_reqt_pulse => set_reqt_pulse,
+			set_reqf_pulse => set_reqf_pulse,
 			enable_gpib_to_host_eos => enable_gpib_to_host_eos,
 			configured_eos_character => configured_eos_character,
 			ignore_eos_bit_7 => ignore_eos_bit_7,
@@ -333,13 +335,14 @@ architecture behav of integrated_interface_functions_testbench is
 		ltn <= '0';
 		rpp <= '0';
 		rsc <= '0';
-		rsv <= '0';
 		rtl <= '0';
 		sre <= '0';
 		sic <= '0';
 		ton <= '0';
 		tca <= '0';
 		tcs <= '0';
+		set_reqt_pulse <= '0';
+		set_reqf_pulse <= '0';
 		local_STB <= (others => '0');
 		RFD_holdoff_mode <= holdoff_normal;
 		set_RFD_holdoff_pulse <= '0';

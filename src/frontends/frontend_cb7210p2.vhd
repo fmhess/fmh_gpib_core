@@ -167,13 +167,14 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal gpib_to_host_byte_latched : std_logic;
 	signal rpp : std_logic;
 	signal rsc : std_logic;
-	signal rsv : std_logic;
 	signal rtl : std_logic;
 	signal sre : std_logic;
 	signal sic : std_logic;
 	signal ton : std_logic;
 	signal tca : std_logic;
 	signal tcs : std_logic;
+	signal set_reqt_pulse : std_logic;
+	signal set_reqf_pulse : std_logic;
 	signal local_STB : std_logic_vector(7 downto 0);
 	
 	signal hard_reset : std_logic;
@@ -347,13 +348,14 @@ begin
 			pon => pon,
 			rpp => rpp,
 			rsc => rsc,
-			rsv => rsv,
 			rtl => rtl,
 			sre => sre,
 			sic => sic,
 			tca => tca,
 			tcs => tcs,
 			ton => ton,
+			set_reqt_pulse => set_reqt_pulse,
+			set_reqf_pulse => set_reqf_pulse,
 			configured_eos_character => configured_eos_character,
 			ignore_eos_bit_7 => ignore_eos_bit_7,
 			command_valid => command_valid,
@@ -414,7 +416,8 @@ begin
 			talk_enable => talk_enable_buffer,
 			pullup_disable => pullup_disable_buffer,
 			EOI_output_enable => EOI_output_enable_buffer,
-			RFD_holdoff_status => RFD_holdoff_status
+			RFD_holdoff_status => RFD_holdoff_status,
+			pending_rsv => pending_rsv
 		);
 
 	-- latch external gpib signals on clock edge
@@ -1009,10 +1012,9 @@ begin
 					ltn <= '1';
 					listen_with_continuous_mode <= '0';
 				when "11000" => -- request rsv true
-					rsv <= '1';
-					pending_rsv <= '1';
+					set_reqt_pulse <= '1';
 				when "11001" => -- request rsv false
-					rsv <= '0';
+					set_reqf_pulse <= '1';
 				when "11011" => -- listen with continuous mode
 					ltn <= '1';
 					listen_with_continuous_mode <= '1';
@@ -1089,9 +1091,10 @@ begin
 					SRQ_interrupt_enable <= write_data(6);
 				when 3 => -- serial poll mode
 					local_STB <= write_data;
-					rsv <= write_data(6);
 					if write_data(6) = '1' then
-						pending_rsv <= '1';
+						set_reqt_pulse <= '1';
+					else
+						set_reqf_pulse <= '1';
 					end if;
 				when 4 => -- address mode
 					address_mode <= write_data(1 downto 0);
@@ -1280,8 +1283,8 @@ begin
 				local_STB <= (others => '0');
 				gts <= '0';
 				rsc <= '0';
-				rsv <= '0';
-				pending_rsv <= '0';
+				set_reqt_pulse <= '0';
+				set_reqf_pulse <= '0';
 				lon <= '0';
 				local_parallel_poll_disable <= '1';
 				ltn <= '0';
@@ -1407,13 +1410,6 @@ begin
 					end if;
 			end case;
 
-			-- clear pending when we are not requesting service
-			-- or when controller reads serial poll byte
-			if (rsv = '0' and service_request_state = NPRS) or
-				(talker_state_p1 = SPAS and source_handshake_state = STRS) then
-				pending_rsv <= '0'; 
-			end if;
-
 			handle_command_pass_through;
 			
 			if take_control_synchronously_on_end = '1' and acceptor_handshake_state = ACDS and 
@@ -1451,6 +1447,12 @@ begin
 			end if;
 			if lun /= '0' then
 				lun <= '0';
+			end if;
+			if set_reqt_pulse = '1' then
+				set_reqt_pulse <= '0';
+			end if;
+			if set_reqf_pulse = '1' then
+				set_reqf_pulse <= '0';
 			end if;
 			if rtl /= '0' and clear_rtl then
 				rtl <= '0';

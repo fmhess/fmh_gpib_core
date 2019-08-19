@@ -47,13 +47,14 @@ entity integrated_interface_functions is
 		pon : in std_logic;
 		rpp : in std_logic;
 		rsc : in std_logic;
-		rsv : in std_logic;
 		rtl : in std_logic;
 		sre : in std_logic;
 		sic : in std_logic;
 		tca : in std_logic;
 		tcs : in std_logic;
 		ton : in std_logic;
+		set_reqt_pulse : in std_logic;
+		set_reqf_pulse : in std_logic;
 
 		configured_eos_character : in std_logic_vector(7 downto 0);
 		ignore_eos_bit_7 : in std_logic;
@@ -130,7 +131,8 @@ entity integrated_interface_functions is
 		talk_enable : out std_logic;
 		pullup_disable : out std_logic;
 		EOI_output_enable : out std_logic;
-		RFD_holdoff_status : out std_logic
+		RFD_holdoff_status : out std_logic;
+		pending_rsv : out std_logic
 	);
  
 end integrated_interface_functions;
@@ -138,6 +140,10 @@ end integrated_interface_functions;
 architecture integrated_interface_functions_arch of integrated_interface_functions is
 	signal nba : std_logic;
 	signal rdy : std_logic;
+	signal rsv : std_logic;
+	signal reqt : std_logic;
+	signal reqf : std_logic;
+	signal set_rsv_state : set_rsv_enum;
 	signal gpib_to_host_byte_latched_buffer : std_logic;
 	signal internal_host_to_gpib_data_byte_latched : std_logic;
 	signal internal_host_to_gpib_data_byte : std_logic_vector(7 downto 0);
@@ -406,6 +412,19 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			SRQ => local_SRQ
 		);
 
+	my_set_rsv: entity work.set_rsv_488_2
+		port map (
+			clock => clock,
+			pon => pon,
+			service_request_state => service_request_state_buffer,
+			set_reqt_pulse => set_reqt_pulse,
+			set_reqf_pulse => set_reqf_pulse,
+			rsv => rsv,
+			reqt => reqt,
+			reqf => reqf,
+			set_rsv_state => set_rsv_state
+		);
+		
 	my_TE: entity work.interface_function_TE 
 		port map (
 			clock => clock,
@@ -526,18 +545,26 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	bus_SRQ_inverted_out <= to_X0Z(not local_SRQ);
 
 	process(pon, clock)
+		variable prev_source_handshake_state  : SH_state;
 	begin
 		if pon = '1' then
-			bus_DIO_inverted_out_buffer <= (others => 'Z');  
+			bus_DIO_inverted_out_buffer <= (others => 'Z');
+			prev_source_handshake_state := SIDS;
 		elsif rising_edge(clock) then
 		
 			if (source_handshake_state_buffer = SDYS) then
-				if talker_state_p1_buffer = TACS then
-					bus_DIO_inverted_out_buffer <= not internal_host_to_gpib_data_byte;
-				elsif controller_state_p1_buffer = CACS then
-					bus_DIO_inverted_out_buffer <= not internal_host_to_gpib_command_byte;
-				elsif talker_state_p1_buffer = SPAS then
-					bus_DIO_inverted_out_buffer <= status_byte_buffer;
+				-- we should only update the output lines when we first enter SDYS,
+				-- since the purpose of SDYS is to give time for the lines to settle
+				if (prev_source_handshake_state /= SDYS) then
+					if talker_state_p1_buffer = TACS then
+						bus_DIO_inverted_out_buffer <= not internal_host_to_gpib_data_byte;
+					elsif controller_state_p1_buffer = CACS then
+						bus_DIO_inverted_out_buffer <= not internal_host_to_gpib_command_byte;
+					elsif talker_state_p1_buffer = SPAS then
+						bus_DIO_inverted_out_buffer <= status_byte_buffer;
+					end if;
+				else
+					bus_DIO_inverted_out_buffer <= bus_DIO_inverted_out_buffer;
 				end if;
 			elsif source_handshake_state_buffer = STRS then
 				-- DIO lines should already be in correct state from SDYS, just keep it steady until we are out of STRS.
@@ -553,6 +580,8 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			else
 				bus_DIO_inverted_out_buffer <= (others => 'Z');
 			end if;
+			
+			prev_source_handshake_state := source_handshake_state_buffer;
 		end if;
 	end process;
 	bus_DIO_inverted_out <= bus_DIO_inverted_out_buffer;
@@ -576,7 +605,6 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	-- deal with byte read by host from gpib bus
 	process(pon, clock) 
 		variable prev_acceptor_handshake_state : AH_state;
-		variable in_or_entering_ACRS : std_logic;
 	begin
 		if to_bit(pon) = '1' then
 			gpib_to_host_byte_latched_buffer <= '0';
@@ -637,10 +665,10 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	-- set rdy local message
 	process(pon, clock) 
 		variable entering_ACRS : std_logic;
-		variable in_or_entering_ACRS : std_logic;
 	begin
 		if to_bit(pon) = '1' then
 			entering_ACRS := '0';
+			rdy <= '0';
 		elsif rising_edge(clock) then
 			if (acceptor_handshake_state_buffer = ANRS and ((to_X01(ATN) = '1' and to_X01(DAV) = '0') or to_X01(rdy) = '1') and to_X01(tcs) = '0') or
 				(acceptor_handshake_state_buffer = ACDS and to_X01(DAV) = '0') then
@@ -818,4 +846,30 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	command_passthrough <= command_passthrough_buffer when acceptor_handshake_state_buffer = ACDS else '0';
 	
 	RFD_holdoff_status <= RFD_holdoff;
+
+	-- update pending_rsv
+	process(pon, clock) 
+		variable prev_source_handshake_state  : SH_state;
+	begin
+		if to_X01(pon) = '1' then
+			pending_rsv <= '0';
+			prev_source_handshake_state := SIDS;
+		elsif rising_edge(clock) then
+			-- Clear pending_rsv if the user explicitly cancels the service request.
+			if (reqf = '1') then 
+				pending_rsv <= '0';
+			-- if any service requests are definitely known to be pending 
+			elsif (reqt = '1' or set_rsv_state /= set_rsv_idle) then
+				pending_rsv <= '1';
+			-- otherwise clear pending_rsv when we are serial polled, when 
+			-- the status byte is latched (upon entering SDYS).
+			elsif (talker_state_p1_buffer = SPAS and 
+					source_handshake_state_buffer = SDYS and
+					prev_source_handshake_state /= SDYS)  then
+				pending_rsv <= '0';
+			end if;
+			
+			prev_source_handshake_state := source_handshake_state_buffer;
+		end if;
+	end process;
 end integrated_interface_functions_arch;
