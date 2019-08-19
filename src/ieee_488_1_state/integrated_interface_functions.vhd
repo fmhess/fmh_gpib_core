@@ -861,11 +861,14 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			-- if any service requests are definitely known to be pending 
 			elsif (reqt = '1' or set_rsv_state /= set_rsv_idle) then
 				pending_rsv <= '1';
-			-- otherwise clear pending_rsv when we are serial polled, when 
-			-- the status byte is latched (upon entering SDYS).
+			-- otherwise clear pending_rsv when we are serial polled. We clear when 
+			-- the status byte is latched (upon entering SDYS).  We also clear
+			-- in NPRS to handle the corner case of the controller leaving
+			-- SPAS and APRS without ever actually reading the status byte
 			elsif (talker_state_p1_buffer = SPAS and 
-					source_handshake_state_buffer = SDYS and
-					prev_source_handshake_state /= SDYS)  then
+						source_handshake_state_buffer = SDYS and
+						prev_source_handshake_state /= SDYS) or
+					(service_request_state_buffer = NPRS) then
 				pending_rsv <= '0';
 			end if;
 			
