@@ -575,11 +575,12 @@ architecture behav of frontend_cb7210p2_testbench is
 
 			-- configure serial poll response
 			host_write("011", "11010010");
-			wait_for_ticks(2);
-			assert to_X01(bus_SRQ_inverted) = '0';
 			
 			host_read("011", host_read_result);
 			assert host_read_result = "11010010"; -- "pending" bit should be set awaiting serial poll
+
+			wait_for_ticks(5);
+			assert to_X01(bus_SRQ_inverted) = '0';
 
 			gpib_do_serial_poll(gpib_read_result);
 			assert gpib_read_result = "11010010";
@@ -594,17 +595,18 @@ architecture behav of frontend_cb7210p2_testbench is
 
 			-- generate another service request with a new status byte
 			host_write("011", "01011001");
-			wait_for_ticks(2);
+			wait_for_ticks(5);
 			assert to_X01(bus_SRQ_inverted) = '0';
 
 			-- manually clear service request
 			host_write("011", "00011001");
-			wait_for_ticks(2);
-			assert to_X01(bus_SRQ_inverted) = '1';
 
 			host_read("011", host_read_result);
 			assert host_read_result = "00011001"; -- "pending" bit should have cleared after clearing service request
 			
+			wait_for_ticks(5);
+			assert to_X01(bus_SRQ_inverted) = '1';
+
 		end test_serial_poll;
 		
 		procedure test_parallel_poll is
