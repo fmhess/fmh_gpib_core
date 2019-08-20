@@ -28,3 +28,6 @@ This package is copyright Frank Mori Hess 2017, all rights reserved.
 If you wish to obtain a license to use this IP core, contact the author:
 Frank Mori Hess fmh6jj@gmail.com .
 
+The "nvc" VHDL compiler and simulator used to run the testbenches is 
+available at https://github.com/nickg/nvc
+
