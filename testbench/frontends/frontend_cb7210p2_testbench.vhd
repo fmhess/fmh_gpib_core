@@ -291,6 +291,22 @@ architecture behav of frontend_cb7210p2_testbench is
 			gpib_address_as_talker(primary_address, secondary_address);
 		end gpib_address_as_talker;
 
+		procedure gpib_do_serial_poll (status_byte : out std_logic_vector(7 downto 0)) is
+			variable eoi : std_logic;
+		begin
+			gpib_address_as_talker;
+			gpib_write("00011000", false); -- SPE
+
+			-- read serial poll byte
+			gpib_setup_bus(false, false);
+			gpib_read(status_byte, eoi);
+			
+			gpib_setup_bus(true, true);
+			gpib_write("00011001", false); -- SPD
+
+			gpib_setup_bus(false, true);
+		end gpib_do_serial_poll;
+		
 		procedure test_addressing is
 		begin
 
@@ -562,26 +578,33 @@ architecture behav of frontend_cb7210p2_testbench is
 			wait_for_ticks(2);
 			assert to_X01(bus_SRQ_inverted) = '0';
 			
-			gpib_address_as_talker;
-			gpib_write("00011000", false); -- SPE
+			host_read("011", host_read_result);
+			assert host_read_result = "11010010"; -- "pending" bit should be set awaiting serial poll
 
-			-- read serial poll byte
-			gpib_setup_bus(false, false);
-			gpib_read(gpib_read_result, gpib_read_eoi);
+			gpib_do_serial_poll(gpib_read_result);
 			assert gpib_read_result = "11010010";
-			
-			gpib_setup_bus(true, true);
-			gpib_write("00011001", false); -- SPD
 
-			gpib_setup_bus(false, true);
-			
 			host_read("011", host_read_result);
 			assert host_read_result = "10010010"; -- "pending" bit should have cleared after serial poll
 
-			host_write("011", "10010010");
+			assert to_X01(bus_SRQ_inverted) = '1'; -- rsv should auto clear after being polled
+
+			gpib_do_serial_poll(gpib_read_result);
+			assert gpib_read_result = "10010010"; -- RQS should be clear now
+
+			-- generate another service request with a new status byte
+			host_write("011", "01011001");
+			wait_for_ticks(2);
+			assert to_X01(bus_SRQ_inverted) = '0';
+
+			-- manually clear service request
+			host_write("011", "00011001");
 			wait_for_ticks(2);
 			assert to_X01(bus_SRQ_inverted) = '1';
 
+			host_read("011", host_read_result);
+			assert host_read_result = "00011001"; -- "pending" bit should have cleared after clearing service request
+			
 		end test_serial_poll;
 		
 		procedure test_parallel_poll is
