@@ -42,8 +42,8 @@ package interface_function_common is
 	function EOS_match (byte_A : std_logic_vector(7 downto 0); 
 		byte_B : std_logic_vector(7 downto 0);
 		ignore_eos_bit_7 : std_logic) return boolean;
-	function is_passthrough_primary_command (byte : std_logic_vector; listener_state : LE_state_p1) return boolean;
-	function is_unrecognized_primary_command (byte : std_logic_vector) return boolean;
+	function is_passthrough_primary_command (byte : std_logic_vector(7 downto 0); listener_state : LE_state_p1) return boolean;
+	function is_unrecognized_primary_command (byte : std_logic_vector(7 downto 0)) return boolean;
 	function is_addressed_command (byte : std_logic_vector(7 downto 0)) return boolean;
 
 end interface_function_common;
