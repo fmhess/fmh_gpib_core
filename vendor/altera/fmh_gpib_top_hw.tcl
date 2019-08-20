@@ -52,6 +52,7 @@ add_fileset_file interface_function_PP.vhd VHDL PATH ../../src/ieee_488_1_state/
 add_fileset_file interface_function_RL.vhd VHDL PATH ../../src/ieee_488_1_state/interface_function_RL.vhd
 add_fileset_file interface_function_SH.vhd VHDL PATH ../../src/ieee_488_1_state/interface_function_SH.vhd
 add_fileset_file interface_function_SR.vhd VHDL PATH ../../src/ieee_488_1_state/interface_function_SR.vhd
+add_fileset_file set_rsv_488_2.vhd VHDL PATH ../../src/ieee_488_1_state/set_rsv_488_2.vhd
 add_fileset_file interface_function_TE.vhd VHDL PATH ../../src/ieee_488_1_state/interface_function_TE.vhd
 add_fileset_file interface_function_common.vhd VHDL PATH ../../src/ieee_488_1_state/interface_function_common.vhd
 add_fileset_file remote_message_decoder.vhd VHDL PATH ../../src/ieee_488_1_state/remote_message_decoder.vhd
