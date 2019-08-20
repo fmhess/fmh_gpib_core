@@ -533,7 +533,7 @@ architecture behav of fmh_gpib_top_testbench is
 
 			-- configure serial poll response
 			host_write("0000011", "11010010");
-			wait_for_ticks(2);
+			wait_for_ticks(5);
 			assert to_X01(bus_SRQ_inverted) = '0';
 			
 			gpib_address_as_talker;
