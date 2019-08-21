@@ -19,7 +19,10 @@ use work.dma_fifos;
 
 entity fmh_gpib_top is
 	generic (
-		clock_frequency_KHz : positive;
+		-- The clock frequency is really intended to have no default, but we 
+		-- default it to the invalid value of zero to make the Quartus Component Editor
+		-- able to "Analyze Synthesis files".
+		clock_frequency_KHz : natural := 0; 
 		fifo_depth : positive := 32; -- must be at least 2, the maximum dma burst length is half the fifo depth
 		filter_length : positive := 12; -- number of input samples the gpib control line filter stores (sampled on rising and falling clock edges)
 		filter_threshold : positive := 10 -- number of matching input samples required to change filter output 

@@ -65,7 +65,7 @@ add_fileset_file std_fifo.vhd VHDL PATH ../../src/util/std_fifo.vhd
 # 
 # parameters
 # 
-add_parameter clock_frequency_KHz POSITIVE
+add_parameter clock_frequency_KHz NATURAL 0
 set_parameter_property clock_frequency_KHz DISPLAY_NAME clock_frequency_KHz
 set_parameter_property clock_frequency_KHz TYPE POSITIVE
 set_parameter_property clock_frequency_KHz UNITS None
