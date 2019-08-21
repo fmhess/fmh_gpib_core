@@ -849,13 +849,11 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 
 	-- update pending_rsv
 	process(pon, clock)
-		variable prev_source_handshake_state  : SH_state;
 		variable serial_poll_in_progress : boolean;
 		variable prev_serial_poll_in_progress : boolean;
 	begin
 		if to_X01(pon) = '1' then
 			pending_rsv <= '0';
-			prev_source_handshake_state := SIDS;
 			serial_poll_in_progress := false;
 			prev_serial_poll_in_progress := false;
 		elsif rising_edge(clock) then
@@ -873,7 +871,6 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 				pending_rsv <= '0';
 			end if;
 			
-			prev_source_handshake_state := source_handshake_state_buffer;
 			prev_serial_poll_in_progress := serial_poll_in_progress;
 		end if;
 	end process;
