@@ -14,6 +14,7 @@
 --   only accepts commmand bytes, not data bytes 
 -- * a "RFD holdoff ASAP" auxilliary command, which causes an RFD holdoff to take effect
 --   as soon as possible (IEEE 488.1 forbids rdy from becoming false while in ACRS).
+-- * reqt/reqf setting similar to NI tnt4882 serial poll mode SP1
 --
 -- Features which could be implemented if anyone cares:
 -- * Setting clock frequency by writing to the auxiliary mode register.  Clock frequency
@@ -173,6 +174,8 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal ton : std_logic;
 	signal tca : std_logic;
 	signal tcs : std_logic;
+	signal reqt_pending : std_logic;
+	signal reqf_pending : std_logic;
 	signal set_reqt_pulse : std_logic;
 	signal set_reqf_pulse : std_logic;
 	signal local_STB : std_logic_vector(7 downto 0);
@@ -1011,10 +1014,12 @@ begin
 				when "10011" => -- listen (pulse)
 					ltn <= '1';
 					listen_with_continuous_mode <= '0';
-				when "11000" => -- request rsv true
-					set_reqt_pulse <= '1';
-				when "11001" => -- request rsv false
-					set_reqf_pulse <= '1';
+				when "11000" => -- request rsv true, takes effect at next write to SPMR
+					reqt_pending <= '1';
+					reqf_pending <= '0';
+				when "11001" => -- request rsv false, takes effect at next write to SPMR
+					reqf_pending <= '1';
+					reqt_pending <= '0';
 				when "11011" => -- listen with continuous mode
 					ltn <= '1';
 					listen_with_continuous_mode <= '1';
@@ -1090,12 +1095,23 @@ begin
 					DMA_output_enable <= write_data(5);
 					SRQ_interrupt_enable <= write_data(6);
 				when 3 => -- serial poll mode
-					local_STB <= write_data;
 					if write_data(6) = '1' then
 						set_reqt_pulse <= '1';
 					else
-						set_reqf_pulse <= '1';
+						-- if bit 6 is transitioning from 1 to 0, then we want to issue reqf,
+						-- to behave like NI tnt4882 serial poll mode SP3 (although we are
+						-- still using reqt/reqf rather than setting rsv directly).
+						-- if bit 6 is just sitting at 0, then we want to behave like
+						-- NI tnt4882 serial poll mode SP1
+						if (local_STB(6) = '1' or reqf_pending = '1') then
+							set_reqf_pulse <= '1';
+						elsif reqt_pending = '1' then
+							set_reqt_pulse <= '1';
+						end if;
 					end if;
+					local_STB <= write_data;
+					reqt_pending <= '0';
+					reqf_pending <= '0';
 				when 4 => -- address mode
 					address_mode <= write_data(1 downto 0);
 					transmit_receive_mode <= write_data(5 downto 4);
@@ -1283,6 +1299,8 @@ begin
 				local_STB <= (others => '0');
 				gts <= '0';
 				rsc <= '0';
+				reqt_pending <= '0';
+				reqf_pending <= '0';
 				set_reqt_pulse <= '0';
 				set_reqf_pulse <= '0';
 				lon <= '0';
