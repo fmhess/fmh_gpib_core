@@ -1,6 +1,6 @@
 fmh_gpib_core is a GPIB IP core written in VHDL.  Currently, a
-frontend with a cb7210.2 style register interface has been implemented
-(see src/frontends/frontend_cb7210p2.vhd) and tested in a
+frontend with a cb7210.2 (nec7210) style register interface has been 
+implemented (see src/frontends/frontend_cb7210p2.vhd) and tested in a
 Cyclone V HPS clocked at 60 MHz.  fmh_gpib_core supports IEEE 488.1 
 subsets SH1, AH1, T5, TE5, L3, LE3, SR1, RL1, PP0-PP2, DC1, DT1, and 
 C1-C5.
