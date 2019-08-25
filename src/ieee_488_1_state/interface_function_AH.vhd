@@ -4,7 +4,7 @@
 -- inputs unconnected.
 --
 -- Author: Frank Mori Hess fmh6jj@gmail.com
--- Copyright Frank Mori Hess 2017
+-- Copyright Frank Mori Hess 2017, 2019
 
 
 library ieee;
