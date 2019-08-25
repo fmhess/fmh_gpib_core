@@ -52,9 +52,6 @@ architecture interface_function_SHE_arch of interface_function_SHE is
 	signal active : boolean;
 	signal ready_for_noninterlocked : boolean;
 	signal current_count : unsigned(num_counter_bits - 1 downto 0);
-	variable T1_counter_done : boolean;
-	variable T13_counter_done : boolean;
-	variable TN_counter_done : boolean;
 	signal first_cycle : boolean; -- we are on the first transfer since leaving SIDS
 	-- used to insure we only report no listeners one time during SDYS
 	signal no_listeners_reported : boolean;
@@ -70,7 +67,11 @@ begin
 	noninterlocked_enable_state <= noninterlocked_enable_state_buffer;
 	ready_for_noninterlocked <= to_X01(nie) = '1' and to_X01(CNCS) = '0';
 	
-	process(pon, clock) begin
+	process(pon, clock) 
+		variable T1_counter_done : boolean;
+		variable T13_counter_done : boolean;
+		variable TN_counter_done : boolean;
+	begin
 		if pon = '1' then
 			source_handshake_state_buffer <= SIDS;
 			noninterlocked_enable_state_buffer <= SNDS;
@@ -190,7 +191,7 @@ begin
 					elsif TN_counter_done and to_X01(RFD) = '1' then
 						source_handshake_state_buffer <= SNGS;
 						current_count <= to_unsigned(0, current_count'length);
-						TN_counter_done <= false;
+						TN_counter_done := false;
 					end if;
 				when SNGS =>
 					-- check if T12 delay is done

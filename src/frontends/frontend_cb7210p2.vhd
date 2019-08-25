@@ -608,6 +608,12 @@ begin
 							host_data_bus_out_buffer(5 downto 3) <= "100";
 						when AWNS =>
 							host_data_bus_out_buffer(5 downto 3) <= "011";
+						when ANDS =>
+							host_data_bus_out_buffer(5 downto 3) <= "101";
+						when ANES =>
+							host_data_bus_out_buffer(5 downto 3) <= "110";
+						when ANTS =>
+							host_data_bus_out_buffer(5 downto 3) <= "111";
 					end case;
 					case talker_state_p1 is
 						when TIDS =>
@@ -765,21 +771,21 @@ begin
 						when SIDS =>
 							host_data_bus_out_buffer(3 downto 0) <= "0000";
 						when SGNS =>
-							host_data_bus_out_buffer(2 downto 0) <= "0001";
+							host_data_bus_out_buffer(3 downto 0) <= "0001";
 						when SDYS =>
-							host_data_bus_out_buffer(2 downto 0) <= "0010";
+							host_data_bus_out_buffer(3 downto 0) <= "0010";
 						when STRS =>
-							host_data_bus_out_buffer(2 downto 0) <= "0101";
+							host_data_bus_out_buffer(3 downto 0) <= "0101";
 						when SIWS =>
-							host_data_bus_out_buffer(2 downto 0) <= "0011";
+							host_data_bus_out_buffer(3 downto 0) <= "0011";
 						when SWNS =>
-							host_data_bus_out_buffer(2 downto 0) <= "0100";
+							host_data_bus_out_buffer(3 downto 0) <= "0100";
 						when SWRS =>
-							host_data_bus_out_buffer(1 downto 0) <= "0110";
+							host_data_bus_out_buffer(3 downto 0) <= "0110";
 						when SRDS =>
-							host_data_bus_out_buffer(1 downto 0) <= "0111";
+							host_data_bus_out_buffer(3 downto 0) <= "0111";
 						when SNGS =>
-							host_data_bus_out_buffer(1 downto 0) <= "1000";
+							host_data_bus_out_buffer(3 downto 0) <= "1000";
 					end case;
 				when others =>
 					host_data_bus_out_buffer <= (others => '0');

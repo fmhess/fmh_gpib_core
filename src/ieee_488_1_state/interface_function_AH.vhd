@@ -1,4 +1,7 @@
--- IEEE 488.1 acceptor handshake interface function.
+-- IEEE 488.1 extended acceptor handshake (AHE) interface function.
+--
+-- If you only need the simpler AH function, you may leave the defaulted
+-- inputs unconnected.
 --
 -- Author: Frank Mori Hess fmh6jj@gmail.com
 -- Copyright Frank Mori Hess 2017
@@ -10,17 +13,25 @@ use ieee.numeric_std.all;
 use work.interface_function_common.all;
 
 entity interface_function_AH is
+	generic( num_counter_bits : in integer := 8);
 	port(
 		clock : in std_logic;
 		listener_state_p1 : in LE_state_p1;
 		ATN : in std_logic;
 		DAV : in std_logic;
+		NIC : in std_logic := '0';
+		lni : in std_logic := '1';
 		pon : in std_logic;
 		rdy : in std_logic;
+		rft : in std_logic := '0';
 		tcs : in std_logic;
 		DAC_holdoff : in std_logic;
-		
+		T16_terminal_count : in unsigned (num_counter_bits - 1 downto 0) := (others => '1');
+		T17_terminal_count : in unsigned (num_counter_bits - 1 downto 0) := (others => '1');
+		T18_terminal_count : in unsigned (num_counter_bits - 1 downto 0) := (others => '1');
+
 		acceptor_handshake_state : out AH_state;
+		acceptor_noninterlocked_state : out AH_noninterlocked_state;
 		RFD : out std_logic;
 		DAC : out std_logic
 	);
@@ -30,11 +41,21 @@ end interface_function_AH;
 architecture interface_function_AH_arch of interface_function_AH is
  
 	signal acceptor_handshake_state_buffer : AH_state;
+	signal acceptor_noninterlocked_state_buffer : AH_noninterlocked_state;
 	signal addressed : boolean;
+	-- timer counter local to AH_state state machine
+	signal AH_count : unsigned(num_counter_bits - 1 downto 0);
+	-- timer counter local to AH_noninterlocked_state state machine
+	signal noninterlocked_count : unsigned(num_counter_bits - 1 downto 0);
+	signal RFD_buffer : std_logic;
+	signal lni_or_tcs : boolean;
 begin
  
 	acceptor_handshake_state <= acceptor_handshake_state_buffer;
+	acceptor_noninterlocked_state <= acceptor_noninterlocked_state_buffer;
 	addressed <= listener_state_p1 = LACS or listener_state_p1 = LADS;
+	RFD <= RFD_buffer;
+	lni_or_tcs <= to_X01(lni) = '1' or to_X01(tcs) = '1';
 	
 	process(pon, clock) 
 		-- used to delay in ACDS for an extra clock cycle so there is time to see if we need to
@@ -42,11 +63,18 @@ begin
 		variable T3_delay_satisfied : boolean; 
 		-- state of rdy on previous ACRS clock cycle.  Used to assert rdy is not transitioned false during ACRS
 		variable old_ACRS_rdy : std_logic;
+		variable AH_counter_done : boolean;
+		variable noninterlocked_counter_done : boolean;
 	begin
 		if pon = '1' then
 			acceptor_handshake_state_buffer <= AIDS;
+			acceptor_noninterlocked_state_buffer <= ANIS;
 			T3_delay_satisfied := false;
 			old_ACRS_rdy := '0';
+			AH_count <= to_unsigned(0, num_counter_bits);
+			AH_counter_done := false;
+			noninterlocked_count <= to_unsigned(0, num_counter_bits);
+			noninterlocked_counter_done := false;
 		elsif rising_edge(clock) then
 			
 			case acceptor_handshake_state_buffer is
@@ -62,8 +90,19 @@ begin
 					end if;
 				when ACRS =>
 					if to_X01(DAV) = '1' then
-						acceptor_handshake_state_buffer <= ACDS;
-						T3_delay_satisfied := false;
+						if 
+						(
+								to_X01(ATN) = '1' or 
+								acceptor_noninterlocked_state_buffer = AIAS or 
+								acceptor_noninterlocked_state_buffer = ANCS
+						) 
+						then
+							acceptor_handshake_state_buffer <= ACDS;
+							T3_delay_satisfied := false;
+						elsif acceptor_noninterlocked_state_buffer = ANAS then
+							acceptor_handshake_state_buffer <= ANDS;
+							AH_count <= to_unsigned(0, num_counter_bits);
+						end if;
 					elsif to_X01(ATN) = '0' and to_X01(rdy) = '0' then
 						acceptor_handshake_state_buffer <= ANRS;
 					end if;
@@ -83,10 +122,91 @@ begin
 					if to_X01(DAV) = '0' then
 						acceptor_handshake_state_buffer <= ANRS;
 					end if;
+				when ANDS =>
+					AH_counter_done := (AH_count >= T18_terminal_count);
+					if not AH_counter_done then
+						AH_count <= AH_count + 1;
+					end if;
+
+					if to_X01(DAV) = '0' and AH_counter_done then
+						acceptor_handshake_state_buffer <= ANES;
+					elsif to_X01(DAV) = '1' and 
+						(to_X01(ATN) = '1' or acceptor_noninterlocked_state_buffer = ANCS) 
+					then
+						acceptor_handshake_state_buffer <= ANTS;
+						T3_delay_satisfied := false;
+					end if;
+				when ANES =>
+					if to_X01(DAV) = '1' then
+						acceptor_handshake_state_buffer <= ANDS;
+						AH_count <= to_unsigned(0, num_counter_bits);
+					elsif to_X01(ATN) = '1' or acceptor_noninterlocked_state_buffer = ANCS then
+						acceptor_handshake_state_buffer <= ACRS;
+					end if;
+				when ANTS =>
+					if (to_X01(ATN) = '0' and to_X01(rdy) = '0') or
+						(to_X01(ATN) = '1' and T3_delay_satisfied) then
+						acceptor_handshake_state_buffer <= AWNS;
+					end if;
 			end case;
 
 			if to_X01(ATN) = '0' and not addressed then
 				acceptor_handshake_state_buffer <= AIDS;
+			end if;
+
+			case acceptor_noninterlocked_state_buffer is
+				when ANIS =>
+					if to_X01(ATN) = '0' then
+						acceptor_noninterlocked_state_buffer <= ANYS;
+						noninterlocked_count <= to_unsigned(0, num_counter_bits);
+					end if;
+				when ANYS =>
+					-- T16 counter
+					noninterlocked_counter_done := noninterlocked_count >= T16_terminal_count;
+					if not noninterlocked_counter_done then
+						noninterlocked_count <= noninterlocked_count + 1;
+					end if;
+
+					-- transitions
+					if to_X01(DAV) = '1' then
+						acceptor_noninterlocked_state_buffer <= AIAS;
+					elsif acceptor_handshake_state_buffer = ACRS and 
+						to_X01(RFD_buffer) = '1' and
+						noninterlocked_counter_done
+					then
+						acceptor_noninterlocked_state_buffer <= AWAS;
+					end if;
+				when AWAS =>
+					if to_X01(DAV) = '1' then
+						acceptor_noninterlocked_state_buffer <= AIAS;
+					elsif to_X01(NIC) = '1' then
+						acceptor_noninterlocked_state_buffer <= ANCS;
+					end if;
+				when AIAS =>
+				when ANCS =>
+					if not lni_or_tcs then
+						acceptor_noninterlocked_state_buffer <= ANAS;
+					end if;
+				when ANAS =>
+					if lni_or_tcs then
+						acceptor_noninterlocked_state_buffer <= ALNS;
+						noninterlocked_count <= to_unsigned(0, num_counter_bits);
+					end if;
+				when ALNS =>
+					-- T17 counter
+					noninterlocked_counter_done := noninterlocked_count >= T17_terminal_count;
+					if not noninterlocked_counter_done then
+						noninterlocked_count <= noninterlocked_count + 1;
+					end if;
+					
+					-- transitions
+					if noninterlocked_counter_done then
+						acceptor_noninterlocked_state_buffer <= ANCS;
+					end if;
+			end case;
+			
+			if to_X01(ATN) = '1' then
+				acceptor_noninterlocked_state_buffer <= ANIS;
 			end if;
 
 			if acceptor_handshake_state_buffer /= ACRS then
@@ -96,23 +216,40 @@ begin
 	end process;
 
 	-- set local message outputs as soon as state changes for low latency
-	process(acceptor_handshake_state_buffer) begin
+	process(acceptor_handshake_state_buffer, acceptor_noninterlocked_state_buffer, rft) begin
 		case acceptor_handshake_state_buffer is
 			when AIDS =>
-				RFD <= 'H';
+				RFD_buffer <= 'H';
 				DAC <= 'H';
 			when ANRS =>
-				RFD <= '0';
+				RFD_buffer <= '0';
 				DAC <= '0';
 			when ACRS =>
-				RFD <= 'H';
+				RFD_buffer <= 'H';
 				DAC <= '0';
 			when ACDS =>
-				RFD <= '0';
+				RFD_buffer <= '0';
 				DAC <= '0';
 			when AWNS =>
-				RFD <= '0';
+				RFD_buffer <= '0';
 				DAC <= 'H';
+			when ANDS =>
+				RFD_buffer <= 'H';
+				if acceptor_noninterlocked_state_buffer = ANAS and to_X01(rft) = '1' then
+					DAC <= 'H';
+				else
+					DAC <= '0';
+				end if;
+			when ANES =>
+				RFD_buffer <= 'H';
+				if acceptor_noninterlocked_state_buffer = ANAS and to_X01(rft) = '1' then
+					DAC <= 'H';
+				else
+					DAC <= '0';
+				end if;
+			when ANTS =>
+				RFD_buffer <= '0';
+				DAC <= '0';
 		end case;
 	end process;
 end interface_function_AH_arch;

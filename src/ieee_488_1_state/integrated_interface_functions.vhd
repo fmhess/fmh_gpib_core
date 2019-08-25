@@ -289,6 +289,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 		);
 
 	my_AH: entity work.interface_function_AH 
+		generic map (num_counter_bits => num_counter_bits)
 		port map (
 			clock => clock,
 			listener_state_p1 => listener_state_p1_buffer,

@@ -77,8 +77,8 @@ architecture behav of interface_function_SH_testbench is
 		nba <= '0';
 		
 		
-		first_T1_terminal_count <= X"04";
-		T1_terminal_count <= X"02";
+		first_T1_terminal_count <= X"05";
+		T1_terminal_count <= X"03";
 		check_for_listeners <= '1';
 		talker_state_p1 <= TIDS;
 		controller_state_p1 <= CIDS;

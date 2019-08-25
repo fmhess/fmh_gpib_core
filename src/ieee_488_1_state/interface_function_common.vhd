@@ -10,7 +10,8 @@ use ieee.numeric_std.all;
 package interface_function_common is
 
 	-- 488.1 interface function states
-	type AH_state is (AIDS, ANRS, ACRS, ACDS, AWNS);
+	type AH_state is (AIDS, ANRS, ACRS, ACDS, AWNS, ANDS, ANES, ANTS);
+	type AH_noninterlocked_state is (ANIS, ANYS, AWAS, AIAS, ANCS, ANAS, ALNS);
 	type C_state_p1 is (CIDS, CADS, CACS, CTRS, CSBS, CSHS, CSWS, CAWS, CPWS, CPPS);
 	type C_state_p2 is (CSNS, CSRS);
 	type C_state_p3 is (SNAS, SACS);
