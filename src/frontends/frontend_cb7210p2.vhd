@@ -293,10 +293,10 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 		end if;
 		return to_unsigned(ticks, num_counter_bits);
 	end to_clock_ticks;
-	constant T1_clock_ticks_2us : unsigned(T1_terminal_count'RANGE) := to_clock_ticks(2000, 2);
-	constant T1_clock_ticks_1100ns : unsigned(T1_terminal_count'RANGE) := to_clock_ticks(1100, 2);
-	constant T1_clock_ticks_500ns : unsigned(T1_terminal_count'RANGE) := to_clock_ticks(500, 2);
-	constant T1_clock_ticks_350ns : unsigned(T1_terminal_count'RANGE) := to_clock_ticks(350, 2);
+	constant T1_clock_ticks_2us : unsigned(T1_terminal_count'RANGE) := to_clock_ticks(2000, 1);
+	constant T1_clock_ticks_1100ns : unsigned(T1_terminal_count'RANGE) := to_clock_ticks(1100, 1);
+	constant T1_clock_ticks_500ns : unsigned(T1_terminal_count'RANGE) := to_clock_ticks(500, 1);
+	constant T1_clock_ticks_350ns : unsigned(T1_terminal_count'RANGE) := to_clock_ticks(350, 1);
 	constant T6_clock_ticks_2us : unsigned(num_counter_bits - 1 downto 0) := to_clock_ticks(2000, 1);
 	constant T7_clock_ticks_500ns : unsigned(num_counter_bits - 1 downto 0) := to_clock_ticks(500, 1);
 	constant T8_clock_ticks_per_us : unsigned(num_counter_bits - 1 downto 0) := to_clock_ticks(1000, 1);

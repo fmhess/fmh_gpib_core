@@ -30,11 +30,11 @@ entity interface_function_SHE is
 		pon : in std_logic;
 		first_T1_terminal_count : in unsigned (num_counter_bits - 1 downto 0); -- longer T1 used for first cycle only
 		T1_terminal_count : in unsigned (num_counter_bits - 1 downto 0);
-		T11_terminal_count : in unsigned (num_counter_bits - 1 downto 0) := to_unsigned(0, num_counter_bits);
-		T12_terminal_count : in unsigned (num_counter_bits - 1 downto 0) := to_unsigned(0, num_counter_bits);
-		T13_terminal_count : in unsigned (num_counter_bits - 1 downto 0) := to_unsigned(0, num_counter_bits);
-		T14_terminal_count : in unsigned (num_counter_bits - 1 downto 0) := to_unsigned(0, num_counter_bits);
-		T16_terminal_count : in unsigned (num_counter_bits - 1 downto 0) := to_unsigned(0, num_counter_bits);
+		T11_terminal_count : in unsigned (num_counter_bits - 1 downto 0) := (others => '1');
+		T12_terminal_count : in unsigned (num_counter_bits - 1 downto 0) := (others => '1');
+		T13_terminal_count : in unsigned (num_counter_bits - 1 downto 0) := (others => '1');
+		T14_terminal_count : in unsigned (num_counter_bits - 1 downto 0) := (others => '1');
+		T16_terminal_count : in unsigned (num_counter_bits - 1 downto 0) := (others => '1');
 		check_for_listeners : in std_logic; -- do optional check in SDYS for listeners
 
 		source_handshake_state : out SH_state;
@@ -52,9 +52,9 @@ architecture interface_function_SHE_arch of interface_function_SHE is
 	signal active : boolean;
 	signal ready_for_noninterlocked : boolean;
 	signal current_count : unsigned(num_counter_bits - 1 downto 0);
-	signal T1_counter_done : boolean;
-	signal T13_counter_done : boolean;
-	signal TN_counter_done : boolean;
+	variable T1_counter_done : boolean;
+	variable T13_counter_done : boolean;
+	variable TN_counter_done : boolean;
 	signal first_cycle : boolean; -- we are on the first transfer since leaving SIDS
 	-- used to insure we only report no listeners one time during SDYS
 	signal no_listeners_reported : boolean;
@@ -76,9 +76,9 @@ begin
 			noninterlocked_enable_state_buffer <= SNDS;
 			no_listeners <= '0';
 			current_count <= to_unsigned(0, num_counter_bits);
-			T1_counter_done <= false;
-			T13_counter_done <= false;
-			TN_counter_done <= false;
+			T1_counter_done := false;
+			T13_counter_done := false;
+			TN_counter_done := false;
 			first_cycle <= false;
 			no_listeners_reported <= false;
 		elsif rising_edge(clock) then
@@ -94,14 +94,11 @@ begin
 					elsif (talker_state_p1 = TACS and ready_for_noninterlocked) then
 						source_handshake_state_buffer <= SWRS;
 						current_count <= to_unsigned(0, current_count'length);
-						TN_counter_done <= false;
 					end if;
 					first_cycle <= true;
 				when SGNS =>
 					if nba = '1' then
 						current_count <= to_unsigned(0, current_count'length);
-						T1_counter_done <= false;
-						T13_counter_done <= false;
 						no_listeners_reported <= false;
 						source_handshake_state_buffer <= SDYS;
 					elsif interrupt then
@@ -109,19 +106,16 @@ begin
 					end if;
 				when SDYS =>
 					-- check if T1 delay is done
-					if (first_cycle and current_count >= 
+					T1_counter_done := (first_cycle and current_count >= 
 						first_T1_terminal_count) or
-						(first_cycle = false and current_count >= 
-							T1_terminal_count) then
-						T1_counter_done <= true;
-					end if;
+						(first_cycle = false and current_count >= T1_terminal_count);
 					-- check if T13 delay is done
-					if (current_count >= T13_terminal_count) then
-						T13_counter_done <= true;
+					T13_counter_done := (current_count >= T13_terminal_count);
+					
+					if not T1_counter_done or not T13_counter_done then
+						current_count <= current_count + 1;
 					end if;
 					
-					current_count <= current_count + 1;
-
 					-- transitions
 					if interrupt then
 						source_handshake_state_buffer <= SIDS;
@@ -129,13 +123,11 @@ begin
 						if (T13_counter_done and to_X01(DAC) = '1' and noninterlocked_enable_state_buffer = SNES) then
 							source_handshake_state_buffer <= STRS;
 							current_count <= to_unsigned(0, current_count'length);
-							TN_counter_done <= false;
 						elsif T1_counter_done then
 							if(check_for_listeners = '0' or to_X01(DAC) = '0') then
 								first_cycle <= false;
 								source_handshake_state_buffer <= STRS;
 								current_count <= to_unsigned(0, current_count'length);
-								TN_counter_done <= false;
 							elsif (no_listeners_reported = false and noninterlocked_enable_state_buffer /= SNES) then
 								no_listeners <= '1';
 								no_listeners_reported <= true;
@@ -144,9 +136,9 @@ begin
 					end if;
 				when STRS =>
 					-- check if T14 delay is done
-					if (current_count >= T14_terminal_count) then
-						TN_counter_done <= true;
-					else
+					TN_counter_done := (current_count >= T14_terminal_count);
+
+					if not TN_counter_done then
 						current_count <= current_count + 1;
 					end if;
 					
@@ -175,9 +167,8 @@ begin
 					first_cycle <= true;
 				when SWRS =>
 					-- check if T16 delay is done
-					if (current_count >= T16_terminal_count) then
-						TN_counter_done <= true;
-					else
+					TN_counter_done := (current_count >= T16_terminal_count);
+					if not TN_counter_done then
 						current_count <= current_count + 1;
 					end if;
 
@@ -186,13 +177,11 @@ begin
 					elsif TN_counter_done and to_X01(RFD) = '1' then
 						source_handshake_state_buffer <= SRDS;
 						current_count <= to_unsigned(0, current_count'length);
-						TN_counter_done <= false;
 					end if;
 				when SRDS =>
 					-- check if T11 delay is done
-					if (current_count >= T11_terminal_count) then
-						TN_counter_done <= true;
-					else
+					TN_counter_done := (current_count >= T11_terminal_count);
+					if not TN_counter_done then
 						current_count <= current_count + 1;
 					end if;
 
@@ -205,9 +194,8 @@ begin
 					end if;
 				when SNGS =>
 					-- check if T12 delay is done
-					if (current_count >= T12_terminal_count) then
-						TN_counter_done <= true;
-					else
+					TN_counter_done := (current_count >= T12_terminal_count);
+					if not TN_counter_done then
 						current_count <= current_count + 1;
 					end if;
 
