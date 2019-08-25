@@ -18,6 +18,7 @@ architecture behav of interface_function_SH_testbench is
 	signal controller_state_p1 : C_state_p1;
 	signal ATN : std_logic;
 	signal DAC : std_logic;
+	signal IFC : std_logic;
 	signal RFD : std_logic;
 	signal nba : std_logic;
 	signal pon : std_logic;
@@ -34,12 +35,13 @@ architecture behav of interface_function_SH_testbench is
 	shared variable test_finished : boolean := false;
 
 	begin
-	my_SH : entity work.interface_function_SH
+	my_SH : entity work.interface_function_SHE
 		port map (
 			clock => clock,
 			talker_state_p1 => talker_state_p1,
 			controller_state_p1 => controller_state_p1,
 			ATN => ATN,
+			IFC => IFC,
 			DAC => DAC,
 			RFD => RFD,
 			nba => nba,
@@ -71,6 +73,7 @@ architecture behav of interface_function_SH_testbench is
 		ATN <= 'L';
 		DAC <= 'H';
 		RFD <= 'H';
+		IFC <= 'H';
 		nba <= '0';
 		
 		

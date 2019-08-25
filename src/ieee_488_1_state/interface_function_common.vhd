@@ -23,11 +23,13 @@ package interface_function_common is
 	type PP_state_p1 is (PPIS, PPSS, PPAS);
 	type PP_state_p2 is (PUCS, PACS);
 	type RL_state is (LOCS, REMS, RWLS, LWLS);
-	type SH_state is (SIDS, SGNS, SDYS, STRS, SWNS, SIWS);
+	type SH_state is (SIDS, SGNS, SDYS, STRS, SWNS, SIWS, SWRS, SRDS, SNGS);
+	type SH_noninterlocked_state is (SNDS, SNES);
 	type SR_state is (NPRS, SRQS, APRS);
 	type TE_state_p1 is (TIDS, TADS, TACS, SPAS);
 	type TE_state_p2 is (TPIS, TPAS);
 	type TE_state_p3 is (SPIS, SPMS);
+	type CF_state_p2 is (NCIS, NCAS);
 
 	-- 488.2 states
 	-- the 488.2 names for the set rsv states collide with unrelated 488.1 states (SRIS and SRAS) so we make up new names

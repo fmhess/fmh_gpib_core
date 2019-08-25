@@ -1,7 +1,7 @@
 -- IEEE 488.1 interface functions all wired together.
 --
 -- Author: Frank Mori Hess fmh6jj@gmail.com
--- Copyright Frank Mori Hess 2017
+-- Copyright Frank Mori Hess 2017, 2019
 
 
 library ieee;
@@ -16,7 +16,7 @@ use work.interface_function_DT;
 use work.interface_function_LE;
 use work.interface_function_PP;
 use work.interface_function_RL;
-use work.interface_function_SH;
+use work.interface_function_SHE;
 use work.interface_function_SR;
 use work.interface_function_TE;
 
@@ -382,7 +382,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			remote_local_state => remote_local_state_buffer
 		);
 
-	my_SH : entity work.interface_function_SH
+	my_SH : entity work.interface_function_SHE
 		generic map (num_counter_bits => num_counter_bits)
 		port map (
 			clock => clock,
@@ -390,6 +390,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			controller_state_p1 => controller_state_p1_buffer,
 			ATN => ATN,
 			DAC => DAC,
+			IFC => IFC,
 			RFD => RFD,
 			nba => nba,
 			pon => pon,

@@ -15,6 +15,8 @@
 -- * a "RFD holdoff ASAP" auxilliary command, which causes an RFD holdoff to take effect
 --   as soon as possible (IEEE 488.1 forbids rdy from becoming false while in ACRS).
 -- * reqt/reqf setting similar to NI tnt4882 serial poll mode SP1
+-- * a "state 5" register to allow the current SHE IEEE 488.1 interface
+--   states to be read
 --
 -- Features which could be implemented if anyone cares:
 -- * Setting clock frequency by writing to the auxiliary mode register.  Clock frequency
@@ -25,7 +27,7 @@
 -- * bug-for-bug compatible source handshaking that violates 488.1 or 488.2.
 --
 -- Author: Frank Mori Hess fmh6jj@gmail.com
--- Copyright 2017 Frank Mori Hess
+-- Copyright 2017, 2019 Frank Mori Hess
 --
 
 library IEEE;
@@ -591,6 +593,9 @@ begin
 							host_data_bus_out_buffer(2 downto 0) <= "011";
 						when SWNS =>
 							host_data_bus_out_buffer(2 downto 0) <= "100";
+						when others =>
+							-- fmh_gpib_core extension: extra SHE states are exposed in state 5 register
+							host_data_bus_out_buffer(2 downto 0) <= "111";
 					end case;
 					case acceptor_handshake_state is
 						when AIDS =>
@@ -754,6 +759,27 @@ begin
 							host_data_bus_out_buffer(7 downto 6) <= "01";
 						when SRNS =>
 							host_data_bus_out_buffer(7 downto 6) <= "10";
+					end case;
+				when 16#2c# => -- state 5 register
+					case source_handshake_state is
+						when SIDS =>
+							host_data_bus_out_buffer(3 downto 0) <= "0000";
+						when SGNS =>
+							host_data_bus_out_buffer(2 downto 0) <= "0001";
+						when SDYS =>
+							host_data_bus_out_buffer(2 downto 0) <= "0010";
+						when STRS =>
+							host_data_bus_out_buffer(2 downto 0) <= "0101";
+						when SIWS =>
+							host_data_bus_out_buffer(2 downto 0) <= "0011";
+						when SWNS =>
+							host_data_bus_out_buffer(2 downto 0) <= "0100";
+						when SWRS =>
+							host_data_bus_out_buffer(1 downto 0) <= "0110";
+						when SRDS =>
+							host_data_bus_out_buffer(1 downto 0) <= "0111";
+						when SNGS =>
+							host_data_bus_out_buffer(1 downto 0) <= "1000";
 					end case;
 				when others =>
 					host_data_bus_out_buffer <= (others => '0');
