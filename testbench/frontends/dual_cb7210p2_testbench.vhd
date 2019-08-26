@@ -531,7 +531,12 @@ architecture behav of dual_cb7210p2_testbench is
 				-- release holdoff
 				host_write("000101", "00000011"); -- aux mode register, release rfd holdoff
 				wait_for_ticks(3);
-				assert to_X01(bus_NRFD_inverted) = '1';
+				-- Check that NRFD has deasserted.  We don't check on the last byte because
+				-- the acceptor actually gets stuck in AWNS after the last byte is received
+				-- since our talker likes to keeps DAV asserted.
+				if n /= 16#81# then
+					assert to_X01(bus_NRFD_inverted) = '1';
+				end if;
 			end loop;
 		end rfd_holdoff_test;
 	begin

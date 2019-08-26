@@ -137,6 +137,10 @@ package body test_common is
 		signal NRFD_inverted : out std_logic
 	) is
 	begin
+		if (to_bit(DAV_inverted) /= '1') then
+			wait until (to_bit(DAV_inverted) = '1');
+		end if;
+		
 		wait for 110ns;
 		NDAC_inverted <= '0';
 		NRFD_inverted <= '0';
@@ -149,13 +153,6 @@ package body test_common is
 		NRFD_inverted <= '0';
 		data_byte := not DIO_inverted;
 		eoi := not EOI_inverted;
-		wait for 110ns;
-		NDAC_inverted <= 'H';
-		if (to_bit(DAV_inverted) /= '1') then
-				wait until (to_bit(DAV_inverted) = '1');
-		end if;
-		wait for 110ns;
-		NRFD_inverted <= 'H';
 		wait for 110ns;
 		NDAC_inverted <= 'H';
 		wait for 110ns;
@@ -175,19 +172,20 @@ package body test_common is
 		wait for 110ns;
 		if assert_ATN then
 			ATN_inverted <= '0';
-			NDAC_inverted <= 'H';
-			NRFD_inverted <= 'H';
 			SRQ_inverted <= 'H';
 		else
 			ATN_inverted <= 'H';
 		end if;
 		if talk_enable then
-			NDAC_inverted <= 'Z';
-			NRFD_inverted <= 'Z';
+			NDAC_inverted <= 'H';
+			NRFD_inverted <= 'H';
+			DAV_inverted <= 'H';
 		else
 			DIO_inverted <= (others => 'Z');
 			DAV_inverted <= 'Z';
 			EOI_inverted <= 'Z';
+			NDAC_inverted <= 'H';
+			NRFD_inverted <= '0';
 		end if;
 		wait for 110ns;
 	end procedure gpib_setup_bus;

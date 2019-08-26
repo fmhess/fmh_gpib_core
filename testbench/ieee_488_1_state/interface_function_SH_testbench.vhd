@@ -20,7 +20,8 @@ architecture behav of interface_function_SH_testbench is
 	signal DAC : std_logic;
 	signal IFC : std_logic;
 	signal RFD : std_logic;
-	signal nba : std_logic;
+	signal command_byte_available : std_logic;
+	signal data_byte_available : std_logic;
 	signal pon : std_logic;
 	signal first_T1_terminal_count : unsigned (7 downto 0);
 	signal T1_terminal_count : unsigned (7 downto 0);
@@ -44,7 +45,8 @@ architecture behav of interface_function_SH_testbench is
 			IFC => IFC,
 			DAC => DAC,
 			RFD => RFD,
-			nba => nba,
+			command_byte_available => command_byte_available,
+			data_byte_available => data_byte_available,
 			pon => pon,
 			first_T1_terminal_count => first_T1_terminal_count,
 			T1_terminal_count => T1_terminal_count,
@@ -74,7 +76,8 @@ architecture behav of interface_function_SH_testbench is
 		DAC <= 'H';
 		RFD <= 'H';
 		IFC <= 'H';
-		nba <= '0';
+		command_byte_available <= '0';
+		data_byte_available <= '0';
 		
 		
 		first_T1_terminal_count <= X"05";
@@ -101,7 +104,7 @@ architecture behav of interface_function_SH_testbench is
 		wait until rising_edge(clock);
 		wait until rising_edge(clock);
 		assert source_handshake_state = SGNS;
-		nba <= '1';
+		data_byte_available <= '1';
 
 		wait until rising_edge(clock);
 		wait until rising_edge(clock);
@@ -134,6 +137,7 @@ architecture behav of interface_function_SH_testbench is
 		assert source_handshake_state = STRS;
 		assert DAV = '1';
 		DAC <= 'H';
+		data_byte_available <= '0';
 		
 		wait until rising_edge(clock);
 		for i in 1 to 3 loop
@@ -141,12 +145,11 @@ architecture behav of interface_function_SH_testbench is
 			assert source_handshake_state = SWNS;
 		end loop;
 
-		nba <= '0';
+		data_byte_available <= '1';
 		
 		wait until rising_edge(clock);
 		wait until rising_edge(clock);
 		assert source_handshake_state = SGNS;
-		nba <= '1';
 		check_for_listeners <= '0';
 
 		wait until rising_edge(clock);
@@ -154,7 +157,7 @@ architecture behav of interface_function_SH_testbench is
 		assert source_handshake_state = SDYS;
 
 		-- This is the second cycle so T1 should be shorter this time.
-		for i in 1 to 3 loop
+		for i in 1 to 2 loop
 			wait until rising_edge(clock);
 		end loop;
 		assert source_handshake_state = SDYS;
@@ -162,18 +165,18 @@ architecture behav of interface_function_SH_testbench is
 		-- There is no listener and we turned off check so we go to STRS
 		wait until rising_edge(clock);
 		assert source_handshake_state = STRS;
+		data_byte_available <= '0';
 
 		wait until rising_edge(clock);
 		assert source_handshake_state = SWNS;
 
 		-- interrupt to SIWS
 		ATN <= '1';
-		talker_state_p1 <= TADS;
 		
 		wait until rising_edge(clock);
+		talker_state_p1 <= TADS;
 		wait until rising_edge(clock);
 		assert source_handshake_state = SIWS;
-		nba <= '0';
 		
 		wait until rising_edge(clock);
 		for i in 1 to 3 loop
@@ -185,10 +188,8 @@ architecture behav of interface_function_SH_testbench is
 		ATN <= 'L';
 
 		wait until rising_edge(clock);
-		for i in 1 to 3 loop
-			wait until rising_edge(clock);
-			assert source_handshake_state = SGNS;
-		end loop;
+		wait until rising_edge(clock);
+		assert source_handshake_state = SGNS;
 
 		-- interrupt back to SIDS
 		talker_state_p1 <= TADS;
@@ -199,15 +200,17 @@ architecture behav of interface_function_SH_testbench is
 			assert source_handshake_state = SIDS;
 		end loop;
 		
-		talker_state_p1 <= SPAS;
+		talker_state_p1 <= TIDS;
+		controller_state_p1 <= CACS;
+		ATN <= '1';
 		
 		wait until rising_edge(clock);
 		for i in 1 to 3 loop
 			wait until rising_edge(clock);
 			assert source_handshake_state = SGNS;
 		end loop;
-
-		nba <= '1';
+		
+		command_byte_available <= '1';
 		
 		wait until rising_edge(clock);
 		for i in 1 to 3 loop
@@ -216,8 +219,9 @@ architecture behav of interface_function_SH_testbench is
 		end loop;
 
 		-- interrupt back to SIDS
-		ATN <= '1';
 		talker_state_p1 <= TADS;
+		controller_state_p1 <= CIDS;
+		ATN <= 'L';
 		
 		wait until rising_edge(clock);
 		for i in 1 to 3 loop
@@ -225,7 +229,6 @@ architecture behav of interface_function_SH_testbench is
 			assert source_handshake_state = SIDS;
 		end loop;
 
-		ATN <= 'L';
 		talker_state_p1 <= SPAS;
 		check_for_listeners <= '1';
 		DAC <= '0';
@@ -239,15 +242,19 @@ architecture behav of interface_function_SH_testbench is
 			wait until rising_edge(clock);
 		end loop;
 		assert source_handshake_state = STRS;
+		command_byte_available <= '0';
 
 		-- interrupt to SIWS
 		ATN <= '1';
 		talker_state_p1 <= TADS;
 		
-		for i in 1 to 3 loop
+		for i in 1 to 2 loop
 			wait until rising_edge(clock);
 		end loop;
 		assert source_handshake_state = SIWS;
+
+		wait until rising_edge(clock);
+		assert source_handshake_state = SIDS;
 
 		wait until rising_edge(clock);
 		assert false report "end of test" severity note;

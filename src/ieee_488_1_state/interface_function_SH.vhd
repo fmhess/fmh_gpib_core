@@ -25,7 +25,8 @@ entity interface_function_SHE is
 		DAC : in std_logic;
 		IFC : in std_logic;
 		RFD : in std_logic;
-		nba : in std_logic;
+		command_byte_available : in std_logic;
+		data_byte_available : in std_logic;
 		nie : in std_logic := '0';
 		pon : in std_logic;
 		first_T1_terminal_count : in unsigned (num_counter_bits - 1 downto 0); -- longer T1 used for first cycle only
@@ -45,7 +46,7 @@ entity interface_function_SHE is
 	);
  
 end interface_function_SHE;
- 
+
 architecture interface_function_SHE_arch of interface_function_SHE is
  
 	signal interrupt : boolean;
@@ -71,6 +72,7 @@ begin
 		variable T1_counter_done : boolean;
 		variable T13_counter_done : boolean;
 		variable TN_counter_done : boolean;
+		variable nba : boolean;
 	begin
 		if pon = '1' then
 			source_handshake_state_buffer <= SIDS;
@@ -82,6 +84,7 @@ begin
 			TN_counter_done := false;
 			first_cycle <= false;
 			no_listeners_reported <= false;
+			nba := false;
 		elsif rising_edge(clock) then
 			-- no_listeners only pulses high for 1 clock so clear it.  no_listeners may
 			-- be set high (for a cycle) later in this process.
@@ -98,7 +101,11 @@ begin
 					end if;
 					first_cycle <= true;
 				when SGNS =>
-					if nba = '1' then
+					nba := 	(to_X01(data_byte_available) = '1' and talker_state_p1 = TACS) or
+						(to_X01(command_byte_available) = '1' and controller_state_p1 = CACS) or
+						talker_state_p1 = SPAS;
+						
+					if nba then
 						current_count <= to_unsigned(0, current_count'length);
 						no_listeners_reported <= false;
 						source_handshake_state_buffer <= SDYS;
@@ -154,13 +161,21 @@ begin
 						source_handshake_state_buffer <= SWNS;
 					end if;
 				when SWNS =>
-					if to_bit(nba) = '0' then
+					-- When we are in TACS, we want to linger here unless there is actually 
+					-- data another byte available
+					-- to send (for the sake of AHE acceptors during noninterlocked transfers, see
+					-- comment below in SWNS section of the case statement farther down).
+					nba := to_X01(data_byte_available) = '0' and talker_state_p1 = TACS;
+
+					if not nba then
 						source_handshake_state_buffer <= SGNS;
 					elsif interrupt then
 						source_handshake_state_buffer <= SIWS;
 					end if;
 				when SIWS =>
-					if to_bit(nba) = '0' then
+					nba := false;
+					
+					if not nba then
 						source_handshake_state_buffer <= SIDS;
 					elsif active then
 						source_handshake_state_buffer <= SWNS;
@@ -242,7 +257,15 @@ begin
 				DAV <= '1';
 				NIC <= 'L';
 			when SWNS =>
-				DAV <= '0';
+				-- IEEE 488.1 allows DAV to be T or F in SWNS.  We leave it  
+				-- as it was from the state we transitioned from.  Leaving
+				-- it true from STRS helps us keep an AHE acceptor in ANDS rather than ANES when
+				-- doing noninterlocked handshaking.  This makes it more likely the
+				-- acceptor will be able to leave noninterlocked mode through ANTS,
+				-- winding up in ANRS (with RFD holdoff in effect), rather than
+				-- leaving through ANES and winding up in ACRS (where it would be
+				-- unable to assert a RFD holdoff except when ATN transitions to
+				-- false).
 				NIC <= 'L';
 			when SIWS =>
 				DAV <= 'L';

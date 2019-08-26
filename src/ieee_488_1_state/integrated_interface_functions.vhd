@@ -138,7 +138,6 @@ entity integrated_interface_functions is
 end integrated_interface_functions;
  
 architecture integrated_interface_functions_arch of integrated_interface_functions is
-	signal nba : std_logic;
 	signal rsv : std_logic;
 	signal reqt : std_logic;
 	signal reqf : std_logic;
@@ -393,7 +392,8 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			DAC => DAC,
 			IFC => IFC,
 			RFD => RFD,
-			nba => nba,
+			command_byte_available => internal_host_to_gpib_command_byte_latched ,
+			data_byte_available => internal_host_to_gpib_data_byte_latched ,
 			pon => pon,
 			first_T1_terminal_count => first_T1_terminal_count,
 			T1_terminal_count => T1_terminal_count,
@@ -510,12 +510,6 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	talker_state_p1 <= talker_state_p1_buffer;
 	talker_state_p2 <= talker_state_p2_buffer;
 	talker_state_p3 <= talker_state_p3_buffer;
-	
-	nba <= '1' when source_handshake_state_buffer = SGNS and
-			((internal_host_to_gpib_data_byte_latched = '1' and talker_state_p1_buffer = TACS) or
-			(internal_host_to_gpib_command_byte_latched = '1' and controller_state_p1_buffer = CACS) or
-			talker_state_p1_buffer = SPAS) else
-		'0';
 	
 	host_to_gpib_data_byte_latched <= internal_host_to_gpib_data_byte_latched;
 	host_to_gpib_command_byte_latched <= internal_host_to_gpib_command_byte_latched;
