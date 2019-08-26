@@ -32,7 +32,6 @@ package interface_function_common is
 	type TE_state_p1 is (TIDS, TADS, TACS, SPAS);
 	type TE_state_p2 is (TPIS, TPAS);
 	type TE_state_p3 is (SPIS, SPMS);
-	type CF_state_p2 is (NCIS, NCAS);
 
 	-- 488.2 states
 	-- the 488.2 names for the set rsv states collide with unrelated 488.1 states (SRIS and SRAS) so we make up new names

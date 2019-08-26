@@ -139,7 +139,6 @@ end integrated_interface_functions;
  
 architecture integrated_interface_functions_arch of integrated_interface_functions is
 	signal nba : std_logic;
-	signal rdy : std_logic;
 	signal rsv : std_logic;
 	signal reqt : std_logic;
 	signal reqf : std_logic;
@@ -151,6 +150,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	signal internal_host_to_gpib_command_byte_latched : std_logic;
 	signal internal_host_to_gpib_command_byte : std_logic_vector(7 downto 0);
 	signal RFD_holdoff : std_logic;
+	signal combined_RFD_holdoff : std_logic; -- holdoff due to combination of a requested RFD_holdoff or an unread data byte
 	signal DAC_holdoff : std_logic;
 	signal unrecognized_primary_command : std_logic;
 	signal address_passthrough_buffer : std_logic;
@@ -296,9 +296,9 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			ATN => ATN,
 			DAV => DAV,
 			pon => pon,
-			rdy => rdy,
 			tcs => tcs,
 			DAC_holdoff => DAC_holdoff,
+			RFD_holdoff => combined_RFD_holdoff,
 			acceptor_handshake_state => acceptor_handshake_state_buffer,
 			RFD => local_RFD,
 			DAC => local_DAC
@@ -607,6 +607,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	-- deal with byte read by host from gpib bus
 	process(pon, clock) 
 		variable prev_acceptor_handshake_state : AH_state;
+		variable data_byte_accept_step : natural;
 	begin
 		if to_bit(pon) = '1' then
 			gpib_to_host_byte_latched_buffer <= '0';
@@ -615,41 +616,50 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			gpib_to_host_byte_eos <= '0';
 			RFD_holdoff <= '0';
 			prev_acceptor_handshake_state := AIDS;
+			data_byte_accept_step := 0;
 		elsif rising_edge(clock) then
 			if acceptor_handshake_state_buffer = ACDS and
 				to_bit(ATN) = '0' then
 				-- first cycle in ACDS
 				if prev_acceptor_handshake_state /= ACDS then 
-					-- we clear end/eos signals on entering ACDS, we will
-					-- set them to their new values on the next cycle.  This
-					-- insures a rising edge will be generated for each byte accepted
-					gpib_to_host_byte_end <= '0';
-					gpib_to_host_byte_eos <= '0';
-
-					case RFD_holdoff_mode is
-						when holdoff_normal =>
-						when holdoff_on_all =>
-							RFD_holdoff <= '1';
-						when holdoff_on_end =>
-							if to_X01(END_msg or EOS) = '1' then
-								RFD_holdoff <= '1';
-							end if;
-						when continuous_mode =>
-							if to_X01(END_msg or EOS) = '1' then
-								RFD_holdoff <= '1';
-							end if;
-					end case;
-				else -- second cycle in ACDS
-					-- we delayed setting gpib_to_host_byte_latched until second cycle so
-					-- it gets set at the same time as the associated end/eos signals.
-					if RFD_holdoff_mode /= continuous_mode then
-						gpib_to_host_byte_latched_buffer <= '1';
-						gpib_to_host_byte <= not bus_DIO_inverted_in;
-					end if;
-					gpib_to_host_byte_end <= END_msg;
-					gpib_to_host_byte_eos <= EOS;
+					data_byte_accept_step := 1;
 				end if;
-			elsif to_X01(gpib_to_host_byte_read) = '1' then
+			end if;
+
+			if data_byte_accept_step = 1 then -- first cycle after entering ACDS
+				-- we clear end/eos signals on entering ACDS, we will
+				-- set them to their new values on the next cycle.  This
+				-- insures a rising edge will be generated for each byte accepted
+				gpib_to_host_byte_end <= '0';
+				gpib_to_host_byte_eos <= '0';
+
+				case RFD_holdoff_mode is
+					when holdoff_normal =>
+					when holdoff_on_all =>
+						RFD_holdoff <= '1';
+					when holdoff_on_end =>
+						if to_X01(END_msg or EOS) = '1' then
+							RFD_holdoff <= '1';
+						end if;
+					when continuous_mode =>
+						if to_X01(END_msg or EOS) = '1' then
+							RFD_holdoff <= '1';
+						end if;
+				end case;
+				data_byte_accept_step := 2;
+			elsif data_byte_accept_step = 2 then -- second cycle after entering ACDS
+				-- we delayed setting gpib_to_host_byte_latched until second cycle so
+				-- it gets set at the same time as the associated end/eos signals.
+				if RFD_holdoff_mode /= continuous_mode then
+					gpib_to_host_byte_latched_buffer <= '1';
+					gpib_to_host_byte <= not bus_DIO_inverted_in;
+				end if;
+				gpib_to_host_byte_end <= END_msg;
+				gpib_to_host_byte_eos <= EOS;
+				data_byte_accept_step := 0;
+			end if;
+
+			if to_X01(gpib_to_host_byte_read) = '1' then
 				gpib_to_host_byte_latched_buffer <= '0';
 			end if;
 
@@ -663,51 +673,8 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			prev_acceptor_handshake_state := acceptor_handshake_state_buffer;
 		end if;
 	end process;
-
-	-- set rdy local message
-	process(pon, clock) 
-		variable entering_ACRS : std_logic;
-	begin
-		if to_bit(pon) = '1' then
-			entering_ACRS := '0';
-			rdy <= '0';
-		elsif rising_edge(clock) then
-			if (acceptor_handshake_state_buffer = ANRS and ((to_X01(ATN) = '1' and to_X01(DAV) = '0') or to_X01(rdy) = '1') and to_X01(tcs) = '0') or
-				(acceptor_handshake_state_buffer = ACDS and to_X01(DAV) = '0') then
-				entering_ACRS := '1';
-			else
-				entering_ACRS := '0';
-			end if;
-
-			if entering_ACRS = '1' then
-				if ATN = '1' then
-					-- Proactively clear rdy when entering ACRS with ATN asserted, since 488.1 prohibits rdy from transitioning false
-					-- when we are already in ACRS.  This produces a transition to ANRS if ATN is deasserted in ACRS, allowing a RFD holdoff 
-					-- to take effect, while still complying with the letter (and ultimately the intent I believe) of IEEE 488.1.
-					rdy <= '0';
-				else
-					rdy <= rdy;
-				end if;
-			elsif acceptor_handshake_state_buffer = ACRS then
-				rdy <= rdy;
-			-- after this point it is ok to let rdy transition false since we are definitely 
-			-- not in or entering ACRS.
-			elsif RFD_holdoff = '1' then 
-				rdy <= '0';
-			else
-				if RFD_holdoff_mode = continuous_mode then
-					if acceptor_handshake_state_buffer = ACDS then
-						rdy <= '0';
-					else
-						rdy <= '1';
-					end if;
-				else
-					rdy <= not gpib_to_host_byte_latched_buffer;
-				end if;
-			end if;
-		end if;
-	end process;
-		
+	
+	combined_RFD_holdoff <= RFD_holdoff or gpib_to_host_byte_latched_buffer;
 	gpib_to_host_byte_latched <= gpib_to_host_byte_latched_buffer;
 	
 	-- deal with byte written by host to gpib bus

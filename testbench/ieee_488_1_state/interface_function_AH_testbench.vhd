@@ -17,7 +17,7 @@ architecture behav of interface_function_AH_testbench is
 	signal ATN : std_logic;
 	signal DAV : std_logic;
 	signal pon : std_logic;
-	signal rdy : std_logic;
+	signal RFD_holdoff : std_logic;
 	signal tcs : std_logic;
 	signal DAC_holdoff : std_logic;
 	signal acceptor_handshake_state : AH_state;
@@ -36,7 +36,7 @@ architecture behav of interface_function_AH_testbench is
 			ATN => ATN,
 			DAV => DAV,
 			pon => pon,
-			rdy => rdy,
+			RFD_holdoff => RFD_holdoff,
 			tcs => tcs,
 			DAC_holdoff => DAC_holdoff,
 			acceptor_handshake_state => acceptor_handshake_state,
@@ -70,7 +70,7 @@ architecture behav of interface_function_AH_testbench is
 		ATN <= 'L';
 		DAV <= 'L';
 		pon <= '0';
-		rdy <= '0';
+		RFD_holdoff <= '1';
 		tcs <= '0';
 		DAC_holdoff <= '0';
 		
@@ -93,7 +93,7 @@ architecture behav of interface_function_AH_testbench is
 		
 		-- accept a data byte
 		
-		rdy <= '1';
+		RFD_holdoff <= '0';
 		wait_for_ticks(3);
 		assert acceptor_handshake_state = ACRS;
 
@@ -101,10 +101,10 @@ architecture behav of interface_function_AH_testbench is
 		wait_for_ticks(3);
 		assert acceptor_handshake_state = ACDS;
 		
-		rdy <= '0';
 		wait_for_ticks(3);
 		assert acceptor_handshake_state = AWNS;
 
+		RFD_holdoff <= '1';
 		DAV <= 'L';
 		wait_for_ticks(3);
 		assert acceptor_handshake_state = ANRS;
@@ -128,7 +128,7 @@ architecture behav of interface_function_AH_testbench is
 		assert acceptor_handshake_state = ACRS;
 
 		ATN <= 'L';
-		rdy <= '0';
+		RFD_holdoff <= '1';
 		wait_for_ticks(3);
 		assert acceptor_handshake_state = ANRS;
 
