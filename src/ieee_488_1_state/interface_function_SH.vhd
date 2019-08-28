@@ -129,6 +129,7 @@ begin
 						source_handshake_state_buffer <= SIDS;
 					elsif to_X01(RFD) = '1' then
 						if (T13_counter_done and to_X01(DAC) = '1' and noninterlocked_enable_state_buffer = SNES) then
+							first_cycle <= false;
 							source_handshake_state_buffer <= STRS;
 							current_count <= to_unsigned(0, current_count'length);
 						elsif T1_counter_done then
