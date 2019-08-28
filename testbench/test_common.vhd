@@ -187,7 +187,7 @@ package body test_common is
 			NDAC_inverted <= 'H';
 			NRFD_inverted <= '0';
 		end if;
-		wait for 110ns;
+		wait for 2000ns;
 	end procedure gpib_setup_bus;
 	
 	procedure host_write (addr: in std_logic_vector;
