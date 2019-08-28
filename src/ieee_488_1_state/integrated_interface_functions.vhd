@@ -75,6 +75,13 @@ entity integrated_interface_functions is
 		T8_count_per_us : in unsigned(num_counter_bits - 1 downto 0);
 		T9_terminal_count : in unsigned(num_counter_bits - 1 downto 0);
 		T10_terminal_count : in unsigned(num_counter_bits - 1 downto 0);
+		T11_terminal_count : in unsigned(num_counter_bits - 1 downto 0) := (others => '1');
+		T12_terminal_count : in unsigned(num_counter_bits - 1 downto 0) := (others => '1');
+		T13_terminal_count : in unsigned(num_counter_bits - 1 downto 0) := (others => '1');
+		T14_terminal_count : in unsigned(num_counter_bits - 1 downto 0) := (others => '1');
+		T16_terminal_count : in unsigned(num_counter_bits - 1 downto 0) := (others => '1');
+		T17_terminal_count : in unsigned(num_counter_bits - 1 downto 0) := (others => '1');
+		T18_terminal_count : in unsigned(num_counter_bits - 1 downto 0) := (others => '1');
 		check_for_listeners : in std_logic;
 		-- host should set gpib_to_host_byte_read high for a clock when it reads gpib_to_host_byte
 		gpib_to_host_byte_read : in std_logic;
@@ -334,6 +341,9 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			tcs => tcs,
 			DAC_holdoff => DAC_holdoff,
 			RFD_holdoff => combined_RFD_holdoff,
+			T16_terminal_count => T16_terminal_count,
+			T17_terminal_count => T17_terminal_count,
+			T18_terminal_count => T18_terminal_count,
 			acceptor_handshake_state => acceptor_handshake_state_buffer,
 			RFD => local_RFD,
 			DAC => local_DAC
@@ -435,6 +445,11 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			pon => pon,
 			first_T1_terminal_count => first_T1_terminal_count,
 			T1_terminal_count => T1_terminal_count,
+			T11_terminal_count => T11_terminal_count,
+			T12_terminal_count => T12_terminal_count,
+			T13_terminal_count => T13_terminal_count,
+			T14_terminal_count => T14_terminal_count,
+			T16_terminal_count => T16_terminal_count,
 			check_for_listeners => check_for_listeners,
 			
 			source_handshake_state => source_handshake_state_buffer,
