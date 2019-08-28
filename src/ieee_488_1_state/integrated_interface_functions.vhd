@@ -7,8 +7,8 @@
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
+use work.acceptor_fifo;
 use work.interface_function_common.all;
-use work.remote_message_decoder;
 use work.interface_function_AH;
 use work.interface_function_C;
 use work.interface_function_DC;
@@ -19,6 +19,7 @@ use work.interface_function_RL;
 use work.interface_function_SHE;
 use work.interface_function_SR;
 use work.interface_function_TE;
+use work.remote_message_decoder;
 
 entity integrated_interface_functions is
 	generic(
@@ -40,6 +41,7 @@ entity integrated_interface_functions is
 		-- IEEE 488.1 local messages
 		ist : in std_logic;
 		gts : in std_logic;
+		lni : in std_logic := '1';
 		lon : in std_logic;
 		lpe : in std_logic;
 		lun : in std_logic;
@@ -138,11 +140,11 @@ entity integrated_interface_functions is
 end integrated_interface_functions;
  
 architecture integrated_interface_functions_arch of integrated_interface_functions is
+	signal rft : std_logic;
 	signal rsv : std_logic;
 	signal reqt : std_logic;
 	signal reqf : std_logic;
 	signal set_rsv_state : set_rsv_enum;
-	signal gpib_to_host_byte_latched_buffer : std_logic;
 	signal internal_host_to_gpib_data_byte_latched : std_logic;
 	signal internal_host_to_gpib_data_byte : std_logic_vector(7 downto 0);
 	signal internal_host_to_gpib_data_byte_end : std_logic;
@@ -222,6 +224,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	signal talker_state_p2_buffer : TE_state_p2;
 	signal talker_state_p3_buffer : TE_state_p3;
 	signal bus_dio_inverted_out_buffer : std_logic_vector(7 downto 0);
+	signal bus_DIO_in : std_logic_vector(7 downto 0);
 	
 	signal talk_enable_buffer : std_logic;
 	signal pullup_disable_buffer : std_logic;
@@ -231,7 +234,10 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	
 	signal parallel_poll_sense : std_logic;
 	signal parallel_poll_response_line : std_logic_vector(2 downto 0);
-
+	
+	signal acceptor_fifo_write : std_logic;
+	signal acceptor_fifo_empty : std_logic;
+	
 	begin
 	my_decoder: entity work.remote_message_decoder 
 		port map (
@@ -294,7 +300,9 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			listener_state_p1 => listener_state_p1_buffer,
 			ATN => ATN,
 			DAV => DAV,
+			lni => lni,
 			pon => pon,
+			rft => rft,
 			tcs => tcs,
 			DAC_holdoff => DAC_holdoff,
 			RFD_holdoff => combined_RFD_holdoff,
@@ -492,6 +500,23 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			controller_state_p5 => controller_state_p5_buffer
 		);
 
+	my_acceptor_fifo : entity work.acceptor_fifo 
+		port map (
+			clock => clock,
+			reset => pon,
+			write_enable => acceptor_fifo_write,
+			data_byte_in => bus_DIO_in,
+			END_in => END_msg,
+			EOS_in => EOS,
+			read_acknowledge => gpib_to_host_byte_read,
+			data_byte_out => gpib_to_host_byte,
+			END_out => gpib_to_host_byte_end,
+			EOS_out => gpib_to_host_byte_eos,
+			lni => lni,
+			rft => rft,
+			empty => acceptor_fifo_empty
+		);
+ 
 	acceptor_handshake_state <= acceptor_handshake_state_buffer;
 	controller_state_p1 <= controller_state_p1_buffer;
 	controller_state_p2 <= controller_state_p2_buffer;
@@ -510,7 +535,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	talker_state_p1 <= talker_state_p1_buffer;
 	talker_state_p2 <= talker_state_p2_buffer;
 	talker_state_p3 <= talker_state_p3_buffer;
-	
+		
 	host_to_gpib_data_byte_latched <= internal_host_to_gpib_data_byte_latched;
 	host_to_gpib_command_byte_latched <= internal_host_to_gpib_command_byte_latched;
 	
@@ -540,6 +565,10 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 		controller_state_p5_buffer /= SIIS else 'Z';
 	bus_SRQ_inverted_out <= to_X0Z(not local_SRQ);
 
+	bus_DIO_in <= not bus_DIO_inverted_in;
+
+	gpib_to_host_byte_latched <= not acceptor_fifo_empty;
+	
 	process(pon, clock)
 		variable prev_source_handshake_state  : SH_state;
 	begin
@@ -604,29 +633,18 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 		variable data_byte_accept_step : natural;
 	begin
 		if to_bit(pon) = '1' then
-			gpib_to_host_byte_latched_buffer <= '0';
-			gpib_to_host_byte <= X"00";
-			gpib_to_host_byte_end <= '0';
-			gpib_to_host_byte_eos <= '0';
 			RFD_holdoff <= '0';
 			prev_acceptor_handshake_state := AIDS;
-			data_byte_accept_step := 0;
+			acceptor_fifo_write <= '0';
 		elsif rising_edge(clock) then
-			if acceptor_handshake_state_buffer = ACDS and
-				to_bit(ATN) = '0' then
-				-- first cycle in ACDS
-				if prev_acceptor_handshake_state /= ACDS then 
-					data_byte_accept_step := 1;
-				end if;
-			end if;
-
-			if data_byte_accept_step = 1 then -- first cycle after entering ACDS
-				-- we clear end/eos signals on entering ACDS, we will
-				-- set them to their new values on the next cycle.  This
-				-- insures a rising edge will be generated for each byte accepted
-				gpib_to_host_byte_end <= '0';
-				gpib_to_host_byte_eos <= '0';
-
+			-- clear pulses
+			acceptor_fifo_write <= '0';
+			
+			-- first data byte cycle in ACDS/ANDS
+			if to_bit(ATN) = '0' and
+				((acceptor_handshake_state_buffer = ACDS and prev_acceptor_handshake_state /= ACDS) or 
+				(acceptor_handshake_state_buffer = ANDS and prev_acceptor_handshake_state /= ANDS)) 
+			then
 				case RFD_holdoff_mode is
 					when holdoff_normal =>
 					when holdoff_on_all =>
@@ -640,21 +658,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 							RFD_holdoff <= '1';
 						end if;
 				end case;
-				data_byte_accept_step := 2;
-			elsif data_byte_accept_step = 2 then -- second cycle after entering ACDS
-				-- we delayed setting gpib_to_host_byte_latched until second cycle so
-				-- it gets set at the same time as the associated end/eos signals.
-				if RFD_holdoff_mode /= continuous_mode then
-					gpib_to_host_byte_latched_buffer <= '1';
-					gpib_to_host_byte <= not bus_DIO_inverted_in;
-				end if;
-				gpib_to_host_byte_end <= END_msg;
-				gpib_to_host_byte_eos <= EOS;
-				data_byte_accept_step := 0;
-			end if;
-
-			if to_X01(gpib_to_host_byte_read) = '1' then
-				gpib_to_host_byte_latched_buffer <= '0';
+				acceptor_fifo_write <= '1';
 			end if;
 
 			if to_X01(set_RFD_holdoff_pulse) = '1' then
@@ -668,8 +672,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 		end if;
 	end process;
 	
-	combined_RFD_holdoff <= RFD_holdoff or gpib_to_host_byte_latched_buffer;
-	gpib_to_host_byte_latched <= gpib_to_host_byte_latched_buffer;
+	combined_RFD_holdoff <= RFD_holdoff or not acceptor_fifo_empty;
 	
 	-- deal with byte written by host to gpib bus
 	process(pon, clock)

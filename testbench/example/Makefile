@@ -2,6 +2,8 @@
 all: fmh_gpib_top_testbench.fst
 
 FMH_GPIB_TOP_TEST_SRC = \
+	../../src/util/std_fifo.vhd \
+	../../src/ieee_488_1_state/acceptor_fifo.vhd \
 	../../src/ieee_488_1_state/interface_function_common.vhd \
 	../../src/ieee_488_1_state/interface_function_AH.vhd \
 	../../src/ieee_488_1_state/interface_function_C.vhd \
@@ -17,7 +19,6 @@ FMH_GPIB_TOP_TEST_SRC = \
 	../../src/ieee_488_1_state/remote_message_decoder.vhd \
 	../../src/ieee_488_1_state/integrated_interface_functions.vhd \
 	../../src/util/gpib_control_debounce_filter.vhd \
-	../../src/util/std_fifo.vhd \
 	../../src/util/dma_fifos.vhd \
 	../../src/frontends/frontend_cb7210p2.vhd \
 	../../src/example/fmh_gpib_top.vhd \

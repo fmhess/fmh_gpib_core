@@ -124,10 +124,14 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal no_listeners : std_logic;
 	signal first_T1_terminal_count : unsigned(num_counter_bits - 1 downto 0);
 	signal T1_terminal_count : unsigned(num_counter_bits - 1 downto 0);
-	signal gpib_to_host_byte : std_logic_vector(7 downto 0);
 	signal gpib_to_host_byte_read : std_logic;
+	signal host_has_read_gpib_to_host_byte : std_logic;
+	signal gpib_to_host_byte : std_logic_vector(7 downto 0);
 	signal gpib_to_host_byte_end : std_logic;
 	signal gpib_to_host_byte_eos : std_logic;
+	signal gpib_to_host_byte_in : std_logic_vector(7 downto 0);
+	signal gpib_to_host_byte_end_in : std_logic;
+	signal gpib_to_host_byte_eos_in : std_logic;
 	signal host_to_gpib_byte : std_logic_vector(7 downto 0);
 	signal host_to_gpib_data_byte_end : std_logic;
 	signal host_to_gpib_data_byte_write : std_logic;
@@ -168,6 +172,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal ltn : std_logic;
 	signal pon : std_logic;
 	signal gpib_to_host_byte_latched : std_logic;
+	signal gpib_to_host_byte_latched_in : std_logic;
 	signal rpp : std_logic;
 	signal rsc : std_logic;
 	signal rtl : std_logic;
@@ -245,6 +250,8 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 
 	-- interrupt mask register 1 interrupts
 	signal DI_interrupt : std_logic;
+	signal DI_interrupt_condition : std_logic;
+	signal DI_interrupt_generator : std_logic;
 	signal DO_interrupt : std_logic;
 	signal DO_interrupt_condition : std_logic;
 	signal ERR_interrupt : std_logic;
@@ -258,7 +265,8 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal ERR_interrupt_enable : std_logic;
 	signal DEC_interrupt_enable : std_logic;
 	signal END_interrupt_enable : std_logic;
-	signal end_interrupt_condition : std_logic;
+	signal END_interrupt_condition : std_logic;
+	signal END_interrupt_generator : std_logic;
 	signal DET_interrupt_enable : std_logic;
 	signal APT_interrupt_enable : std_logic;
 	signal CPT_interrupt_enable : std_logic;
@@ -379,10 +387,10 @@ begin
 			T9_terminal_count => T9_clock_ticks_1500ns,
 			T10_terminal_count => T10_clock_ticks_1500ns,
 			no_listeners => no_listeners,
-			gpib_to_host_byte => gpib_to_host_byte,
-			gpib_to_host_byte_end => gpib_to_host_byte_end,
-			gpib_to_host_byte_eos => gpib_to_host_byte_eos,
-			gpib_to_host_byte_latched => gpib_to_host_byte_latched,
+			gpib_to_host_byte => gpib_to_host_byte_in,
+			gpib_to_host_byte_end => gpib_to_host_byte_end_in,
+			gpib_to_host_byte_eos => gpib_to_host_byte_eos_in,
+			gpib_to_host_byte_latched => gpib_to_host_byte_latched_in,
 			enable_gpib_to_host_EOS => enable_gpib_to_host_EOS,
 			host_to_gpib_byte => host_to_gpib_byte,
 			host_to_gpib_data_byte_end => host_to_gpib_data_byte_end,
@@ -424,6 +432,35 @@ begin
 			RFD_holdoff_status => RFD_holdoff_status,
 			pending_rsv => pending_rsv
 		);
+
+	-- sync local copies of gpib_to_host_* signals received from my_integrated_interface_functions
+	process (reset, clock)
+	begin
+		if to_X01(reset) = '1' then
+			gpib_to_host_byte <= (others => '0');
+			gpib_to_host_byte_end <= '0';
+			gpib_to_host_byte_eos <= '0';
+			gpib_to_host_byte_latched <= '0';
+			gpib_to_host_byte_read <= '0';
+		elsif rising_edge(clock) then
+			-- clear pulse
+			gpib_to_host_byte_read <= '0';
+			
+			if host_has_read_gpib_to_host_byte = '1' then
+				gpib_to_host_byte_latched <= '0';
+			end if;
+			
+			if gpib_to_host_byte_latched = '0' and
+				gpib_to_host_byte_latched_in = '1' 
+			then
+				gpib_to_host_byte <= gpib_to_host_byte_in;
+				gpib_to_host_byte_end <= gpib_to_host_byte_end_in;
+				gpib_to_host_byte_eos <= gpib_to_host_byte_eos_in;
+				gpib_to_host_byte_latched <= '1';
+				gpib_to_host_byte_read <= '1';
+			end if;
+		end if;
+	end process;
 
 	-- latch external gpib signals on clock edge
 	process (clock)
@@ -484,11 +521,11 @@ begin
 		variable prev_LADS_or_LACS : std_logic;
 		variable prev_minor_addressed : std_logic;
 		variable prev_controller_in_charge : std_logic;
-		variable prev_gpib_to_host_byte_latched : std_logic;
-		variable prev_end_interrupt_condition : std_logic;
 		variable prev_APT_needs_host_response : std_logic;
 		variable prev_CPT_needs_host_response : std_logic;
 		variable prev_DI_interrupt_enable : std_logic;
+		variable prev_DI_interrupt_condition : std_logic;
+		variable prev_END_interrupt_generator : std_logic;
 		
 		-- process a read from the host
 		procedure host_read_register (page : in std_logic_vector(3 downto 0);
@@ -498,7 +535,7 @@ begin
 			case flat_address(page, read_address) is
 				when 0 => -- data in
 					host_data_bus_out_buffer <= gpib_to_host_byte;
-					gpib_to_host_byte_read <= '1';
+					host_has_read_gpib_to_host_byte <= '1';
 				when 1 => -- interrupt status 1
 					host_data_bus_out_buffer(0) <= DI_interrupt;
 					host_data_bus_out_buffer(1) <= DO_interrupt;
@@ -571,11 +608,11 @@ begin
 					host_data_bus_out_buffer(6) <= not enable_talker_gpib_address_1;
 					host_data_bus_out_buffer(7) <= gpib_to_host_byte_end;
 				when 16#9# => -- state of interrupt status register related states free from interrupt clearing logic
-					host_data_bus_out_buffer(0) <= gpib_to_host_byte_latched;
+					host_data_bus_out_buffer(0) <= DI_interrupt_condition;
 					host_data_bus_out_buffer(1) <= DO_interrupt_condition;
 					host_data_bus_out_buffer(2) <= CO_interrupt_condition;
 					host_data_bus_out_buffer(3) <= RFD_holdoff_status;
-					host_data_bus_out_buffer(4) <= end_interrupt_condition;
+					host_data_bus_out_buffer(4) <= END_interrupt_condition;
 					host_data_bus_out_buffer (7 downto 5) <= (others => '0');
 				when 16#b# => -- revision register
 					host_data_bus_out_buffer <= X"ff";
@@ -797,7 +834,7 @@ begin
 			host_read_from_bus_state <= host_io_idle;
 			host_data_bus_out_buffer <= (others => '0');
 			gpib_to_host_dma_state <= dma_idle;
-			gpib_to_host_byte_read <= '0';
+			host_has_read_gpib_to_host_byte <= '0';
 			dma_bus_out_request <= '0';
 			dma_bus_out <= (others => '0');
 			prev_controller_state_p2 := CSNS;
@@ -809,8 +846,7 @@ begin
 			prev_in_TIDS := '1';
 			prev_LADS_or_LACS := '0';
 			prev_controller_in_charge := '0';
-			prev_gpib_to_host_byte_latched := '0';
-			prev_end_interrupt_condition := '0';
+			prev_END_interrupt_generator := '0';
 			prev_APT_needs_host_response := '0';
 			prev_CPT_needs_host_response := '0';
 			
@@ -858,7 +894,7 @@ begin
 					end if;
 					if dma_read_selected = '1' then
 						dma_bus_out <= gpib_to_host_byte;
-						gpib_to_host_byte_read <= '1';
+						host_has_read_gpib_to_host_byte <= '1';
 						gpib_to_host_dma_state <= dma_waiting_for_idle;
 						dma_bus_out_request <= '0';
 					end if;
@@ -868,9 +904,15 @@ begin
 					end if;
 			end case;
 
+			-- auto-read gpib-to-host bytes if we are in continuous mode
+			if RFD_holdoff_mode = continuous_mode and
+				gpib_to_host_byte_latched = '1' then
+				host_has_read_gpib_to_host_byte <= '1';
+			end if;
+			
 			-- handle pulses
-			if gpib_to_host_byte_read = '1' then
-				gpib_to_host_byte_read <= '0';
+			if host_has_read_gpib_to_host_byte = '1' then
+				host_has_read_gpib_to_host_byte <= '0';
 			end if;
 
 			-- set read-clearable interrupts
@@ -897,17 +939,22 @@ begin
 				CO_interrupt <= '0';
 			end if;
 
-			if gpib_to_host_byte_latched = '1' then
-				if prev_gpib_to_host_byte_latched = '0' or 
-					(DI_interrupt_enable = '1' and prev_DI_interrupt_enable = '0') then
-					DI_interrupt <= '1';
+			-- DI interrupt
+			if DI_interrupt_condition = '1' then
+				if prev_DI_interrupt_condition = '0' or
+					(prev_DI_interrupt_enable = '0' and DI_interrupt_enable = '1') 
+				then
+					DI_interrupt <= DI_interrupt_condition;
+					-- we update END too whenever DI is set, since END is closely associated with DI
+					END_interrupt <= END_interrupt_condition;
 				end if;
 			else
 				DI_interrupt <= '0';
 			end if;
 
-			if end_interrupt_condition = '1' then
-				if prev_end_interrupt_condition = '0' then
+			-- END interrupt, these can also happen without DI when using continuous RFD_holdoff_mode
+			if END_interrupt_condition = '1' then
+				if END_interrupt_generator = '1' and prev_END_interrupt_generator = '0' then
 					END_interrupt <= '1';
 				end if;
 			else
@@ -987,17 +1034,20 @@ begin
 			prev_LADS_or_LACS := LADS_or_LACS;
 			prev_minor_addressed := minor_addressed;
 			prev_controller_in_charge := controller_in_charge_buffer;
-			prev_gpib_to_host_byte_latched := gpib_to_host_byte_latched;
-			prev_end_interrupt_condition := end_interrupt_condition;
+			prev_END_interrupt_generator := END_interrupt_generator;
 			prev_APT_needs_host_response := APT_needs_host_response;
 			prev_CPT_needs_host_response := CPT_needs_host_response;
+			prev_DI_interrupt_condition := DI_interrupt_condition;
 			prev_DI_interrupt_enable := DI_interrupt_enable;
 		end if;
 	end process;
 		
 	DO_interrupt_condition <= '1' when talker_state_p1 = TACS and host_to_gpib_data_byte_latched = '0' else '0';
 	CO_interrupt_condition <= '1' when controller_state_p1 = CACS and host_to_gpib_command_byte_latched = '0' else '0';
-	end_interrupt_condition <= gpib_to_host_byte_end or gpib_to_host_byte_eos;
+	DI_interrupt_condition <= gpib_to_host_byte_latched when RFD_holdoff_mode /= continuous_mode else '0';
+	END_interrupt_condition <= gpib_to_host_byte_end or gpib_to_host_byte_eos;
+
+	END_interrupt_generator <= End_interrupt_condition and gpib_to_host_byte_latched;
 	
 	-- accept writes from host
 	process (hard_reset, clock)
