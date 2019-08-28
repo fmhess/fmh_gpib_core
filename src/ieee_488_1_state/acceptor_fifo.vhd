@@ -81,9 +81,7 @@ begin
 	-- "ready for three" condition to go false.  Therefore, since
 	-- electronic circuits lack prescience, rtf really means 
 	-- "ready for four" and we treat it as such.  We also
-	-- set rft false when lni is true, in order to shut down
-	-- the noninterlocked transfers slightly quicker.
-	rft <= '0' when fifo_depth < 4 or to_X01(lni) = '1' else
+	rft <= '0' when fifo_depth < 4 else
 		'1' when contents_buffer <= fifo_depth - 4 else
 		'0';
 
