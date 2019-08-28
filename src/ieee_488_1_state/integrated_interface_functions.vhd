@@ -46,6 +46,7 @@ entity integrated_interface_functions is
 		lpe : in std_logic;
 		lun : in std_logic;
 		ltn : in std_logic;
+		nie : in std_logic := '0';
 		pon : in std_logic;
 		rpp : in std_logic;
 		rsc : in std_logic;

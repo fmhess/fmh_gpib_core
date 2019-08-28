@@ -133,6 +133,9 @@ architecture structural of fmh_gpib_top is
 	signal ungated_pullup_disable : std_logic;
 	signal ungated_not_controller_in_charge : std_logic;
 	
+	signal xfer_countdown : unsigned(11 downto 0);
+	signal force_lni : std_logic;
+	
 begin
 	my_debounce_filter : entity work.gpib_control_debounce_filter
 		generic map(
@@ -184,7 +187,8 @@ begin
 			device_data_in => cb7210p2_dma_data_out,
 			device_data_end_in => cb7210p2_dma_data_end_out,
 			device_data_out => cb7210p2_dma_data_in,
-			device_data_eoi_out => cb7210p2_dma_data_eoi_in
+			device_data_eoi_out => cb7210p2_dma_data_eoi_in,
+			xfer_countdown => xfer_countdown
 		);
 		
 	my_cb7210p2 : entity work.frontend_cb7210p2
@@ -213,6 +217,7 @@ begin
 			gpib_REN_inverted_in => gated_REN_inverted,
 			gpib_SRQ_inverted_in => gated_SRQ_inverted,
 			gpib_DIO_inverted_in => gpib_DIO_inverted,
+			force_lni => force_lni,
 			tr1 => ungated_talk_enable,
 			not_controller_in_charge => ungated_not_controller_in_charge,
 			pullup_disable => ungated_pullup_disable,
@@ -334,5 +339,8 @@ begin
 	cb7210p2_dma_read_inverted <= not cb7210p2_dma_read;
 	cb7210p2_dma_write_inverted <= not cb7210p2_dma_write;
 	cb7210p2_dma_ack_inverted <= not cb7210p2_dma_ack;
+	
+	force_lni <= '1' when xfer_countdown <= 5 else
+		'0';
 
 end architecture structural;

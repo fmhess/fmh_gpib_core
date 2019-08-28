@@ -38,7 +38,12 @@ entity dma_fifos is
 		device_data_in : in std_logic_vector(7 downto 0);
 		device_data_end_in : in std_logic;
 		device_data_out : out std_logic_vector(7 downto 0);
-		device_data_eoi_out : out std_logic
+		device_data_eoi_out : out std_logic;
+
+		-- xfer_countdown outputs how many elements are left to transfer
+		-- between the fifo and device.  It is used to generate a
+		-- 488.1 lni message when a gpib-to-host transfer nears completion.
+		xfer_countdown : out unsigned(11 downto 0)
 	);
  
 end dma_fifos;
@@ -116,7 +121,7 @@ begin
 	process(reset, clock)
 		variable host_write_selected : std_logic;
 		variable host_read_selected : std_logic;
-		variable xfer_count: unsigned (11 downto 0); -- Count of bytes in/out on the device side
+		variable xfer_count_var: unsigned (11 downto 0); -- Count of bytes in/out on the device side
 
 		procedure handle_host_write(address : in std_logic_vector(num_address_lines - 1 downto 0); 
 			data : in std_logic_vector(15 downto 0)) is
@@ -139,7 +144,7 @@ begin
 					gpib_to_host_request_enable <= data(8);
 					gpib_to_host_fifo_reset <= data(9);
 				when "10" =>
-					xfer_count := unsigned(data(11 downto 0));
+					xfer_count_var := unsigned(data(11 downto 0));
 				when others =>
 			end case;
 		end handle_host_write;
@@ -169,7 +174,7 @@ begin
 					);
 				when "10" =>
 					host_data_out(15 downto 12) <= (others => '0');
-					host_data_out(11 downto 0) <= std_logic_vector(xfer_count);
+					host_data_out(11 downto 0) <= std_logic_vector(xfer_count_var);
 				when "11" =>
 					host_data_out(15 downto 8) <= (others => '0');
 					host_data_out(7 downto 0) <= std_logic_vector(to_unsigned(max_burst, 8));
@@ -204,7 +209,7 @@ begin
 			host_read_pending <= '0';
 			xfer_to_device_pending <= '0';
 			xfer_from_device_state <= xfer_from_device_idle;
-			xfer_count := (others => '0');
+			xfer_count_var := (others => '0');
 		elsif rising_edge(clock) then
 
 			-- host write state machine
@@ -250,14 +255,14 @@ begin
 			-- handle request for transfer to device
 			if xfer_to_device_pending = '0' then
 				if to_X01(request_xfer_to_device) = '1' and host_to_gpib_fifo_empty = '0' and
-					xfer_count > 0 then
+					xfer_count_var > 0 then
 					xfer_to_device_pending <= '1';
 					host_to_gpib_fifo_read_ack <= '1';
 					device_data_out <= host_to_gpib_fifo_data_out(7 downto 0);
 					device_data_eoi_out <= host_to_gpib_fifo_data_out(8);
 					device_chip_select <= '1';
 					device_write <= '1';
-					xfer_count := xfer_count - 1;
+					xfer_count_var := xfer_count_var - 1;
 				end if;
 			else -- xfer_to_device_pending = '1'
 				if to_X01(request_xfer_to_device) = '0' then
@@ -271,11 +276,11 @@ begin
 			case xfer_from_device_state is
 				when xfer_from_device_idle =>
 					if to_X01(request_xfer_from_device) = '1' and gpib_to_host_fifo_full = '0' and
-						xfer_count > 0 then
+						xfer_count_var > 0 then
 						xfer_from_device_state <= xfer_from_device_waiting;
 						device_chip_select <= '1';
 						device_read <= '1';
-						xfer_count := xfer_count - 1;
+						xfer_count_var := xfer_count_var - 1;
 					end if;
 				when xfer_from_device_waiting =>
 					if to_X01(request_xfer_from_device) = '0' then
@@ -309,6 +314,7 @@ begin
 				gpib_to_host_fifo_write_enable <= '0';
 			end if;
 			
+			xfer_countdown <= xfer_count_var;
 		end if;
 	end process;
 end dma_fifos_arch;

@@ -2,7 +2,7 @@
 -- and sanity over bug-for-bug compatibility with the original chip.
 --
 -- It has been extended with:
--- * the addition or a isr0/imr0 register at page 1, offset 6.
+-- * the addition or a isr0/imr0 register at page 1, offset 6 (unpaged offset 0xe).
 -- * added "Aux reg I" with PPMODE2 bit which properly selects between the remote
 --   or local parallel poll subsets of IEEE 488.1.
 -- * status bits at offset 9 (register page 1, offset 1) which indicate clearly
@@ -17,6 +17,9 @@
 -- * reqt/reqf setting similar to NI tnt4882 serial poll mode SP1
 -- * a "state 5" register to allow the current SHE IEEE 488.1 interface
 --   states to be read
+-- * support for AHE/SHE noninterlocked handshaking, a.k.a. HS488.
+-- * the addition or a misc register at page 2, offset 5 (unpaged offset 0x15) with
+--   a hs488_enable bit 4, which enables noninterlocked source and acceptor handshaking.
 --
 -- Features which could be implemented if anyone cares:
 -- * Setting clock frequency by writing to the auxiliary mode register.  Clock frequency
@@ -176,6 +179,8 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	
 	signal gts : std_logic;
 	signal ist : std_logic;
+	signal any_force_lni : std_logic;
+	signal hs488_enable : std_logic;
 	signal lon : std_logic;	
 	signal lpe : std_logic;
 	signal lun : std_logic;
@@ -364,11 +369,12 @@ begin
 			bus_DAV_inverted_out => gpib_DAV_inverted_out,
 			gts => gts,
 			ist => ist,
-			force_lni => force_lni,
+			force_lni => any_force_lni,
 			lon => lon,
 			lpe => lpe,
 			lun => lun,
 			ltn => ltn,
+			nie => hs488_enable,
 			pon => pon,
 			rpp => rpp,
 			rsc => rsc,
@@ -444,6 +450,8 @@ begin
 			pending_rsv => pending_rsv
 		);
 
+		any_force_lni <= to_X01(force_lni) or not hs488_enable;
+		
 	-- sync local copies of gpib_to_host_* signals received from my_integrated_interface_functions
 	process (reset, clock)
 	begin
@@ -537,6 +545,8 @@ begin
 		procedure host_read_register (page : in std_logic_vector(3 downto 0);
 			read_address : in std_logic_vector(num_address_lines - 1 downto 0)) is
 		begin
+			host_data_bus_out_buffer <= (others => '0'); -- unset bits default to zero
+			
 			case flat_address(page, read_address) is
 				when 0 => -- data in
 					host_data_bus_out_buffer <= gpib_to_host_byte;
@@ -765,6 +775,8 @@ begin
 						when SINS =>
 							host_data_bus_out_buffer(7 downto 6) <= "10";
 					end case;
+				when 16#15# => -- misc register
+							host_data_bus_out_buffer(4) <= hs488_enable;
 				when 16#24# => -- state 4 register
 					case controller_state_p1 is
 						when CIDS =>
@@ -830,7 +842,6 @@ begin
 							host_data_bus_out_buffer(3 downto 0) <= "1000";
 					end case;
 				when others =>
-					host_data_bus_out_buffer <= (others => '0');
 			end case;
 		end host_read_register;
 	
@@ -1274,6 +1285,8 @@ begin
 					IFC_interrupt_enable <= write_data(3);
 				when 16#10# => -- dedicated command byte out register
 					write_host_to_gpib_command_byte(write_data);
+				when 16#15# => -- misc register
+					hs488_enable <= write_data(4);
 				when others =>
 			end case;
 		end host_write_register;
@@ -1394,6 +1407,7 @@ begin
 				reqf_pending <= '0';
 				set_reqt_pulse <= '0';
 				set_reqf_pulse <= '0';
+				hs488_enable <= '0';
 				lon <= '0';
 				local_parallel_poll_disable <= '1';
 				ltn <= '0';
