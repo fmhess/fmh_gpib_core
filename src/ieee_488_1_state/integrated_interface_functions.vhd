@@ -676,7 +676,8 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	end process;
 	bus_DIO_inverted_out <= bus_DIO_inverted_out_buffer;
 
-	talk_enable_buffer <= '1' when (talker_state_p1_buffer = TACS or talker_state_p1_buffer = SPAS or 
+	talk_enable_buffer <= '1' when ((talker_state_p1_buffer = TACS and source_handshake_state_buffer /= SNGS) or 
+			talker_state_p1_buffer = SPAS or 
 			controller_state_p1_buffer = CACS or controller_state_p1_buffer = CTRS) or
 			(parallel_poll_state_p1_buffer = PPAS and (controller_state_p1_buffer = CIDS or controller_state_p1_buffer = CADS)) else
 		'0';
