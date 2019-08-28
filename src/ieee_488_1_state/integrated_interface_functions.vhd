@@ -523,7 +523,6 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			data_byte_out => gpib_to_host_byte,
 			END_out => acceptor_fifo_end,
 			EOS_out => acceptor_fifo_eos,
-			lni => lni,
 			rft => rft,
 			empty => acceptor_fifo_empty
 		);

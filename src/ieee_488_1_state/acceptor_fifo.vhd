@@ -35,7 +35,6 @@ entity acceptor_fifo is
 		END_out : out std_logic;
 		EOS_out : out std_logic;
 
-		lni : in std_logic;
 		rft : out std_logic;
 		
 		empty : out	std_logic;
