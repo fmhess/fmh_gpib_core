@@ -207,6 +207,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	signal local_DAV : std_logic;
 	signal local_END : std_logic;
 	signal local_IFC : std_logic;
+	signal local_NIC : std_logic;
 	signal local_REN : std_logic;
 	signal local_RFD : std_logic;
 	signal local_RQS : std_logic;
@@ -414,6 +415,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			RFD => RFD,
 			command_byte_available => internal_host_to_gpib_command_byte_latched ,
 			data_byte_available => internal_host_to_gpib_data_byte_latched ,
+			nie => nie,
 			pon => pon,
 			first_T1_terminal_count => first_T1_terminal_count,
 			T1_terminal_count => T1_terminal_count,
@@ -421,6 +423,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			
 			source_handshake_state => source_handshake_state_buffer,
 			DAV => local_DAV,
+			NIC => local_NIC,
 			no_listeners => no_listeners
 		);
 
@@ -570,7 +573,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	bus_IFC_inverted_out <= not local_IFC when
 		controller_state_p5_buffer /= SIIS else 'Z';
 	bus_NDAC_inverted_out <= to_X0Z(local_DAC);
-	bus_NRFD_inverted_out <= to_X0Z(local_RFD);
+	bus_NRFD_inverted_out <= to_X0Z(local_RFD and not local_NIC);
 	-- REN is an output based on whether we are the system controller (based on SIIS, not SRIS)
 	bus_REN_inverted_out <= not local_REN when
 		controller_state_p5_buffer /= SIIS else 'Z';
