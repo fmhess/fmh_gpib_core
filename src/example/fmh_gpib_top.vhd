@@ -87,7 +87,9 @@ architecture structural of fmh_gpib_top is
 	signal cb7210p2_dma_write_inverted : std_logic;
 	signal cb7210p2_dma_ack_inverted : std_logic;
 	signal cb7210p2_dma_data_in : std_logic_vector(7 downto 0);
+	signal cb7210p2_dma_data_eoi_in : std_logic;
 	signal cb7210p2_dma_data_out : std_logic_vector(7 downto 0);
+	signal cb7210p2_dma_data_end_out : std_logic;
 	
 	signal fifo_host_to_gpib_dma_single_request : std_logic;
 	signal fifo_host_to_gpib_dma_burst_request : std_logic;
@@ -180,7 +182,9 @@ begin
 			device_read => cb7210p2_dma_read,
 			device_write => cb7210p2_dma_write,
 			device_data_in => cb7210p2_dma_data_out,
-			device_data_out => cb7210p2_dma_data_in
+			device_data_end_in => cb7210p2_dma_data_end_out,
+			device_data_out => cb7210p2_dma_data_in,
+			device_data_eoi_out => cb7210p2_dma_data_eoi_in
 		);
 		
 	my_cb7210p2 : entity work.frontend_cb7210p2
@@ -199,6 +203,7 @@ begin
 			write_inverted => avalon_write_inverted,
 			host_data_bus_in => avalon_data_in,
 			dma_bus_in => cb7210p2_dma_data_in,
+			dma_bus_eoi_in => cb7210p2_dma_data_eoi_in,
 			gpib_ATN_inverted_in => gated_ATN_inverted,
 			gpib_DAV_inverted_in => gated_DAV_inverted,
 			gpib_EOI_inverted_in => gated_EOI_inverted,
@@ -216,6 +221,7 @@ begin
 			dma_bus_out_request => cb7210p2_dma_bus_out_request,
 			host_data_bus_out => avalon_data_out,
 			dma_bus_out => cb7210p2_dma_data_out,
+			dma_bus_end_out => cb7210p2_dma_data_end_out,
 			gpib_ATN_inverted_out => ungated_ATN_inverted_out,
 			gpib_DAV_inverted_out => ungated_DAV_inverted_out,
 			gpib_EOI_inverted_out => ungated_EOI_inverted_out,

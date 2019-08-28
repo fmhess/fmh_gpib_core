@@ -36,7 +36,9 @@ entity dma_fifos is
 		device_read : out std_logic;
 		device_write : out std_logic;
 		device_data_in : in std_logic_vector(7 downto 0);
-		device_data_out : out std_logic_vector(7 downto 0)
+		device_data_end_in : in std_logic;
+		device_data_out : out std_logic_vector(7 downto 0);
+		device_data_eoi_out : out std_logic
 	);
  
 end dma_fifos;
@@ -44,11 +46,12 @@ end dma_fifos;
 architecture dma_fifos_arch of dma_fifos is
 	constant num_address_lines : positive := 2;
 	constant max_burst : natural := fifo_depth / 2;
+	constant fifo_data_width : positive := 9;
 	
 	signal host_to_gpib_fifo_reset : std_logic;
 	signal host_to_gpib_fifo_write_enable : std_logic;
-	signal host_to_gpib_fifo_data_in : std_logic_vector(7 downto 0);
-	signal host_to_gpib_fifo_data_out : std_logic_vector(7 downto 0);
+	signal host_to_gpib_fifo_data_in : std_logic_vector(fifo_data_width - 1 downto 0);
+	signal host_to_gpib_fifo_data_out : std_logic_vector(fifo_data_width - 1 downto 0);
 	signal host_to_gpib_fifo_read_ack : std_logic;
 	signal host_to_gpib_fifo_empty : std_logic;
 	signal host_to_gpib_fifo_full : std_logic;
@@ -60,7 +63,8 @@ architecture dma_fifos_arch of dma_fifos is
 	signal gpib_to_host_fifo_empty : std_logic;
 	signal gpib_to_host_fifo_full : std_logic;
 	signal gpib_to_host_fifo_contents : natural range 0 to fifo_depth;
-	signal gpib_to_host_fifo_data_out : std_logic_vector(7 downto 0);
+	signal gpib_to_host_fifo_data_in : std_logic_vector(fifo_data_width - 1 downto 0);
+	signal gpib_to_host_fifo_data_out : std_logic_vector(fifo_data_width - 1 downto 0);
 
 	signal host_write_pending : std_logic;
 	signal host_read_pending : std_logic;
@@ -73,6 +77,7 @@ begin
 
 	host_to_gpib_fifo: entity work.std_fifo 
 		generic map(
+			DATA_WIDTH => fifo_data_width,
 			FIFO_DEPTH => fifo_depth
 		)
 		port map (
@@ -89,13 +94,14 @@ begin
 
 	gpib_to_host_fifo: entity work.std_fifo 
 		generic map(
+			DATA_WIDTH => fifo_data_width,
 			FIFO_DEPTH => fifo_depth
 		)
 		port map (
 			CLK => clock,
 			RST => gpib_to_host_fifo_reset,
 			WriteEn => gpib_to_host_fifo_write_enable,
-			DataIn => device_data_in,
+			DataIn => gpib_to_host_fifo_data_in,
 			ReadAck => gpib_to_host_fifo_read_ack,
 			DataOut => gpib_to_host_fifo_data_out,
 			Empty => gpib_to_host_fifo_empty,
@@ -103,6 +109,9 @@ begin
 			Contents => gpib_to_host_fifo_contents
 		);
 		
+	gpib_to_host_fifo_data_in(7 downto 0) <= device_data_in;
+	gpib_to_host_fifo_data_in(8) <= device_data_end_in;
+
 	-- process host reads and writes
 	process(reset, clock)
 		variable host_write_selected : std_logic;
@@ -114,7 +123,7 @@ begin
 		begin
 			case address is
 				when "00" => -- push byte into host-to-gpib fifo
-					host_to_gpib_fifo_data_in <= data(7 downto 0);
+					host_to_gpib_fifo_data_in <= data(fifo_data_width - 1 downto 0);
 					host_to_gpib_fifo_write_enable <= '1';
 
 					-- immediately clear dma requests taking into account a byte is currently being pushed into the fifo
@@ -139,8 +148,8 @@ begin
 		begin
 			case address is
 				when "00" => -- pop byte from gpib-to-host fifo
-					host_data_out(15 downto 8) <= (others => '0');
-					host_data_out(7 downto 0) <= gpib_to_host_fifo_data_out;
+					host_data_out(15 downto fifo_data_width) <= (others => '0');
+					host_data_out(fifo_data_width - 1 downto 0) <= gpib_to_host_fifo_data_out;
 					gpib_to_host_fifo_read_ack <= '1';
 					
 					-- immediately clear dma requests taking into account a byte is currently being popped out of the fifo
@@ -189,6 +198,7 @@ begin
 			device_write <= '0';
 			device_read <= '0';
 			device_data_out <= (others => '0');
+			device_data_eoi_out <= '0';
 			
 			host_write_pending <= '0';
 			host_read_pending <= '0';
@@ -243,7 +253,8 @@ begin
 					xfer_count > 0 then
 					xfer_to_device_pending <= '1';
 					host_to_gpib_fifo_read_ack <= '1';
-					device_data_out <= host_to_gpib_fifo_data_out;
+					device_data_out <= host_to_gpib_fifo_data_out(7 downto 0);
+					device_data_eoi_out <= host_to_gpib_fifo_data_out(8);
 					device_chip_select <= '1';
 					device_write <= '1';
 					xfer_count := xfer_count - 1;

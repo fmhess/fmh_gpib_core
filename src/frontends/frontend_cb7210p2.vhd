@@ -57,6 +57,8 @@ entity frontend_cb7210p2 is
 		write_inverted : in std_logic;
 		host_data_bus_in : in std_logic_vector(7 downto 0);
 		dma_bus_in : in std_logic_vector(7 downto 0);
+		-- an extra bit the dma can optionally assert if they want to assert EOI with the byte from dma_bus_in
+		dma_bus_eoi_in : in std_logic := '0';
 		gpib_ATN_inverted_in : in std_logic; 
 		gpib_DAV_inverted_in : in std_logic; 
 		gpib_EOI_inverted_in : in std_logic; 
@@ -66,6 +68,11 @@ entity frontend_cb7210p2 is
 		gpib_REN_inverted_in : in std_logic; 
 		gpib_SRQ_inverted_in : in std_logic; 
 		gpib_DIO_inverted_in : in std_logic_vector(7 downto 0);
+		-- force_lni can be used to disable noninterlocked acceptor handshake
+		-- by asserting lni.
+		-- Can be used when a read has nearly filled its buffer and you
+		-- want to switch to interlocked handshake for the last few bytes
+		-- (recommended for last 5 bytes).
 		force_lni : in std_logic := '1';
 		
 		tr1 : out std_logic;
@@ -77,6 +84,9 @@ entity frontend_cb7210p2 is
 		dma_bus_out_request : out std_logic;
 		host_data_bus_out : out std_logic_vector(7 downto 0);
 		dma_bus_out : out std_logic_vector(7 downto 0);
+		-- an additional dma data bit you can use to determine if the byte in
+		-- dma_bus_out had EOI/EOS asserted.
+		dma_bus_end_out : out std_logic;
 		gpib_ATN_inverted_out : out std_logic; 
 		gpib_DAV_inverted_out : out std_logic; 
 		gpib_EOI_inverted_out : out std_logic; 
@@ -832,6 +842,7 @@ begin
 			gpib_to_data_byte_read <= '0';
 			dma_bus_out_request <= '0';
 			dma_bus_out <= (others => '0');
+			dma_bus_end_out <= '0';
 			prev_controller_state_p2 := CSNS;
 			prev_source_handshake_state := SIDS;
 			prev_in_remote_state := '0';
@@ -889,6 +900,7 @@ begin
 					end if;
 					if dma_read_selected = '1' then
 						dma_bus_out <= gpib_to_host_byte;
+						dma_bus_end_out <= gpib_to_host_byte_end or gpib_to_host_byte_eos;
 						gpib_to_data_byte_read <= '1';
 						gpib_to_host_dma_state <= dma_waiting_for_idle;
 						dma_bus_out_request <= '0';
@@ -1497,6 +1509,9 @@ begin
 						dma_bus_in_request <= '0';
 					end if;
 					if dma_write_selected = '1' then
+						if to_X01(dma_bus_eoi_in) = '1' then
+							send_eoi := '1';
+						end if;
 						write_host_to_gpib_data_byte(dma_bus_in);
 						host_to_gpib_dma_state <= dma_waiting_for_idle;
 						dma_bus_in_request <= '0';

@@ -36,7 +36,9 @@ architecture behav of dma_fifos_testbench is
 	signal device_read : std_logic;
 	signal device_write : std_logic;
 	signal device_data_in : std_logic_vector(7 downto 0);
+	signal device_data_end_in : std_logic;
 	signal device_data_out : std_logic_vector(7 downto 0);
+	signal device_data_eoi_out : std_logic;
 
 	constant num_address_lines : positive := 2;
 	
@@ -72,7 +74,9 @@ begin
 			device_read => device_read,
 			device_write => device_write,
 			device_data_in => device_data_in,
-			device_data_out => device_data_out
+			device_data_end_in => device_data_end_in,
+			device_data_out => device_data_out,
+			device_data_eoi_out => device_data_eoi_out
 		);
 
 	-- clock
@@ -139,7 +143,7 @@ begin
 		-- enable host-to-gpib dma requests
 		host_write("01", "0000000000000001");
 		-- init xfer count
-		host_write("10", std_logic_vector(to_unsigned(16#20#, 16)));
+		host_write("10", std_logic_vector(to_unsigned(16#21#, 16)));
 		
 		-- host-to-gpib fast write slow reads tests fifo full behavior
 		for i in 16#0# to 16#f# loop
@@ -159,10 +163,18 @@ begin
 			host_write("00", std_logic_vector(to_unsigned(i, 16)));
 		end loop;
 
+		-- host_to_gpib test eoi
+		if host_to_gpib_dma_single_request = '0' then
+			wait until host_to_gpib_dma_single_request = '1';
+		end if;
+		wait_for_ticks(1);
+		host_write("00", std_logic_vector(to_unsigned(16#140#, 16)));
+
+
 		-- enable gpib-to-host dma requests
 		host_write("01", "0000000100000000");
 		-- init xfer count
-		host_write("10", std_logic_vector(to_unsigned(16#20#, 16)));
+		host_write("10", std_logic_vector(to_unsigned(16#21#, 16)));
 
 		-- gpib-to-host fast write slow read tests fifo full behavior
 		for i in 16#20# to 16#2f# loop
@@ -184,6 +196,15 @@ begin
 			assert host_read_result = std_logic_vector(to_unsigned(i, 16));
 		end loop;
 
+		-- gpib-to-host test end
+		host_write("10", std_logic_vector(to_unsigned(16#1#, 16)));
+		if gpib_to_host_dma_single_request = '0' then
+			wait until gpib_to_host_dma_single_request = '1';
+		end if;
+		wait_for_ticks(1);
+		host_read("00", host_read_result);
+		assert host_read_result = std_logic_vector(to_unsigned(16#141#, 16));
+
 		wait_for_ticks(1);
 		assert false report "end of host process" severity note;
 		host_process_finished := true;
@@ -196,6 +217,7 @@ begin
 		request_xfer_to_device <= '0';
 		request_xfer_from_device <= '0';
 		device_data_in <= (others => '0');
+		device_data_end_in <= '0';
 		
 		wait until reset = '0';
 		wait_for_ticks(1);
@@ -210,6 +232,7 @@ begin
 			request_xfer_to_device <= '0';
 			wait_for_ticks(6); -- slow down reads so host fills up fifo and has to wait
 			assert device_data_out = std_logic_vector(to_unsigned(i, 8));
+			assert device_data_eoi_out = '0';
 			if device_chip_select = '1' and device_write = '1' then
 				wait until device_chip_select = '0' or device_write = '0';
 			end if;
@@ -225,11 +248,26 @@ begin
 			wait_for_ticks(1);
 			request_xfer_to_device <= '0';
 			assert device_data_out = std_logic_vector(to_unsigned(i, 8));
+			assert device_data_eoi_out = '0';
 			if device_chip_select = '1' and device_write = '1' then
 				wait until device_chip_select = '0' or device_write = '0';
 			end if;
 			wait_for_ticks(1);
 		end loop;
+
+		-- host_to_gpib test eoi
+		request_xfer_to_device <= '1';
+		if device_chip_select = '0' or device_write = '0' then
+			wait until device_chip_select = '1' and device_write = '1';
+		end if;
+		wait_for_ticks(1);
+		request_xfer_to_device <= '0';
+		assert device_data_out = std_logic_vector(to_unsigned(16#140#, 8));
+		assert device_data_eoi_out = '1';
+		if device_chip_select = '1' and device_write = '1' then
+			wait until device_chip_select = '0' or device_write = '0';
+		end if;
+		wait_for_ticks(1);
 
 		-- gpib-to-host fast write slow reads to test fifo full behavior
 		for i in 16#20# to 16#2f# loop
@@ -239,7 +277,8 @@ begin
 			end if;
 			wait_for_ticks(1);
 			request_xfer_from_device <= '0';
-			device_data_in <= std_logic_vector(to_unsigned(i, 8)); 
+			device_data_in <= std_logic_vector(to_unsigned(i, 8));
+			device_data_end_in <= '0';
 			if device_chip_select = '1' and device_read = '1' then
 				wait until device_chip_select = '0' or device_read = '0';
 			end if;
@@ -255,12 +294,27 @@ begin
 			wait_for_ticks(1);
 			request_xfer_from_device <= '0';
 			device_data_in <= std_logic_vector(to_unsigned(i, 8)); 
+			device_data_end_in <= '0';
 			if device_chip_select = '1' and device_read = '1' then
 				wait until device_chip_select = '0' or device_read = '0';
 			end if;
 			wait_for_ticks(1);
 		end loop;
 
+		-- gpib-to-host test end
+		request_xfer_from_device <= '1';
+		if device_chip_select = '0' or device_read = '0' then
+			wait until device_chip_select = '1' and device_read = '1';
+		end if;
+		wait_for_ticks(1);
+		request_xfer_from_device <= '0';
+		device_data_in <= std_logic_vector(to_unsigned(16#41#, 8)); 
+		device_data_end_in <= '1';
+		if device_chip_select = '1' and device_read = '1' then
+			wait until device_chip_select = '0' or device_read = '0';
+		end if;
+		wait_for_ticks(1);
+		
 		assert false report "end of device process" severity note;
 		device_process_finished := true;
 		wait;
