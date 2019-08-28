@@ -124,8 +124,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal no_listeners : std_logic;
 	signal first_T1_terminal_count : unsigned(num_counter_bits - 1 downto 0);
 	signal T1_terminal_count : unsigned(num_counter_bits - 1 downto 0);
-	signal gpib_to_host_byte_read : std_logic;
-	signal host_has_read_gpib_to_host_byte : std_logic;
+	signal gpib_to_data_byte_read : std_logic;
 	signal gpib_to_host_byte : std_logic_vector(7 downto 0);
 	signal gpib_to_host_byte_end : std_logic;
 	signal gpib_to_host_byte_eos : std_logic;
@@ -378,7 +377,7 @@ begin
 			local_parallel_poll_sense => local_parallel_poll_sense,
 			local_parallel_poll_response_line => local_parallel_poll_response_line,
 			check_for_listeners => '1',
-			gpib_to_host_byte_read => gpib_to_host_byte_read,
+			gpib_to_host_byte_read => gpib_to_data_byte_read,
 			first_T1_terminal_count => first_T1_terminal_count,
 			T1_terminal_count => T1_terminal_count,
 			T6_terminal_count => T6_clock_ticks_2us,
@@ -441,23 +440,18 @@ begin
 			gpib_to_host_byte_end <= '0';
 			gpib_to_host_byte_eos <= '0';
 			gpib_to_host_byte_latched <= '0';
-			gpib_to_host_byte_read <= '0';
 		elsif rising_edge(clock) then
-			-- clear pulse
-			gpib_to_host_byte_read <= '0';
-			
-			if host_has_read_gpib_to_host_byte = '1' then
-				gpib_to_host_byte_latched <= '0';
+			if gpib_to_data_byte_read = '1' then
+ 				gpib_to_host_byte_latched <= '0';
 			end if;
 			
-			if gpib_to_host_byte_latched = '0' and
-				gpib_to_host_byte_latched_in = '1' 
+			if gpib_to_host_byte_latched_in = '1' and
+				gpib_to_host_byte_latched = '0'
 			then
 				gpib_to_host_byte <= gpib_to_host_byte_in;
 				gpib_to_host_byte_end <= gpib_to_host_byte_end_in;
 				gpib_to_host_byte_eos <= gpib_to_host_byte_eos_in;
-				gpib_to_host_byte_latched <= '1';
-				gpib_to_host_byte_read <= '1';
+				gpib_to_host_byte_latched <= gpib_to_host_byte_latched_in;
 			end if;
 		end if;
 	end process;
@@ -535,7 +529,7 @@ begin
 			case flat_address(page, read_address) is
 				when 0 => -- data in
 					host_data_bus_out_buffer <= gpib_to_host_byte;
-					host_has_read_gpib_to_host_byte <= '1';
+					gpib_to_data_byte_read <= '1';
 				when 1 => -- interrupt status 1
 					host_data_bus_out_buffer(0) <= DI_interrupt;
 					host_data_bus_out_buffer(1) <= DO_interrupt;
@@ -834,7 +828,7 @@ begin
 			host_read_from_bus_state <= host_io_idle;
 			host_data_bus_out_buffer <= (others => '0');
 			gpib_to_host_dma_state <= dma_idle;
-			host_has_read_gpib_to_host_byte <= '0';
+			gpib_to_data_byte_read <= '0';
 			dma_bus_out_request <= '0';
 			dma_bus_out <= (others => '0');
 			prev_controller_state_p2 := CSNS;
@@ -894,7 +888,7 @@ begin
 					end if;
 					if dma_read_selected = '1' then
 						dma_bus_out <= gpib_to_host_byte;
-						host_has_read_gpib_to_host_byte <= '1';
+						gpib_to_data_byte_read <= '1';
 						gpib_to_host_dma_state <= dma_waiting_for_idle;
 						dma_bus_out_request <= '0';
 					end if;
@@ -907,12 +901,12 @@ begin
 			-- auto-read gpib-to-host bytes if we are in continuous mode
 			if RFD_holdoff_mode = continuous_mode and
 				gpib_to_host_byte_latched = '1' then
-				host_has_read_gpib_to_host_byte <= '1';
+				gpib_to_data_byte_read <= '1';
 			end if;
 			
 			-- handle pulses
-			if host_has_read_gpib_to_host_byte = '1' then
-				host_has_read_gpib_to_host_byte <= '0';
+			if gpib_to_data_byte_read = '1' then
+				gpib_to_data_byte_read <= '0';
 			end if;
 
 			-- set read-clearable interrupts
