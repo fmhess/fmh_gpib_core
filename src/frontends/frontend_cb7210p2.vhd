@@ -66,7 +66,8 @@ entity frontend_cb7210p2 is
 		gpib_REN_inverted_in : in std_logic; 
 		gpib_SRQ_inverted_in : in std_logic; 
 		gpib_DIO_inverted_in : in std_logic_vector(7 downto 0);
-
+		force_lni : in std_logic := '1';
+		
 		tr1 : out std_logic;
 		tr2 : out std_logic;
 		tr3 : out std_logic;
@@ -353,6 +354,7 @@ begin
 			bus_DAV_inverted_out => gpib_DAV_inverted_out,
 			gts => gts,
 			ist => ist,
+			force_lni => force_lni,
 			lon => lon,
 			lpe => lpe,
 			lun => lun,

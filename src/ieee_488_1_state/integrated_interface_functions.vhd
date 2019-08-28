@@ -41,7 +41,7 @@ entity integrated_interface_functions is
 		-- IEEE 488.1 local messages
 		ist : in std_logic;
 		gts : in std_logic;
-		lni : in std_logic := '1';
+		force_lni : in std_logic := '1';
 		lon : in std_logic;
 		lpe : in std_logic;
 		lun : in std_logic;
@@ -140,6 +140,7 @@ entity integrated_interface_functions is
 end integrated_interface_functions;
  
 architecture integrated_interface_functions_arch of integrated_interface_functions is
+	signal lni : std_logic;
 	signal rft : std_logic;
 	signal rsv : std_logic;
 	signal reqt : std_logic;
@@ -580,6 +581,8 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	gpib_to_host_byte_latched <= not acceptor_fifo_empty and not acceptor_fifo_in_virtual_holdoff;
 	gpib_to_host_byte_end <= acceptor_fifo_end;
 	gpib_to_host_byte_eos <= acceptor_fifo_eos;
+	
+	lni <= force_lni or RFD_holdoff;
 	
 	process(pon, clock)
 		variable prev_source_handshake_state  : SH_state;
