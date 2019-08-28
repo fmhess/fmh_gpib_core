@@ -11,6 +11,7 @@ use work.acceptor_fifo;
 use work.interface_function_common.all;
 use work.interface_function_AH;
 use work.interface_function_C;
+use work.interface_function_CF;
 use work.interface_function_DC;
 use work.interface_function_DT;
 use work.interface_function_LE;
@@ -122,6 +123,9 @@ entity integrated_interface_functions is
 		talker_state_p1 : out TE_state_p1;
 		talker_state_p2 : out TE_state_p2;
 		talker_state_p3 : out TE_state_p3;
+		configuration_state_p1 : out CF_state_p1;
+		configuration_state_p1_num_meters : out unsigned(3 downto 0);
+		configuration_state_p2 : out CF_state_p2;
 		no_listeners : out std_logic;
 		gpib_to_host_byte : out std_logic_vector(7 downto 0);
 		gpib_to_host_byte_eos : out std_logic;
@@ -167,6 +171,9 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	signal command_passthrough_buffer : std_logic;
 	
 	signal ATN : std_logic;
+	signal CFE : std_logic;
+	signal CFGn : std_logic;
+	signal CFGn_meters : unsigned(3 downto 0);
 	signal DAC : std_logic;
 	signal DAV : std_logic;
 	signal DCL : std_logic;
@@ -252,6 +259,8 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	signal acceptor_fifo_eos : std_logic;
 	signal acceptor_fifo_in_virtual_holdoff : std_logic;
 	
+	signal configuration_state_p1_buffer : CF_state_p1;
+	
 	begin
 	my_decoder: entity work.remote_message_decoder 
 		port map (
@@ -270,6 +279,9 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			command_invalid => command_invalid,
 			enable_EOS_detection => enable_gpib_to_host_EOS,
 			ATN => ATN,
+			CFE => CFE,
+			CFGn => CFGn,
+			CFGn_meters => CFGn_meters,
 			DAC => DAC,
 			DAV => DAV,
 			DCL => DCL,
@@ -412,6 +424,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			clock => clock,
 			talker_state_p1 => talker_state_p1_buffer,
 			controller_state_p1 => controller_state_p1_buffer,
+			configuration_state_p1 => configuration_state_p1_buffer,
 			ATN => ATN,
 			DAC => DAC,
 			IFC => IFC,
@@ -518,6 +531,22 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			controller_state_p5 => controller_state_p5_buffer
 		);
 
+	my_CF : entity work.interface_function_CF
+		port map (
+			-- inputs
+			clock => clock,
+			acceptor_handshake_state => acceptor_handshake_state_buffer,
+			CFE => CFE,
+			CFGn => CFGn,
+			CFGn_meters => CFGn_meters,
+			PCG => PCG,
+			pon => pon,
+			-- outputs
+			configuration_state => configuration_state_p1_buffer,
+			num_meters => configuration_state_p1_num_meters,
+			noninterlocked_configuration_state => configuration_state_p2
+		);
+		
 	my_acceptor_fifo : entity work.acceptor_fifo 
 		port map (
 			clock => clock,

@@ -67,6 +67,7 @@ entity remote_message_decoder is
 		NIC : out std_logic;
 		CFE : out std_logic;
 		CFGn : out std_logic;
+		CFGn_meters : out unsigned(3 downto 0);
 		unrecognized_primary_command : out std_logic
 	);
  
@@ -82,6 +83,7 @@ architecture remote_message_decoder_arch of remote_message_decoder is
 	signal MTA_buffer : std_logic;
 	signal MSA_buffer : std_logic;
 	signal PPE_buffer : std_logic;
+	signal CFGn_buffer : std_logic;
 
 begin
 
@@ -176,8 +178,13 @@ begin
 	NIC <= not bus_NRFD_inverted;
 	CFE <= '1' when UCG_buffer = '1' and not bus_DIO_inverted(3 downto 0) = "1111" and not bus_ATN_inverted = '1' else
 		'0';
-	CFGn <= '1' when SCG_buffer = '1' and not bus_DIO_inverted(4) = '0' and not bus_ATN_inverted = '1' else
+
+	CFGn_buffer <= '1' when SCG_buffer = '1' and not bus_DIO_inverted(4) = '0' and not bus_ATN_inverted = '1' else
 		'0';
+	CFGn <= CFGn_buffer;
+	CFGn_meters <= unsigned(not bus_DIO_inverted(3 downto 0)) when CFGn_buffer = '1' else
+		(others => '0');
+		
 	NUL <= '1' when not bus_DIO_inverted = X"00" else '0';
 	
 	unrecognized_primary_command <= '1' when not bus_ATN_inverted = '1' and

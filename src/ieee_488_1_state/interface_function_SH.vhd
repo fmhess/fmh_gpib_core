@@ -1,8 +1,7 @@
 -- IEEE 488.1 extended source handshake (SHE) interface function
 --
--- If you just want the simpler SH function, you can leave the "nie", 
--- "CNCS", "T11_terminal_count", "T12_terminal_count", "T13_terminal_count", 
--- "T14_terminal_count", and "T16_terminal_count" inputs unconnected, also
+-- If you just want the simpler SH function, you can leave the 
+-- defaulted inputs unconnected, Also
 -- it won't matter what you connect to the IFC input.
 --
 -- Author: Frank Mori Hess fmh6jj@gmail.com
@@ -20,7 +19,7 @@ entity interface_function_SHE is
 		clock : in std_logic;
 		talker_state_p1 : in TE_state_p1;
 		controller_state_p1 : in C_state_p1;
-		CNCS : in std_logic := '1'; -- from CF interface function
+		configuration_state_p1 : in CF_state_p1 := CNCS;
 		ATN : in std_logic;
 		DAC : in std_logic;
 		IFC : in std_logic;
@@ -66,7 +65,7 @@ begin
 	active <= talker_state_p1 = TACS or talker_state_p1 = SPAS or controller_state_p1 = CACS;	
 	source_handshake_state <= source_handshake_state_buffer;
 	noninterlocked_enable_state <= noninterlocked_enable_state_buffer;
-	ready_for_noninterlocked <= to_X01(nie) = '1' and to_X01(CNCS) = '0';
+	ready_for_noninterlocked <= to_X01(nie) = '1' and configuration_state_p1 /= CNCS;
 	
 	process(pon, clock) 
 		variable T1_counter_done : boolean;
@@ -137,7 +136,7 @@ begin
 								first_cycle <= false;
 								source_handshake_state_buffer <= STRS;
 								current_count <= to_unsigned(0, current_count'length);
-							elsif (no_listeners_reported = false and noninterlocked_enable_state_buffer /= SNES) then
+							elsif (no_listeners_reported = false and configuration_state_p1 = CNCS) then
 								no_listeners <= '1';
 								no_listeners_reported <= true;
 							end if;
@@ -155,7 +154,7 @@ begin
 						source_handshake_state_buffer <= SIWS;
 					elsif to_X01(DAC) = '1' and 
 						(
-							to_X01(CNCS) = '1' or talker_state_p1 /= TACS or 
+							configuration_state_p1 = CNCS or talker_state_p1 /= TACS or 
 							(noninterlocked_enable_state_buffer = SNDS and to_X01(RFD) = '0') or 
 							(noninterlocked_enable_state_buffer = SNES and TN_counter_done)
 						) then

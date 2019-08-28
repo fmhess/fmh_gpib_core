@@ -8,6 +8,7 @@ FRONTEND_CB7210P2_TEST_SRC = \
 	../../src/util/std_fifo.vhd \
 	../../src/ieee_488_1_state/acceptor_fifo.vhd \
 	../../src/ieee_488_1_state/interface_function_C.vhd \
+	../../src/ieee_488_1_state/interface_function_CF.vhd \
 	../../src/ieee_488_1_state/interface_function_DC.vhd \
 	../../src/ieee_488_1_state/interface_function_DT.vhd \
 	../../src/ieee_488_1_state/interface_function_LE.vhd \
@@ -32,6 +33,7 @@ DUAL_CB7210P2_TEST_SRC = \
 	../../src/ieee_488_1_state/interface_function_common.vhd \
 	../../src/ieee_488_1_state/interface_function_AH.vhd \
 	../../src/ieee_488_1_state/interface_function_C.vhd \
+	../../src/ieee_488_1_state/interface_function_CF.vhd \
 	../../src/ieee_488_1_state/interface_function_DC.vhd \
 	../../src/ieee_488_1_state/interface_function_DT.vhd \
 	../../src/ieee_488_1_state/interface_function_LE.vhd \

@@ -17,11 +17,12 @@ entity interface_function_CF is
 		CFE : in std_logic;
 		CFGn : in std_logic;
 		CFGn_meters : in unsigned (3 downto 0);
+		PCG : in std_logic;
 		pon : in std_logic;
 
 		configuration_state : out CF_state_p1;
 		num_meters : out unsigned (3 downto 0);
-		noninterlocked_configuration_state : out CF_state_p2;
+		noninterlocked_configuration_state : out CF_state_p2
 	);
  
 end interface_function_CF;
@@ -38,16 +39,16 @@ begin
 		if pon = '1' then
 			configuration_state <= CNCS;
 			noninterlocked_configuration_state_buffer <= NCIS;
-			num_meters <= to_unigned(0, num_meters'LENGTH);
+			num_meters <= to_unsigned(0, num_meters'LENGTH);
 		elsif rising_edge(clock) then
 			
 			if (acceptor_handshake_state = ACDS and to_X01(CFE) = '1') then
 				configuration_state <= CNCS;
-				num_meters <= to_unigned(0, num_meters'LENGTH);
+				num_meters <= to_unsigned(0, num_meters'LENGTH);
 			elsif noninterlocked_configuration_state_buffer = NCAS and acceptor_handshake_state = ACDS then
 				configuration_state <= CnnS;
 				num_meters <= CFGn_meters;
-				assert num_meters /= to_unigned(0, num_meters'LENGTH); 
+				assert CFGn_meters /= to_unsigned(0, num_meters'LENGTH); 
 			end if;
 
 			case noninterlocked_configuration_state_buffer is

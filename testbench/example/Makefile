@@ -7,6 +7,7 @@ FMH_GPIB_TOP_TEST_SRC = \
 	../../src/ieee_488_1_state/interface_function_common.vhd \
 	../../src/ieee_488_1_state/interface_function_AH.vhd \
 	../../src/ieee_488_1_state/interface_function_C.vhd \
+	../../src/ieee_488_1_state/interface_function_CF.vhd \
 	../../src/ieee_488_1_state/interface_function_DC.vhd \
 	../../src/ieee_488_1_state/interface_function_DT.vhd \
 	../../src/ieee_488_1_state/interface_function_LE.vhd \
