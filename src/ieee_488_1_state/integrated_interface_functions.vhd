@@ -181,6 +181,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	signal MLA : std_logic;
 	signal MTA : std_logic;
 	signal MSA : std_logic;
+	signal NIC : std_logic;
 	signal OSA : std_logic;
 	signal OTA : std_logic;
 	signal PCG : std_logic;
@@ -283,6 +284,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			MLA => MLA,
 			MTA => MTA,
 			MSA => MSA,
+			NIC => NIC,
 			OSA => OSA,
 			OTA => OTA,
 			PCG => PCG,
@@ -313,6 +315,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			listener_state_p1 => listener_state_p1_buffer,
 			ATN => ATN,
 			DAV => DAV,
+			NIC => NIC,
 			lni => lni,
 			pon => pon,
 			rft => rft,
