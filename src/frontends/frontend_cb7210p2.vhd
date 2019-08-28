@@ -428,7 +428,7 @@ begin
 			talk_enable => talk_enable_buffer,
 			pullup_disable => pullup_disable_buffer,
 			EOI_output_enable => EOI_output_enable_buffer,
-			RFD_holdoff_status => RFD_holdoff_status,
+			virtual_RFD_holdoff_status => RFD_holdoff_status,
 			pending_rsv => pending_rsv
 		);
 
@@ -524,7 +524,6 @@ begin
 		-- process a read from the host
 		procedure host_read_register (page : in std_logic_vector(3 downto 0);
 			read_address : in std_logic_vector(num_address_lines - 1 downto 0)) is
-
 		begin
 			case flat_address(page, read_address) is
 				when 0 => -- data in

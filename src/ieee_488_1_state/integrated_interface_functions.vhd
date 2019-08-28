@@ -125,7 +125,7 @@ entity integrated_interface_functions is
 		gpib_to_host_byte : out std_logic_vector(7 downto 0);
 		gpib_to_host_byte_eos : out std_logic;
 		gpib_to_host_byte_end : out std_logic;
-		-- gpib_to_host_data_byte_latched true means a new gpib to host byte is available to be read by host
+		-- gpib_to_host_byte_latched true means a new gpib to host byte is available to be read by host
 		gpib_to_host_byte_latched : out std_logic;
 		-- host_to_gpib_data_byte_latched false means a new host to gpib byte can be written by host
 		host_to_gpib_data_byte_latched : out std_logic;
@@ -133,7 +133,7 @@ entity integrated_interface_functions is
 		talk_enable : out std_logic;
 		pullup_disable : out std_logic;
 		EOI_output_enable : out std_logic;
-		RFD_holdoff_status : out std_logic;
+		virtual_RFD_holdoff_status : out std_logic;
 		pending_rsv : out std_logic
 	);
  
@@ -150,6 +150,13 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	signal internal_host_to_gpib_data_byte_end : std_logic;
 	signal internal_host_to_gpib_command_byte_latched : std_logic;
 	signal internal_host_to_gpib_command_byte : std_logic_vector(7 downto 0);
+	-- A fake RFD holdoff to hide the fact that RFD holdoffs don't happen
+	-- immediately for noninterlaced acceptor handshake.  Needed to preserve
+	-- the appearance of how nec 7210 holdoff modes (other than normal mode) work, since
+	-- additional data bytes may be received before a RFD holdoff can actually stop the
+	-- data flow.  The real RFD_holdoff is cleared only when both the virtual_RFD_holdoff is
+	-- false and the acceptor_fifo is empty.
+	signal virtual_RFD_holdoff : std_logic;
 	signal RFD_holdoff : std_logic;
 	signal combined_RFD_holdoff : std_logic; -- holdoff due to combination of a requested RFD_holdoff or an unread data byte
 	signal DAC_holdoff : std_logic;
@@ -237,6 +244,9 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	
 	signal acceptor_fifo_write : std_logic;
 	signal acceptor_fifo_empty : std_logic;
+	signal acceptor_fifo_end : std_logic;
+	signal acceptor_fifo_eos : std_logic;
+	signal acceptor_fifo_in_virtual_holdoff : std_logic;
 	
 	begin
 	my_decoder: entity work.remote_message_decoder 
@@ -510,8 +520,8 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			EOS_in => EOS,
 			read_acknowledge => gpib_to_host_byte_read,
 			data_byte_out => gpib_to_host_byte,
-			END_out => gpib_to_host_byte_end,
-			EOS_out => gpib_to_host_byte_eos,
+			END_out => acceptor_fifo_end,
+			EOS_out => acceptor_fifo_eos,
 			lni => lni,
 			rft => rft,
 			empty => acceptor_fifo_empty
@@ -567,7 +577,9 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 
 	bus_DIO_in <= not bus_DIO_inverted_in;
 
-	gpib_to_host_byte_latched <= not acceptor_fifo_empty;
+	gpib_to_host_byte_latched <= not acceptor_fifo_empty and not acceptor_fifo_in_virtual_holdoff;
+	gpib_to_host_byte_end <= acceptor_fifo_end;
+	gpib_to_host_byte_eos <= acceptor_fifo_eos;
 	
 	process(pon, clock)
 		variable prev_source_handshake_state  : SH_state;
@@ -630,10 +642,8 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	-- deal with byte read by host from gpib bus
 	process(pon, clock) 
 		variable prev_acceptor_handshake_state : AH_state;
-		variable data_byte_accept_step : natural;
 	begin
 		if to_bit(pon) = '1' then
-			RFD_holdoff <= '0';
 			prev_acceptor_handshake_state := AIDS;
 			acceptor_fifo_write <= '0';
 		elsif rising_edge(clock) then
@@ -645,33 +655,84 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 				((acceptor_handshake_state_buffer = ACDS and prev_acceptor_handshake_state /= ACDS) or 
 				(acceptor_handshake_state_buffer = ANDS and prev_acceptor_handshake_state /= ANDS)) 
 			then
-				case RFD_holdoff_mode is
-					when holdoff_normal =>
-					when holdoff_on_all =>
-						RFD_holdoff <= '1';
-					when holdoff_on_end =>
-						if to_X01(END_msg or EOS) = '1' then
-							RFD_holdoff <= '1';
-						end if;
-					when continuous_mode =>
-						if to_X01(END_msg or EOS) = '1' then
-							RFD_holdoff <= '1';
-						end if;
-				end case;
 				acceptor_fifo_write <= '1';
 			end if;
 
-			if to_X01(set_RFD_holdoff_pulse) = '1' then
-				RFD_holdoff <= '1';
-			end if;
-			if to_X01(release_RFD_holdoff_pulse) = '1' then
-				RFD_holdoff <= '0';
-			end if;
-			
 			prev_acceptor_handshake_state := acceptor_handshake_state_buffer;
 		end if;
 	end process;
 	
+	-- set RFD holdoff
+	process(pon, clock) 
+		variable prev_acceptor_fifo_read : std_logic;
+		variable prev_acceptor_fifo_empty : std_logic;
+		
+		-- virtual_RFD_holdoff and RFD_holdoff should always be set together
+		-- (but not cleared together necessarily).  So we do it in a procedure.
+		procedure set_virtual_RFD_holdoff is
+		begin
+			virtual_RFD_holdoff <= '1';
+			RFD_holdoff <= '1';
+		end set_virtual_RFD_holdoff;
+
+		-- virtual_RFD_holdoff and acceptor_fifo_in_virtual_holdoff should always be
+		-- cleared together (but not set together).  So we do it in a procedure.
+		procedure clear_virtual_RFD_holdoff is
+		begin
+			virtual_RFD_holdoff <= '0';
+			acceptor_fifo_in_virtual_holdoff <= '0';
+		end clear_virtual_RFD_holdoff;
+	begin
+		if to_bit(pon) = '1' then
+			prev_acceptor_fifo_read := '0';
+			prev_acceptor_fifo_empty := '1';
+			RFD_holdoff <= '0';
+			virtual_RFD_holdoff <= '0';
+			acceptor_fifo_in_virtual_holdoff <= '0';
+		elsif rising_edge(clock) then
+			-- if a new byte has appeared at the front of the fifo, either
+			-- by writing to an empty fifo, or by reading from the fifo
+			-- that still contains bytes after the read.
+			if acceptor_fifo_empty = '0' and 
+				(prev_acceptor_fifo_empty = '1' or prev_acceptor_fifo_read = '1')
+			then
+				case RFD_holdoff_mode is
+					when holdoff_normal =>
+					when holdoff_on_all =>
+						set_virtual_RFD_holdoff;
+					when holdoff_on_end =>
+						if (acceptor_fifo_end or acceptor_fifo_eos) = '1' then
+							set_virtual_RFD_holdoff;
+						end if;
+					when continuous_mode =>
+						if (acceptor_fifo_end or acceptor_fifo_eos) = '1' then
+							set_virtual_RFD_holdoff;
+						end if;
+				end case;
+			end if;
+
+			if to_X01(set_RFD_holdoff_pulse) = '1' then
+				set_virtual_RFD_holdoff;
+			end if;
+			if to_X01(release_RFD_holdoff_pulse) = '1' then
+				clear_virtual_RFD_holdoff;
+			end if;
+			
+			if virtual_RFD_holdoff = '0' and
+				acceptor_fifo_empty = '1'
+			then
+				RFD_holdoff <= '0';
+			end if;
+			
+			if gpib_to_host_byte_read = '1' and virtual_RFD_holdoff = '1' then
+				acceptor_fifo_in_virtual_holdoff <= '1';
+			end if;
+			
+			prev_acceptor_fifo_read := gpib_to_host_byte_read;
+			prev_acceptor_fifo_empty := acceptor_fifo_empty;
+		end if;
+	end process;
+
 	combined_RFD_holdoff <= RFD_holdoff or not acceptor_fifo_empty;
 	
 	-- deal with byte written by host to gpib bus
@@ -811,7 +872,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	address_passthrough <= address_passthrough_buffer when acceptor_handshake_state_buffer = ACDS else '0';
 	command_passthrough <= command_passthrough_buffer when acceptor_handshake_state_buffer = ACDS else '0';
 	
-	RFD_holdoff_status <= RFD_holdoff;
+	virtual_RFD_holdoff_status <= virtual_RFD_holdoff;
 
 	-- update pending_rsv
 	process(pon, clock)
