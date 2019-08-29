@@ -47,8 +47,8 @@ architecture behav of integrated_interface_functions_testbench is
 	signal local_parallel_poll_response_line : std_logic_vector(2 downto 0);
 	signal check_for_listeners : std_logic;
 	signal no_listeners : std_logic;
-	signal first_T1_time_ns : unsigned(10 downto 0);
-	signal T1_time_ns : unsigned(10 downto 0);
+	signal first_T1_time : time_selection_enum;
+	signal T1_time : time_selection_enum;
 	signal gpib_to_host_byte : std_logic_vector(7 downto 0);
 	signal gpib_to_host_byte_read : std_logic;
 	signal gpib_to_host_byte_end : std_logic;
@@ -157,8 +157,8 @@ architecture behav of integrated_interface_functions_testbench is
 			local_parallel_poll_response_line => local_parallel_poll_response_line,
 			check_for_listeners => check_for_listeners,
 			gpib_to_host_byte_read => gpib_to_host_byte_read,
-			first_T1_time_ns => first_T1_time_ns,
-			T1_time_ns => T1_time_ns,
+			first_T1_time => first_T1_time,
+			T1_time => T1_time,
 			no_listeners => no_listeners,
 			gpib_to_host_byte => gpib_to_host_byte,
 			gpib_to_host_byte_end => gpib_to_host_byte_end,
@@ -308,8 +308,8 @@ architecture behav of integrated_interface_functions_testbench is
 		local_parallel_poll_sense <= '0';
 		local_parallel_poll_response_line <= "000";
 		check_for_listeners <= '1';
-		first_T1_time_ns <= to_unsigned(2000, 11);
-		T1_time_ns <= to_unsigned(1000, 11);
+		first_T1_time <= ts_2000ns;
+		T1_time <= ts_1000ns;
 		gpib_to_host_byte_read <= '0';
 		host_to_gpib_byte <= X"00";
 		host_to_gpib_data_byte_end <= '0';

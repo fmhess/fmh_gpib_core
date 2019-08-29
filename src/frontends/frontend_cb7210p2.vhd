@@ -136,8 +136,8 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal local_parallel_poll_response_line : std_logic_vector(2 downto 0);
 	signal local_parallel_poll_disable : std_logic;
 	signal no_listeners : std_logic;
-	signal first_T1_time_ns : unsigned(10 downto 0);
-	signal T1_time_ns : unsigned(10 downto 0);
+	signal first_T1_time : time_selection_enum;
+	signal T1_time : time_selection_enum;
 	signal gpib_to_data_byte_read : std_logic;
 	signal gpib_to_host_byte : std_logic_vector(7 downto 0);
 	signal gpib_to_host_byte_end : std_logic;
@@ -376,8 +376,8 @@ begin
 			local_parallel_poll_response_line => local_parallel_poll_response_line,
 			check_for_listeners => '1',
 			gpib_to_host_byte_read => gpib_to_data_byte_read,
-			first_T1_time_ns => first_T1_time_ns,
-			T1_time_ns => T1_time_ns,
+			first_T1_time => first_T1_time,
+			T1_time => T1_time,
 			no_listeners => no_listeners,
 			gpib_to_host_byte => gpib_to_host_byte_in,
 			gpib_to_host_byte_end => gpib_to_host_byte_end_in,
@@ -1590,12 +1590,12 @@ begin
 		configured_RFD_holdoff_mode;
 	
 	-- set timing counters
-	first_T1_time_ns <= to_unsigned(1100, first_T1_time_ns'LENGTH) when ultra_fast_T1_delay = '1' and controller_state_p1 /= CACS else
-		to_unsigned(2000, first_T1_time_ns'LENGTH);
-	T1_time_ns <= to_unsigned(2000, T1_time_ns'LENGTH) when controller_state_p1 = CACS else
-		to_unsigned(350, T1_time_ns'LENGTH) when ultra_fast_T1_delay = '1' else
-		to_unsigned(500, T1_time_ns'LENGTH) when high_speed_T1_delay = '1' else
-		to_unsigned(2000, T1_time_ns'LENGTH);
+	first_T1_time <= ts_1100ns when ultra_fast_T1_delay = '1' and controller_state_p1 /= CACS else
+		ts_2000ns;
+	T1_time <= ts_2000ns when controller_state_p1 = CACS else
+		ts_350ns when ultra_fast_T1_delay = '1' else
+		ts_500ns when high_speed_T1_delay = '1' else
+		ts_2000ns;
 	
 	-- enable_secondary_addressing as appropriate
 	process (soft_reset, clock)

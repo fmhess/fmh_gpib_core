@@ -69,8 +69,8 @@ entity integrated_interface_functions is
 		local_parallel_poll_config : in std_logic;
 		local_parallel_poll_sense : in std_logic;
 		local_parallel_poll_response_line : in std_logic_vector(2 downto 0);
-		first_T1_time_ns : in unsigned(10 downto 0);
-		T1_time_ns : in unsigned(10 downto 0);
+		first_T1_time : in time_selection_enum;
+		T1_time : in time_selection_enum;
 		check_for_listeners : in std_logic;
 		-- host should set gpib_to_host_byte_read high for a clock when it reads gpib_to_host_byte
 		gpib_to_host_byte_read : in std_logic;
@@ -265,7 +265,9 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	signal T14_terminal_count : unsigned(num_counter_bits - 1 downto 0);
 	signal T18_terminal_count : unsigned(num_counter_bits - 1 downto 0);
 	
-	-- overhead parameter is fixed number of clock ticks of overhead even when using a timing delay of zero
+	-- Overhead parameter is fixed number of clock ticks of overhead even when using a timing delay of zero
+	-- This function is only used to calculate constants, to avoid doing generating
+	-- expensive math circuits in the fpga.
 	function to_clock_ticks (nanoseconds : in integer; overhead : in integer) return unsigned is
 		constant nanos_per_milli : integer := 1000000;
 		variable ticks : integer;
@@ -277,6 +279,25 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 		return to_unsigned(ticks, num_counter_bits);
 	end to_clock_ticks;
 
+	-- T13 times
+	constant timer_clock_ticks_80ns : unsigned(num_counter_bits - 1 downto 0) := to_clock_ticks(80, 1);
+	constant timer_clock_ticks_120ns : unsigned(num_counter_bits - 1 downto 0) := to_clock_ticks(120, 1);
+	constant timer_clock_ticks_151ns : unsigned(num_counter_bits - 1 downto 0) := to_clock_ticks(151, 1);
+	constant timer_clock_ticks_211ns : unsigned(num_counter_bits - 1 downto 0) := to_clock_ticks(211, 1);
+	constant timer_clock_ticks_294ns : unsigned(num_counter_bits - 1 downto 0) := to_clock_ticks(294, 1);
+	constant timer_clock_ticks_344ns : unsigned(num_counter_bits - 1 downto 0) := to_clock_ticks(344, 1);
+	-- T14 times
+	constant timer_clock_ticks_33ns : unsigned(num_counter_bits - 1 downto 0) := to_clock_ticks(33, 1);
+	constant timer_clock_ticks_50ns : unsigned(num_counter_bits - 1 downto 0) := to_clock_ticks(50, 1);
+	constant timer_clock_ticks_69ns : unsigned(num_counter_bits - 1 downto 0) := to_clock_ticks(69, 1);
+	constant timer_clock_ticks_105ns : unsigned(num_counter_bits - 1 downto 0) := to_clock_ticks(105, 1);
+	constant timer_clock_ticks_216ns : unsigned(num_counter_bits - 1 downto 0) := to_clock_ticks(216, 1);
+	constant timer_clock_ticks_336ns : unsigned(num_counter_bits - 1 downto 0) := to_clock_ticks(336, 1);
+	-- T18 times
+	constant timer_clock_ticks_10ns : unsigned(num_counter_bits - 1 downto 0) := to_clock_ticks(10, 1);
+	constant timer_clock_ticks_25ns : unsigned(num_counter_bits - 1 downto 0) := to_clock_ticks(25, 1);
+	constant timer_clock_ticks_40ns : unsigned(num_counter_bits - 1 downto 0) := to_clock_ticks(40, 1);
+	-- common times
 	constant timer_clock_ticks_350ns : unsigned(num_counter_bits - 1 downto 0) := to_clock_ticks(350, 1);
 	constant timer_clock_ticks_500ns : unsigned(num_counter_bits - 1 downto 0) := to_clock_ticks(500, 1);
 	constant timer_clock_ticks_750ns : unsigned(num_counter_bits - 1 downto 0) := to_clock_ticks(750, 1);
@@ -285,52 +306,68 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	constant timer_clock_ticks_1500ns : unsigned(num_counter_bits - 1 downto 0) := to_clock_ticks(1500, 1);
 	constant timer_clock_ticks_2us : unsigned(num_counter_bits - 1 downto 0) := to_clock_ticks(2000, 1);
 	
-	function T13_clock_ticks (cable_length_meters : in unsigned(3 downto 0); overhead : in integer) return unsigned is
+	function time_selection_to_clock_ticks (time_selection : in time_selection_enum) return unsigned is
 	begin
-		if cable_length_meters <= 1 then
-			return to_clock_ticks(80, overhead);
+		case time_selection is
+			when ts_350ns => return timer_clock_ticks_350ns;
+			when ts_500ns => return timer_clock_ticks_500ns;
+			when ts_750ns => return timer_clock_ticks_750ns;
+			when ts_1000ns => return timer_clock_ticks_1000ns;
+			when ts_1100ns => return timer_clock_ticks_1100ns;
+			when ts_1500ns => return timer_clock_ticks_1500ns;
+			when ts_2000ns => return timer_clock_ticks_2us;
+			when others => assert false report "unimplemented selection";
+		end case;
+		return timer_clock_ticks_2us;
+	end time_selection_to_clock_ticks;
+
+	function T13_clock_ticks (cable_length_meters : in unsigned(3 downto 0)) return unsigned is
+	begin
+		if cable_length_meters = 1 then
+			return timer_clock_ticks_80ns;
 		elsif cable_length_meters <= 2 then
-			return to_clock_ticks(120, overhead);
+			return timer_clock_ticks_120ns;
 		elsif cable_length_meters <= 3 then
-			return to_clock_ticks(151, overhead);
+			return timer_clock_ticks_151ns;
 		elsif cable_length_meters <= 5 then
-			return to_clock_ticks(211, overhead);
+			return timer_clock_ticks_211ns;
 		elsif cable_length_meters <= 10 then
-			return to_clock_ticks(294, overhead);
+			return timer_clock_ticks_294ns;
 		else
-			return to_clock_ticks(344, overhead);
+			return timer_clock_ticks_344ns;
 		end if;
 	end T13_clock_ticks;
 
 	function T14_clock_ticks (cable_length_meters : in unsigned(3 downto 0); 
-		end_or_eos : in std_logic;
-		overhead : in integer) return unsigned is
+		end_or_eos : in std_logic) return unsigned is
 	begin
-		if end_or_eos = '1' then
+		if end_or_eos = '1' or cable_length_meters = 0 then
 			return timer_clock_ticks_750ns;
-		elsif cable_length_meters <= 1 then 
-			return to_clock_ticks(33, overhead);
+		elsif cable_length_meters = 1 then 
+			return timer_clock_ticks_33ns;
 		elsif cable_length_meters <= 2 then
-			return to_clock_ticks(50, overhead);
+			return timer_clock_ticks_50ns;
 		elsif cable_length_meters <= 3 then
-			return to_clock_ticks(69, overhead);
+			return timer_clock_ticks_69ns;
 		elsif cable_length_meters <= 5 then
-			return to_clock_ticks(105, overhead);
+			return timer_clock_ticks_105ns;
 		elsif cable_length_meters <= 10 then
-			return to_clock_ticks(216, overhead);
+			return timer_clock_ticks_216ns;
 		else
-			return to_clock_ticks(336, overhead);
+			return timer_clock_ticks_336ns;
 		end if;
 	end T14_clock_ticks;
 
-	function T18_clock_ticks (cable_length_meters : in unsigned(3 downto 0); overhead : in integer) return unsigned is
+	function T18_clock_ticks (cable_length_meters : in unsigned(3 downto 0)) return unsigned is
 	begin
-		if cable_length_meters <= 3 then
-			return to_clock_ticks(10, overhead);
+		if cable_length_meters = 0 then
+			return timer_clock_ticks_40ns;
+		elsif cable_length_meters <= 3 then
+			return timer_clock_ticks_10ns;
 		elsif cable_length_meters <= 7 then
-			return to_clock_ticks(25, overhead);
+			return timer_clock_ticks_25ns;
 		else
-			return to_clock_ticks(40, overhead);
+			return timer_clock_ticks_40ns;
 		end if;
 	end T18_clock_ticks;
 
@@ -710,11 +747,11 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			T14_terminal_count <= (others => '1');
 			T18_terminal_count <= (others => '1');
 		elsif rising_edge(clock) then
-			first_T1_terminal_count <= to_clock_ticks(to_integer(first_T1_time_ns), 1);
-			T1_terminal_count <= to_clock_ticks(to_integer(T1_time_ns), 1);
-			T13_terminal_count <= T13_clock_ticks(configuration_state_p1_num_meters_buffer, 1);
-			T14_terminal_count <= T14_clock_ticks(configuration_state_p1_num_meters_buffer, EOS or END_msg, 1);
-			T18_terminal_count <= T18_clock_ticks(configuration_state_p1_num_meters_buffer, 1);
+			first_T1_terminal_count <= time_selection_to_clock_ticks(first_T1_time);
+			T1_terminal_count <= time_selection_to_clock_ticks(T1_time);
+			T13_terminal_count <= T13_clock_ticks(configuration_state_p1_num_meters_buffer);
+			T14_terminal_count <= T14_clock_ticks(configuration_state_p1_num_meters_buffer, EOS or END_msg);
+			T18_terminal_count <= T18_clock_ticks(configuration_state_p1_num_meters_buffer);
 		end if;
 	end process;
 	
