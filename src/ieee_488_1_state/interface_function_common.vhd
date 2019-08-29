@@ -39,6 +39,8 @@ package interface_function_common is
 	
 	type RFD_holdoff_enum is (holdoff_normal, holdoff_on_all, holdoff_on_end, continuous_mode);
 
+	type time_selection_enum is (ts_350ns, ts_500ns, ts_750ns, ts_1000ns, ts_1100ns, ts_1500ns, ts_2000ns) ;
+	
 	constant NO_ADDRESS_CONFIGURED : std_logic_vector := "11111";
 
 	function to_X0Z (mysig : std_logic) return std_logic;
