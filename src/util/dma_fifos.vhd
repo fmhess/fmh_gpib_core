@@ -210,6 +210,7 @@ begin
 			xfer_to_device_pending <= '0';
 			xfer_from_device_state <= xfer_from_device_idle;
 			xfer_count_var := (others => '0');
+			xfer_countdown <= (others => '0');
 		elsif rising_edge(clock) then
 
 			-- host write state machine
