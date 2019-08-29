@@ -699,6 +699,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	talker_state_p1 <= talker_state_p1_buffer;
 	talker_state_p2 <= talker_state_p2_buffer;
 	talker_state_p3 <= talker_state_p3_buffer;
+	configuration_state_p1 <= configuration_state_p1_buffer;
 	configuration_state_p1_num_meters <= configuration_state_p1_num_meters_buffer;
 		
 	host_to_gpib_data_byte_latched <= internal_host_to_gpib_data_byte_latched;
