@@ -24,6 +24,9 @@ entity fmh_gpib_top is
 		-- able to "Analyze Synthesis files".
 		clock_frequency_KHz : natural := 0; 
 		fifo_depth : positive := 32; -- must be at least 2, the maximum dma burst length is half the fifo depth
+		
+		-- IEEE 488.1 has a couple 200ns response time requirements, so that should be taken into account when
+		-- setting the filter length/threshold given your clock frequency.
 		filter_length : positive := 12; -- number of input samples the gpib control line filter stores (sampled on rising and falling clock edges)
 		filter_threshold : positive := 10 -- number of matching input samples required to change filter output 
 	);
@@ -340,7 +343,17 @@ begin
 	cb7210p2_dma_write_inverted <= not cb7210p2_dma_write;
 	cb7210p2_dma_ack_inverted <= not cb7210p2_dma_ack;
 	
-	force_lni <= '1' when xfer_countdown <= 5 else
-		'0';
+	process (safe_reset, clock)
+	begin
+		if to_X01(safe_reset) = '1' then
+			force_lni <= '1';
+		elsif rising_edge(clock) then
+			if xfer_countdown <= 5 then
+				force_lni <= '1';
+			else
+				force_lni <= '0';
+			end if;
+		end if;
+	end process;
 
 end architecture structural;
