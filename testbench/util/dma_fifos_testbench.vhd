@@ -262,7 +262,7 @@ begin
 		end if;
 		wait_for_ticks(1);
 		request_xfer_to_device <= '0';
-		assert device_data_out = std_logic_vector(to_unsigned(16#140#, 8));
+		assert device_data_out = std_logic_vector(to_unsigned(16#40#, 8));
 		assert device_data_eoi_out = '1';
 		if device_chip_select = '1' and device_write = '1' then
 			wait until device_chip_select = '0' or device_write = '0';
