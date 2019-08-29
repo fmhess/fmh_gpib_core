@@ -24,6 +24,7 @@ use work.remote_message_decoder;
 
 entity integrated_interface_functions is
 	generic(
+			clock_frequency_KHz : positive;
 			num_counter_bits : in integer := 8
 		);
 	port(
@@ -68,20 +69,8 @@ entity integrated_interface_functions is
 		local_parallel_poll_config : in std_logic;
 		local_parallel_poll_sense : in std_logic;
 		local_parallel_poll_response_line : in std_logic_vector(2 downto 0);
-		first_T1_terminal_count : in unsigned(num_counter_bits - 1 downto 0);
-		T1_terminal_count : in unsigned(num_counter_bits - 1 downto 0);
-		T6_terminal_count : in unsigned(num_counter_bits - 1 downto 0);
-		T7_terminal_count : in unsigned(num_counter_bits - 1 downto 0);
-		T8_count_per_us : in unsigned(num_counter_bits - 1 downto 0);
-		T9_terminal_count : in unsigned(num_counter_bits - 1 downto 0);
-		T10_terminal_count : in unsigned(num_counter_bits - 1 downto 0);
-		T11_terminal_count : in unsigned(num_counter_bits - 1 downto 0) := (others => '1');
-		T12_terminal_count : in unsigned(num_counter_bits - 1 downto 0) := (others => '1');
-		T13_terminal_count : in unsigned(num_counter_bits - 1 downto 0) := (others => '1');
-		T14_terminal_count : in unsigned(num_counter_bits - 1 downto 0) := (others => '1');
-		T16_terminal_count : in unsigned(num_counter_bits - 1 downto 0) := (others => '1');
-		T17_terminal_count : in unsigned(num_counter_bits - 1 downto 0) := (others => '1');
-		T18_terminal_count : in unsigned(num_counter_bits - 1 downto 0) := (others => '1');
+		first_T1_time_ns : in unsigned(10 downto 0);
+		T1_time_ns : in unsigned(10 downto 0);
 		check_for_listeners : in std_logic;
 		-- host should set gpib_to_host_byte_read high for a clock when it reads gpib_to_host_byte
 		gpib_to_host_byte_read : in std_logic;
@@ -248,6 +237,8 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	signal talker_state_p1_buffer : TE_state_p1;
 	signal talker_state_p2_buffer : TE_state_p2;
 	signal talker_state_p3_buffer : TE_state_p3;
+	signal configuration_state_p1_num_meters_buffer : unsigned(3 downto 0);
+
 	signal bus_dio_inverted_out_buffer : std_logic_vector(7 downto 0);
 	signal bus_DIO_in : std_logic_vector(7 downto 0);
 	
@@ -268,6 +259,81 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	
 	signal configuration_state_p1_buffer : CF_state_p1;
 	
+	signal first_T1_terminal_count : unsigned(num_counter_bits - 1 downto 0);
+	signal T1_terminal_count : unsigned(num_counter_bits - 1 downto 0);
+	signal T13_terminal_count : unsigned(num_counter_bits - 1 downto 0);
+	signal T14_terminal_count : unsigned(num_counter_bits - 1 downto 0);
+	signal T18_terminal_count : unsigned(num_counter_bits - 1 downto 0);
+	
+	-- overhead parameter is fixed number of clock ticks of overhead even when using a timing delay of zero
+	function to_clock_ticks (nanoseconds : in integer; overhead : in integer) return unsigned is
+		constant nanos_per_milli : integer := 1000000;
+		variable ticks : integer;
+	begin
+		ticks := (nanoseconds * clock_frequency_KHz + nanos_per_milli - 1) / nanos_per_milli - overhead;
+		if ticks < 0 then
+			ticks := 0;
+		end if;
+		return to_unsigned(ticks, num_counter_bits);
+	end to_clock_ticks;
+
+	constant timer_clock_ticks_350ns : unsigned(num_counter_bits - 1 downto 0) := to_clock_ticks(350, 1);
+	constant timer_clock_ticks_500ns : unsigned(num_counter_bits - 1 downto 0) := to_clock_ticks(500, 1);
+	constant timer_clock_ticks_750ns : unsigned(num_counter_bits - 1 downto 0) := to_clock_ticks(750, 1);
+	constant timer_clock_ticks_1000ns : unsigned(num_counter_bits - 1 downto 0) := to_clock_ticks(1000, 1);
+	constant timer_clock_ticks_1100ns : unsigned(num_counter_bits - 1 downto 0) := to_clock_ticks(1100, 1);
+	constant timer_clock_ticks_1500ns : unsigned(num_counter_bits - 1 downto 0) := to_clock_ticks(1500, 1);
+	constant timer_clock_ticks_2us : unsigned(num_counter_bits - 1 downto 0) := to_clock_ticks(2000, 1);
+	
+	function T13_clock_ticks (cable_length_meters : in unsigned(3 downto 0); overhead : in integer) return unsigned is
+	begin
+		if cable_length_meters <= 1 then
+			return to_clock_ticks(80, overhead);
+		elsif cable_length_meters <= 2 then
+			return to_clock_ticks(120, overhead);
+		elsif cable_length_meters <= 3 then
+			return to_clock_ticks(151, overhead);
+		elsif cable_length_meters <= 5 then
+			return to_clock_ticks(211, overhead);
+		elsif cable_length_meters <= 10 then
+			return to_clock_ticks(294, overhead);
+		else
+			return to_clock_ticks(344, overhead);
+		end if;
+	end T13_clock_ticks;
+
+	function T14_clock_ticks (cable_length_meters : in unsigned(3 downto 0); 
+		end_or_eos : in std_logic;
+		overhead : in integer) return unsigned is
+	begin
+		if end_or_eos = '1' then
+			return timer_clock_ticks_750ns;
+		elsif cable_length_meters <= 1 then 
+			return to_clock_ticks(33, overhead);
+		elsif cable_length_meters <= 2 then
+			return to_clock_ticks(50, overhead);
+		elsif cable_length_meters <= 3 then
+			return to_clock_ticks(69, overhead);
+		elsif cable_length_meters <= 5 then
+			return to_clock_ticks(105, overhead);
+		elsif cable_length_meters <= 10 then
+			return to_clock_ticks(216, overhead);
+		else
+			return to_clock_ticks(336, overhead);
+		end if;
+	end T14_clock_ticks;
+
+	function T18_clock_ticks (cable_length_meters : in unsigned(3 downto 0); overhead : in integer) return unsigned is
+	begin
+		if cable_length_meters <= 3 then
+			return to_clock_ticks(10, overhead);
+		elsif cable_length_meters <= 7 then
+			return to_clock_ticks(25, overhead);
+		else
+			return to_clock_ticks(40, overhead);
+		end if;
+	end T18_clock_ticks;
+
 	begin
 	my_decoder: entity work.remote_message_decoder 
 		port map (
@@ -341,8 +407,8 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			tcs => tcs,
 			DAC_holdoff => DAC_holdoff,
 			RFD_holdoff => combined_RFD_holdoff,
-			T16_terminal_count => T16_terminal_count,
-			T17_terminal_count => T17_terminal_count,
+			T16_terminal_count => timer_clock_ticks_1000ns,
+			T17_terminal_count => timer_clock_ticks_750ns,
 			T18_terminal_count => T18_terminal_count,
 			acceptor_handshake_state => acceptor_handshake_state_buffer,
 			RFD => local_RFD,
@@ -445,11 +511,11 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			pon => pon,
 			first_T1_terminal_count => first_T1_terminal_count,
 			T1_terminal_count => T1_terminal_count,
-			T11_terminal_count => T11_terminal_count,
-			T12_terminal_count => T12_terminal_count,
+			T11_terminal_count => timer_clock_ticks_750ns,
+			T12_terminal_count => timer_clock_ticks_500ns,
 			T13_terminal_count => T13_terminal_count,
 			T14_terminal_count => T14_terminal_count,
-			T16_terminal_count => T16_terminal_count,
+			T16_terminal_count => timer_clock_ticks_1000ns,
 			check_for_listeners => check_for_listeners,
 			
 			source_handshake_state => source_handshake_state_buffer,
@@ -531,11 +597,11 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			IFC_out => local_IFC,
 			REN_out => local_REN,
 			TCT_out => local_TCT,
-			T6_terminal_count => T6_terminal_count,
-			T7_terminal_count => T7_terminal_count,
-			T8_count_per_us => T8_count_per_us,
-			T9_terminal_count => T9_terminal_count,
-			T10_terminal_count => T10_terminal_count,
+			T6_terminal_count => timer_clock_ticks_2us,
+			T7_terminal_count => timer_clock_ticks_500ns,
+			T8_count_per_us => timer_clock_ticks_1000ns,
+			T9_terminal_count => timer_clock_ticks_1500ns,
+			T10_terminal_count => timer_clock_ticks_1500ns,
 			acceptor_handshake_state => acceptor_handshake_state_buffer,
 			source_handshake_state => source_handshake_state_buffer,
 			talker_state_p1 => talker_state_p1_buffer,
@@ -558,7 +624,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			pon => pon,
 			-- outputs
 			configuration_state => configuration_state_p1_buffer,
-			num_meters => configuration_state_p1_num_meters,
+			num_meters => configuration_state_p1_num_meters_buffer,
 			noninterlocked_configuration_state => configuration_state_p2
 		);
 		
@@ -596,6 +662,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	talker_state_p1 <= talker_state_p1_buffer;
 	talker_state_p2 <= talker_state_p2_buffer;
 	talker_state_p3 <= talker_state_p3_buffer;
+	configuration_state_p1_num_meters <= configuration_state_p1_num_meters_buffer;
 		
 	host_to_gpib_data_byte_latched <= internal_host_to_gpib_data_byte_latched;
 	host_to_gpib_command_byte_latched <= internal_host_to_gpib_command_byte_latched;
@@ -633,6 +700,23 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	gpib_to_host_byte_eos <= acceptor_fifo_eos;
 	
 	lni <= force_lni or RFD_holdoff;
+	
+	-- timer counts
+	process(pon, clock)
+	begin
+		if pon = '1' then
+			T1_terminal_count <= (others => '1');
+			T13_terminal_count <= (others => '1');
+			T14_terminal_count <= (others => '1');
+			T18_terminal_count <= (others => '1');
+		elsif rising_edge(clock) then
+			first_T1_terminal_count <= to_clock_ticks(to_integer(first_T1_time_ns), 1);
+			T1_terminal_count <= to_clock_ticks(to_integer(T1_time_ns), 1);
+			T13_terminal_count <= T13_clock_ticks(configuration_state_p1_num_meters_buffer, 1);
+			T14_terminal_count <= T14_clock_ticks(configuration_state_p1_num_meters_buffer, EOS or END_msg, 1);
+			T18_terminal_count <= T18_clock_ticks(configuration_state_p1_num_meters_buffer, 1);
+		end if;
+	end process;
 	
 	process(pon, clock)
 		variable prev_source_handshake_state  : SH_state;

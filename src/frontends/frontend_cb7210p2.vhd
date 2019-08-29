@@ -136,8 +136,8 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal local_parallel_poll_response_line : std_logic_vector(2 downto 0);
 	signal local_parallel_poll_disable : std_logic;
 	signal no_listeners : std_logic;
-	signal first_T1_terminal_count : unsigned(num_counter_bits - 1 downto 0);
-	signal T1_terminal_count : unsigned(num_counter_bits - 1 downto 0);
+	signal first_T1_time_ns : unsigned(10 downto 0);
+	signal T1_time_ns : unsigned(10 downto 0);
 	signal gpib_to_data_byte_read : std_logic;
 	signal gpib_to_host_byte : std_logic_vector(7 downto 0);
 	signal gpib_to_host_byte_end : std_logic;
@@ -304,28 +304,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal minor_addressed : std_logic;
 	signal minor_primary_addressed : std_logic;
 	signal RFD_holdoff_status : std_logic;
-	
-	-- overhead parameter is fixed number of clock ticks of overhead even when using a timing delay of zero
-	function to_clock_ticks (nanoseconds : in integer; overhead : in integer) return unsigned is
-		constant nanos_per_milli : integer := 1000000;
-		variable ticks : integer;
-	begin
-		ticks := (nanoseconds * clock_frequency_KHz + nanos_per_milli - 1) / nanos_per_milli - overhead;
-		if ticks < 0 then
-			ticks := 0;
-		end if;
-		return to_unsigned(ticks, num_counter_bits);
-	end to_clock_ticks;
-	constant T1_clock_ticks_2us : unsigned(T1_terminal_count'RANGE) := to_clock_ticks(2000, 1);
-	constant T1_clock_ticks_1100ns : unsigned(T1_terminal_count'RANGE) := to_clock_ticks(1100, 1);
-	constant T1_clock_ticks_500ns : unsigned(T1_terminal_count'RANGE) := to_clock_ticks(500, 1);
-	constant T1_clock_ticks_350ns : unsigned(T1_terminal_count'RANGE) := to_clock_ticks(350, 1);
-	constant T6_clock_ticks_2us : unsigned(num_counter_bits - 1 downto 0) := to_clock_ticks(2000, 1);
-	constant T7_clock_ticks_500ns : unsigned(num_counter_bits - 1 downto 0) := to_clock_ticks(500, 1);
-	constant T8_clock_ticks_per_us : unsigned(num_counter_bits - 1 downto 0) := to_clock_ticks(1000, 1);
-	constant T9_clock_ticks_1500ns : unsigned(num_counter_bits - 1 downto 0) := to_clock_ticks(1500, 1);
-	constant T10_clock_ticks_1500ns : unsigned(num_counter_bits - 1 downto 0) := to_clock_ticks(1500, 1);
-	
+		
 	function flat_address (page : in std_logic_vector(3 downto 0);
 		raw_address : in std_logic_vector(num_address_lines - 1 downto 0)) 
 		return integer is
@@ -345,6 +324,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 begin
 	my_integrated_interface_functions: entity work.integrated_interface_functions 
 	generic map (
+			clock_frequency_KHz => clock_frequency_KHz,
 			num_counter_bits => num_counter_bits
 		)
 	port map (
@@ -396,13 +376,8 @@ begin
 			local_parallel_poll_response_line => local_parallel_poll_response_line,
 			check_for_listeners => '1',
 			gpib_to_host_byte_read => gpib_to_data_byte_read,
-			first_T1_terminal_count => first_T1_terminal_count,
-			T1_terminal_count => T1_terminal_count,
-			T6_terminal_count => T6_clock_ticks_2us,
-			T7_terminal_count => T7_clock_ticks_500ns,
-			T8_count_per_us => T8_clock_ticks_per_us,
-			T9_terminal_count => T9_clock_ticks_1500ns,
-			T10_terminal_count => T10_clock_ticks_1500ns,
+			first_T1_time_ns => first_T1_time_ns,
+			T1_time_ns => T1_time_ns,
 			no_listeners => no_listeners,
 			gpib_to_host_byte => gpib_to_host_byte_in,
 			gpib_to_host_byte_end => gpib_to_host_byte_end_in,
@@ -1615,12 +1590,12 @@ begin
 		configured_RFD_holdoff_mode;
 	
 	-- set timing counters
-	first_T1_terminal_count <= T1_clock_ticks_1100ns when ultra_fast_T1_delay = '1' and controller_state_p1 /= CACS else
-		T1_clock_ticks_2us;
-	T1_terminal_count <= T1_clock_ticks_2us when controller_state_p1 = CACS else
-		T1_clock_ticks_350ns when ultra_fast_T1_delay = '1' else
-		T1_clock_ticks_500ns when high_speed_T1_delay = '1' else
-		T1_clock_ticks_2us;
+	first_T1_time_ns <= to_unsigned(1100, first_T1_time_ns'LENGTH) when ultra_fast_T1_delay = '1' and controller_state_p1 /= CACS else
+		to_unsigned(2000, first_T1_time_ns'LENGTH);
+	T1_time_ns <= to_unsigned(2000, T1_time_ns'LENGTH) when controller_state_p1 = CACS else
+		to_unsigned(350, T1_time_ns'LENGTH) when ultra_fast_T1_delay = '1' else
+		to_unsigned(500, T1_time_ns'LENGTH) when high_speed_T1_delay = '1' else
+		to_unsigned(2000, T1_time_ns'LENGTH);
 	
 	-- enable_secondary_addressing as appropriate
 	process (soft_reset, clock)
