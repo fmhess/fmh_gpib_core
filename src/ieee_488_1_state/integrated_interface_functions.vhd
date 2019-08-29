@@ -737,7 +737,8 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	gpib_to_host_byte_end <= acceptor_fifo_end;
 	gpib_to_host_byte_eos <= acceptor_fifo_eos;
 	
-	lni <= force_lni or RFD_holdoff;
+	lni <= '1' when RFD_holdoff_mode = holdoff_on_all else
+		force_lni or RFD_holdoff;
 	
 	-- timer counts
 	process(pon, clock)
