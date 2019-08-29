@@ -57,7 +57,7 @@ architecture interface_function_SHE_arch of interface_function_SHE is
 	signal no_listeners_reported : boolean;
 	signal source_handshake_state_buffer : SH_state; -- buffer works around inability to read outputs
 	signal noninterlocked_enable_state_buffer : SH_noninterlocked_state; -- buffer works around inability to read outputs
- 
+	signal SWNS_DAV : std_logic;
 begin
  
 	interrupt <= (to_bit(ATN) = '1' and controller_state_p1 /= CACS and controller_state_p1 /= CTRS) or
@@ -84,6 +84,7 @@ begin
 			first_cycle <= false;
 			no_listeners_reported <= false;
 			nba := false;
+			SWNS_DAV <= '0';
 		elsif rising_edge(clock) then
 			-- no_listeners only pulses high for 1 clock so clear it.  no_listeners may
 			-- be set high (for a cycle) later in this process.
@@ -157,8 +158,10 @@ begin
 							configuration_state_p1 = CNCS or talker_state_p1 /= TACS or 
 							(noninterlocked_enable_state_buffer = SNDS and to_X01(RFD) = '0') or 
 							(noninterlocked_enable_state_buffer = SNES and TN_counter_done)
-						) then
+						) 
+					then
 						source_handshake_state_buffer <= SWNS;
+						SWNS_DAV <= '1';
 					end if;
 				when SWNS =>
 					-- When we are in TACS, we want to linger here unless there is actually 
@@ -179,6 +182,7 @@ begin
 						source_handshake_state_buffer <= SIDS;
 					elsif active then
 						source_handshake_state_buffer <= SWNS;
+						SWNS_DAV <= '0';
 					end if;
 					first_cycle <= true;
 				when SWRS =>
@@ -266,6 +270,7 @@ begin
 				-- leaving through ANES and winding up in ACRS (where it would be
 				-- unable to assert a RFD holdoff except when ATN transitions to
 				-- false).
+				DAV <= SWNS_DAV;
 				NIC <= 'L';
 			when SIWS =>
 				DAV <= 'L';
