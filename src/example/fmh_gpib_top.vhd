@@ -220,7 +220,7 @@ begin
 			gpib_REN_inverted_in => gated_REN_inverted,
 			gpib_SRQ_inverted_in => gated_SRQ_inverted,
 			gpib_DIO_inverted_in => gpib_DIO_inverted,
-			force_lni => force_lni,
+			force_lni_true => force_lni,
 			tr1 => ungated_talk_enable,
 			not_controller_in_charge => ungated_not_controller_in_charge,
 			pullup_disable => ungated_pullup_disable,

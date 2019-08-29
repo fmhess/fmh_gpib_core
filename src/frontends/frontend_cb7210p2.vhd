@@ -71,12 +71,15 @@ entity frontend_cb7210p2 is
 		gpib_REN_inverted_in : in std_logic; 
 		gpib_SRQ_inverted_in : in std_logic; 
 		gpib_DIO_inverted_in : in std_logic_vector(7 downto 0);
-		-- force_lni can be used to disable noninterlocked acceptor handshake
+		-- force_lni_true can be used to disable noninterlocked acceptor handshake
 		-- by asserting lni.
 		-- Can be used when a read has nearly filled its buffer and you
 		-- want to switch to interlocked handshake for the last few bytes
 		-- (recommended for last 5 bytes).
-		force_lni : in std_logic := '1';
+		force_lni_true : in std_logic := '0';
+		-- to completely disable noninterlocked functionality, hard-wire force_nie_false
+		-- and force_lni_true to '1'
+		force_nie_false : in std_logic := '0';
 		
 		tr1 : out std_logic;
 		tr2 : out std_logic;
@@ -185,6 +188,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal lpe : std_logic;
 	signal lun : std_logic;
 	signal ltn : std_logic;
+	signal nie : std_logic;
 	signal pon : std_logic;
 	signal gpib_to_host_byte_latched : std_logic;
 	signal gpib_to_host_byte_latched_in : std_logic;
@@ -354,7 +358,7 @@ begin
 			lpe => lpe,
 			lun => lun,
 			ltn => ltn,
-			nie => hs488_enable,
+			nie => nie,
 			pon => pon,
 			rpp => rpp,
 			rsc => rsc,
@@ -425,7 +429,8 @@ begin
 			pending_rsv => pending_rsv
 		);
 
-		any_force_lni <= to_X01(force_lni) or not hs488_enable;
+		any_force_lni <= to_X01(force_lni_true) or not hs488_enable;
+		nie <= hs488_enable and not force_nie_false;
 		
 	-- sync local copies of gpib_to_host_* signals received from my_integrated_interface_functions
 	process (reset, clock)
@@ -1382,7 +1387,7 @@ begin
 				reqf_pending <= '0';
 				set_reqt_pulse <= '0';
 				set_reqf_pulse <= '0';
-				hs488_enable <= '0';
+				hs488_enable <= '1';
 				lon <= '0';
 				local_parallel_poll_disable <= '1';
 				ltn <= '0';
