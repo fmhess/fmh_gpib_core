@@ -152,12 +152,16 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	signal internal_host_to_gpib_data_byte_end : std_logic;
 	signal internal_host_to_gpib_command_byte_latched : std_logic;
 	signal internal_host_to_gpib_command_byte : std_logic_vector(7 downto 0);
-	-- A fake RFD holdoff to hide the fact that RFD holdoffs don't happen
-	-- immediately for noninterlaced acceptor handshake.  Needed to preserve
-	-- the appearance of how nec 7210 holdoff modes (other than normal mode) work, since
+	-- A fake RFD holdoff to hide the fact that RFD holdoffs might not happen
+	-- immediately for noninterlaced acceptor handshake.  
+	-- I wanted to preserve the appearance of how nec 7210 holdoff modes work, since
 	-- additional data bytes may be received before a RFD holdoff can actually stop the
 	-- data flow.  The real RFD_holdoff is cleared only when both the virtual_RFD_holdoff is
 	-- false and the acceptor_fifo is empty.
+	-- Note, the situation is
+	-- actually not as bad as I thought when I first added this, since IEEE 488.1
+	-- requires a long T14 delay from the source handshake after it sends a
+	-- END/EOS byte during noninterlocked handshaking.
 	signal virtual_RFD_holdoff : std_logic;
 	signal RFD_holdoff : std_logic;
 	signal combined_RFD_holdoff : std_logic; -- holdoff due to combination of a requested RFD_holdoff or an unread data byte
