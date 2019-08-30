@@ -783,16 +783,19 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 				else
 					bus_DIO_inverted_out_buffer <= bus_DIO_inverted_out_buffer;
 				end if;
-			elsif source_handshake_state_buffer = STRS then
+			elsif source_handshake_state_buffer = STRS or
+				source_handshake_state_buffer = SWNS then
 				-- DIO lines should already be in correct state from SDYS, just keep it steady until we are out of STRS.
 				-- This allows the next output byte to be accepted by the chip without disturbing the state of the DIO
 				-- lines.
+				-- In the case of SWNS, we are leaving DAV in whatever state it was on entering SWNS so we might
+				-- as well do the same for the DIO lines
 				bus_DIO_inverted_out_buffer <= bus_DIO_inverted_out_buffer;
 			elsif to_X01(local_TCT) = '1' then
 				bus_DIO_inverted_out_buffer <= not "00001001";
 			elsif parallel_poll_state_p1_buffer = PPAS then
 				bus_DIO_inverted_out_buffer <= to_X0Z(not local_PPR);
-			elsif (talker_state_p1_buffer = TACS or talker_state_p1_buffer = SPAS or controller_state_p1_buffer = CACS) then
+			elsif (talk_enable_buffer = '1') then
 				bus_DIO_inverted_out_buffer <= (others => '1');
 			else
 				bus_DIO_inverted_out_buffer <= (others => 'Z');
@@ -803,10 +806,19 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	end process;
 	bus_DIO_inverted_out <= bus_DIO_inverted_out_buffer;
 
-	talk_enable_buffer <= '1' when ((talker_state_p1_buffer = TACS and source_handshake_state_buffer /= SNGS) or 
-			talker_state_p1_buffer = SPAS or 
-			controller_state_p1_buffer = CACS or controller_state_p1_buffer = CTRS) or
-			(parallel_poll_state_p1_buffer = PPAS and (controller_state_p1_buffer = CIDS or controller_state_p1_buffer = CADS)) else
+	talk_enable_buffer <= '1' when
+		(
+			source_handshake_state_buffer /= SIDS and
+			source_handshake_state_buffer /= SIWS and
+			-- SNGS sets NIC active true, which requires NRFD to be an output.
+			-- It also sets DAV active false, which would imply talk_enable true but
+			-- we have to live with the limitations of existing GPIB transceivers,
+			-- which want to set DAV and NRFD/NDAC in opposite directions based on
+			-- talk enable.  Thus we wind up setting DAV passive false which 
+			-- which shouldn't cause any problems.
+			source_handshake_state_buffer /= SNGS
+		) or
+			parallel_poll_state_p1_buffer = PPAS else
 		'0';
 	talk_enable <= talk_enable_buffer;
 	
