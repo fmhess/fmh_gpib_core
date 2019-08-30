@@ -32,9 +32,9 @@ end gpib_debounce_filter;
 architecture arch of gpib_debounce_filter is
 	-- we split inputs history into rising and falling because quartus has problems
 	-- with signals getting written to on both rising and falling clock edges.
-	constant rising_length : integer := length / 2;
+	constant rising_length : positive := length / 2;
 	-- length of falling edge history is rounded up to deal with case of odd length
-	constant falling_length : integer := (length + 1) / 2;
+	constant falling_length : positive := (length + 1) / 2;
 
 	type rising_history_type is array (rising_length - 1 downto 0) of std_logic_vector(num_inputs - 1 downto 0);
 	signal rising_inputs_history : rising_history_type;
@@ -48,6 +48,11 @@ architecture arch of gpib_debounce_filter is
 	type falling_count_type is array (num_inputs - 1 downto 0) of integer range 0 to falling_length;
 	signal falling_count : falling_count_type;
 
+	-- Inputs may be changing asynchronously so we latch them on both rising and
+	-- falling edges, using the most recent one (rising latch during falling clock edge, etc).
+	signal rising_inputs_latch : std_logic_vector(num_inputs - 1 downto 0);
+	signal falling_inputs_latch : std_logic_vector(num_inputs - 1 downto 0);
+	
 	signal outputs_buffer : std_logic_vector(num_inputs - 1 downto 0);
 	signal safe_reset : std_logic;
 begin
@@ -68,6 +73,7 @@ begin
 					rising_inputs_history(i)(j) <= '1';
 				end loop;
 				rising_count(j) <= rising_length;
+				rising_inputs_latch(j) <= '1';
 			end loop;
 
 			for j in 0 to num_inputs - 1 loop
@@ -75,35 +81,40 @@ begin
 					falling_inputs_history(i)(j) <= '1';
 				end loop;
 				falling_count(j) <= falling_length;
+				falling_inputs_latch(j) <= '1';
 			end loop;
 		elsif rising_edge(clock) then
+			rising_inputs_latch <= to_X01(inputs);
+			
 			for i in rising_length - 1 downto 1 loop
 				rising_inputs_history(i) <= rising_inputs_history(i - 1);
 			end loop;
-			rising_inputs_history(0) <= to_X01(inputs);
+			rising_inputs_history(0) <= falling_inputs_latch;
 			
 			-- update count due to new bit coming in and old bit going out
 			for j in 0 to num_inputs - 1 loop
-				if rising_inputs_history(0)(j) = '1' and
+				if falling_inputs_latch(j) = '1' and
 					rising_inputs_history(rising_length - 1)(j) = '0'then
 					rising_count(j) <= rising_count(j) + 1;
-				elsif rising_inputs_history(0)(j) = '0' and
+				elsif falling_inputs_latch(j) = '0' and
 					rising_inputs_history(rising_length - 1)(j) = '1' then
 					rising_count(j) <= rising_count(j) - 1;
 				end if;
 			end loop;
 		elsif falling_edge(clock) then
+			falling_inputs_latch <= to_X01(inputs);
+
 			for i in falling_length - 1 downto 1 loop
 				falling_inputs_history(i) <= falling_inputs_history(i - 1);
 			end loop;
-			falling_inputs_history(0) <= to_X01(inputs);
+			falling_inputs_history(0) <= rising_inputs_latch;
 
 			-- update count due to new bit coming in and old bit going out
 			for j in 0 to num_inputs - 1 loop
-				if to_X01(inputs(j)) = '1' and
+				if rising_inputs_latch(j) = '1' and
 					falling_inputs_history(falling_length - 1)(j) = '0'then
 					falling_count(j) <= falling_count(j) + 1;
-				elsif to_X01(inputs(j)) = '0' and
+				elsif rising_inputs_latch(j) = '0' and
 					falling_inputs_history(falling_length - 1)(j) = '1' then
 					falling_count(j) <= falling_count(j) - 1;
 				end if;
