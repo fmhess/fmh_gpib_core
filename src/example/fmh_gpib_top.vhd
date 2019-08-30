@@ -23,12 +23,7 @@ entity fmh_gpib_top is
 		-- default it to the invalid value of zero to make the Quartus Component Editor
 		-- able to "Analyze Synthesis files".
 		clock_frequency_KHz : natural := 0; 
-		fifo_depth : positive := 32; -- must be at least 2, the maximum dma burst length is half the fifo depth
-		
-		-- IEEE 488.1 has a couple 200ns response time requirements, so that should be taken into account when
-		-- setting the filter length/threshold given your clock frequency.
-		filter_length : positive := 12; -- number of input samples the gpib control line filter stores (sampled on rising and falling clock edges)
-		filter_threshold : positive := 10 -- number of matching input samples required to change filter output 
+		fifo_depth : positive := 32 -- must be at least 2, the maximum dma burst length is half the fifo depth
 	);
 	port (
 		clock : in std_logic;
@@ -79,6 +74,40 @@ entity fmh_gpib_top is
 end fmh_gpib_top;
 
 architecture structural of fmh_gpib_top is
+
+	-- calculate a reasonable value for the
+	-- number of input samples the a filter stores (sampled on rising and falling clock edges)
+	function suggest_filter_length (filter_frequency_Khz : natural; 
+		filter_window_ns : natural;
+		min_length : positive;
+		max_length : positive) return natural is
+		variable length : natural;
+	begin
+		length := (filter_window_ns * filter_frequency_Khz) / 1000000;
+		if length < min_length then 
+			length := min_length;
+		elsif length > max_length then
+			length := max_length;
+		end if;
+		return length;
+	end suggest_filter_length;
+	
+	-- threshold is number of matching input samples required to change filter output 
+	function suggest_filter_threshold (filter_length : positive) return natural is
+		variable threshold : natural;
+	begin
+		threshold := (filter_length * 3) / 4;
+		if (threshold * 2) <= filter_length then
+			threshold := filter_length;
+		end if;
+		return threshold;
+	end suggest_filter_threshold;
+
+	-- IEEE 488.1 has a couple 200ns response time requirements for control lines, so that should be taken into account when
+	-- setting the filter length/threshold given your clock frequency.
+	constant control_filter_length : positive := suggest_filter_length (clock_frequency_KHz * 2, 150, 2, 100); 
+	constant control_filter_threshold : positive := suggest_filter_threshold (control_filter_length);
+
 	signal safe_reset : std_logic;
 	
 	signal cb7210p2_dma_bus_in_request : std_logic;
@@ -142,8 +171,8 @@ architecture structural of fmh_gpib_top is
 begin
 	my_debounce_filter : entity work.gpib_control_debounce_filter
 		generic map(
-			length => filter_length,
-			threshold => filter_threshold
+			length => control_filter_length,
+			threshold => control_filter_threshold
 		)
 		port map(
 			reset => safe_reset,

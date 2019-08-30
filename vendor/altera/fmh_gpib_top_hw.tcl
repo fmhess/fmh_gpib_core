@@ -76,18 +76,6 @@ set_parameter_property fifo_depth DISPLAY_NAME fifo_depth
 set_parameter_property fifo_depth TYPE POSITIVE
 set_parameter_property fifo_depth UNITS None
 set_parameter_property fifo_depth HDL_PARAMETER true
-add_parameter filter_length POSITIVE 12
-set_parameter_property filter_length DEFAULT_VALUE 12
-set_parameter_property filter_length DISPLAY_NAME filter_length
-set_parameter_property filter_length TYPE POSITIVE
-set_parameter_property filter_length UNITS None
-set_parameter_property filter_length HDL_PARAMETER true
-add_parameter filter_threshold POSITIVE 10
-set_parameter_property filter_threshold DEFAULT_VALUE 10
-set_parameter_property filter_threshold DISPLAY_NAME filter_threshold
-set_parameter_property filter_threshold TYPE POSITIVE
-set_parameter_property filter_threshold UNITS None
-set_parameter_property filter_threshold HDL_PARAMETER true
 
 
 # 
