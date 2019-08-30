@@ -107,6 +107,14 @@ architecture structural of fmh_gpib_top is
 	-- setting the filter length/threshold given your clock frequency.
 	constant control_filter_length : positive := suggest_filter_length (clock_frequency_KHz * 2, 150, 2, 100); 
 	constant control_filter_threshold : positive := suggest_filter_threshold (control_filter_length);
+	-- in the tightest noninterlocked case, DAV needs to have a response time of 33ns for noninterlocked source handshake
+	-- with a cable <= 1 meter.  In theory we could dynamically adjust the filter when the
+	-- cable length is changed with CFGn commands (but we don't).
+	constant DAV_filter_length : positive := suggest_filter_length (clock_frequency_KHz * 2, 33, 2, 100); 
+	constant DAV_filter_threshold : positive := suggest_filter_threshold (DAV_filter_length);
+	-- in the tightest noninterlocked case, DIO will settle for 80ns before DAV is asserted
+	constant DIO_filter_length : positive := suggest_filter_length (clock_frequency_KHz * 2, 80, 2, 100); 
+	constant DIO_filter_threshold : positive := suggest_filter_threshold (DIO_filter_length);
 
 	signal safe_reset : std_logic;
 	
@@ -138,6 +146,7 @@ architecture structural of fmh_gpib_top is
 	signal filtered_NRFD_inverted : std_logic;
 	signal filtered_REN_inverted : std_logic;
 	signal filtered_SRQ_inverted : std_logic;
+	signal filtered_DIO_inverted : std_logic_vector (7 downto 0);
 
 	-- gpib control line inputs gated by gpib_disable.  We don't need to disable input gpib data lines.
 	signal gated_ATN_inverted : std_logic;
@@ -169,31 +178,55 @@ architecture structural of fmh_gpib_top is
 	signal force_lni : std_logic;
 	
 begin
-	my_debounce_filter : entity work.gpib_debounce_filter
+	my_control_debounce_filter : entity work.gpib_debounce_filter
 		generic map(
 			length => control_filter_length,
 			threshold => control_filter_threshold,
-			num_inputs => 8
+			num_inputs => 7
 		)
 		port map(
 			reset => safe_reset,
 			clock => clock,
 			inputs(0) => gpib_ATN_inverted,
-			inputs(1) => gpib_DAV_inverted,
-			inputs(2) => gpib_EOI_inverted,
-			inputs(3) => gpib_IFC_inverted,
-			inputs(4) => gpib_NDAC_inverted,
-			inputs(5) => gpib_NRFD_inverted,
-			inputs(6) => gpib_REN_inverted,
-			inputs(7) => gpib_SRQ_inverted,
+			inputs(1) => gpib_EOI_inverted,
+			inputs(2) => gpib_IFC_inverted,
+			inputs(3) => gpib_NDAC_inverted,
+			inputs(4) => gpib_NRFD_inverted,
+			inputs(5) => gpib_REN_inverted,
+			inputs(6) => gpib_SRQ_inverted,
 			outputs(0) => filtered_ATN_inverted,
-			outputs(1) => filtered_DAV_inverted,
-			outputs(2) => filtered_EOI_inverted,
-			outputs(3) => filtered_IFC_inverted,
-			outputs(4) => filtered_NDAC_inverted,
-			outputs(5) => filtered_NRFD_inverted,
-			outputs(6) => filtered_REN_inverted,
-			outputs(7) => filtered_SRQ_inverted
+			outputs(1) => filtered_EOI_inverted,
+			outputs(2) => filtered_IFC_inverted,
+			outputs(3) => filtered_NDAC_inverted,
+			outputs(4) => filtered_NRFD_inverted,
+			outputs(5) => filtered_REN_inverted,
+			outputs(6) => filtered_SRQ_inverted
+		);
+
+	my_DAV_debounce_filter : entity work.gpib_debounce_filter
+		generic map(
+			length => DAV_filter_length,
+			threshold => DAV_filter_threshold,
+			num_inputs => 1
+		)
+		port map(
+			reset => safe_reset,
+			clock => clock,
+			inputs(0) => gpib_DAV_inverted,
+			outputs(0) => filtered_DAV_inverted
+		);
+
+	my_DIO_debounce_filter : entity work.gpib_debounce_filter
+		generic map(
+			length => DIO_filter_length,
+			threshold => DIO_filter_threshold,
+			num_inputs => 8
+		)
+		port map(
+			reset => safe_reset,
+			clock => clock,
+			inputs => gpib_DIO_inverted,
+			outputs => filtered_DIO_inverted
 		);
 	
 	my_dma_fifos : entity work.dma_fifos
@@ -248,7 +281,7 @@ begin
 			gpib_NRFD_inverted_in => gated_NRFD_inverted,
 			gpib_REN_inverted_in => gated_REN_inverted,
 			gpib_SRQ_inverted_in => gated_SRQ_inverted,
-			gpib_DIO_inverted_in => gpib_DIO_inverted,
+			gpib_DIO_inverted_in => filtered_DIO_inverted,
 			force_lni_true => force_lni,
 			tr1 => ungated_talk_enable,
 			not_controller_in_charge => ungated_not_controller_in_charge,
