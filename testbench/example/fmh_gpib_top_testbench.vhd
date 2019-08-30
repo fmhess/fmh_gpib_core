@@ -645,15 +645,14 @@ architecture behav of fmh_gpib_top_testbench is
 		if to_X01(dma_single) /= '1' then
 			wait until to_X01(dma_single) = '1';
 		end if;
-		
-		assert to_X01(bus_NRFD_inverted) = '0';
+		-- NRFD should clear since the dma fifos will automatically
+		-- read the data byte out of the gpib chip and we are in normal
+		-- handshake mode
+		assert to_X01(bus_NRFD_inverted) = '1';
 		
 		dma_read("00", host_read_result_16);
 		assert host_read_result_16(7 downto 0) = X"01";
 		assert to_X01(dma_single) = '0';
-		wait_for_ticks(15);
-		assert to_X01(bus_NRFD_inverted) = '1';
-
 		
 		host_write("0000101", "10000001");  -- Aux A register, holdoff on all
 		
@@ -662,8 +661,6 @@ architecture behav of fmh_gpib_top_testbench is
 		if to_X01(dma_single) /= '1' then
 			wait until to_X01(dma_single) = '1';
 		end if;
-		
-		assert to_X01(bus_NRFD_inverted) = '0';
 		
 		dma_read("00", host_read_result_16);
 		assert host_read_result_16(7 downto 0) = X"02";
@@ -682,21 +679,16 @@ architecture behav of fmh_gpib_top_testbench is
 		if to_X01(dma_single) /= '1' then
 			wait until to_X01(dma_single) = '1';
 		end if;
-		
-		assert to_X01(bus_NRFD_inverted) = '0';
+		assert to_X01(bus_NRFD_inverted) = '1';
 		
 		dma_read("00", host_read_result_16);
 		assert host_read_result_16(7 downto 0) = X"03";
-		wait_for_ticks(15);
-		assert to_X01(bus_NRFD_inverted) = '1';
 	
 		gpib_write(X"04", true);  -- byte with EOI asserted should trigger holdoff
 		
 		if to_X01(dma_single) /= '1' then
 			wait until to_X01(dma_single) = '1';
 		end if;
-		
-		assert to_X01(bus_NRFD_inverted) = '0';
 		
 		dma_read("00", host_read_result_16);
 		assert host_read_result_16(7 downto 0) = X"04";
