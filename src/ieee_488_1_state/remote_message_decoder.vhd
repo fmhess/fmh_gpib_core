@@ -179,7 +179,8 @@ begin
 	CFE <= '1' when UCG_buffer = '1' and not bus_DIO_inverted(3 downto 0) = "1111" and not bus_ATN_inverted = '1' else
 		'0';
 
-	CFGn_buffer <= '1' when SCG_buffer = '1' and not bus_DIO_inverted(4) = '0' and not bus_ATN_inverted = '1' else
+	CFGn_buffer <= '1' when SCG_buffer = '1' and not bus_DIO_inverted(4) = '0' 
+		and not bus_ATN_inverted = '1' and not bus_DIO_inverted(3 downto 0) /= X"0" else
 		'0';
 	CFGn <= CFGn_buffer;
 	CFGn_meters <= unsigned(not bus_DIO_inverted(3 downto 0)) when CFGn_buffer = '1' else
