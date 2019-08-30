@@ -13,7 +13,7 @@
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
-use work.gpib_control_debounce_filter;
+use work.gpib_debounce_filter;
 use work.frontend_cb7210p2;
 use work.dma_fifos;
 
@@ -169,15 +169,15 @@ architecture structural of fmh_gpib_top is
 	signal force_lni : std_logic;
 	
 begin
-	my_debounce_filter : entity work.gpib_control_debounce_filter
+	my_debounce_filter : entity work.gpib_debounce_filter
 		generic map(
 			length => control_filter_length,
-			threshold => control_filter_threshold
+			threshold => control_filter_threshold,
+			num_inputs => 8
 		)
 		port map(
 			reset => safe_reset,
-			input_clock => clock,
-			output_clock => clock,
+			clock => clock,
 			inputs(0) => gpib_ATN_inverted,
 			inputs(1) => gpib_DAV_inverted,
 			inputs(2) => gpib_EOI_inverted,
