@@ -1,5 +1,6 @@
 .PHONY: all
 all: gpib_transceiver_testbench.fst \
+	gpib_debounce_filter_testbench.fst \
 	std_fifo_testbench.fst \
 	dma_fifos_testbench.fst
 
@@ -28,6 +29,14 @@ dma_fifos_testbench.fst: $(DMA_FIFOS_TEST_SRC)
 	nvc -e dma_fifos_testbench
 	nvc -r dma_fifos_testbench --wave
 
+GPIB_DEBOUNCE_FILTER_TEST_SRC = \
+	../test_common.vhd \
+	../../src/util/gpib_control_debounce_filter.vhd \
+	gpib_debounce_filter_testbench.vhd
+gpib_debounce_filter_testbench.fst: $(GPIB_DEBOUNCE_FILTER_TEST_SRC)
+	nvc -a $(GPIB_DEBOUNCE_FILTER_TEST_SRC)
+	nvc -e gpib_debounce_filter_testbench
+	nvc -r gpib_debounce_filter_testbench --wave
 .PHONY: clean
 clean:
 	rm -f work/*

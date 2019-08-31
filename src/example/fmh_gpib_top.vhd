@@ -180,13 +180,13 @@ architecture structural of fmh_gpib_top is
 begin
 	my_control_debounce_filter : entity work.gpib_debounce_filter
 		generic map(
-			length => control_filter_length,
-			threshold => control_filter_threshold,
+			max_length => control_filter_length,
 			num_inputs => 7
 		)
 		port map(
 			reset => safe_reset,
 			clock => clock,
+			threshold => control_filter_threshold,
 			inputs(0) => gpib_ATN_inverted,
 			inputs(1) => gpib_EOI_inverted,
 			inputs(2) => gpib_IFC_inverted,
@@ -205,26 +205,26 @@ begin
 
 	my_DAV_debounce_filter : entity work.gpib_debounce_filter
 		generic map(
-			length => DAV_filter_length,
-			threshold => DAV_filter_threshold,
+			max_length => DAV_filter_length,
 			num_inputs => 1
 		)
 		port map(
 			reset => safe_reset,
 			clock => clock,
+			threshold => DAV_filter_threshold,
 			inputs(0) => gpib_DAV_inverted,
 			outputs(0) => filtered_DAV_inverted
 		);
 
 	my_DIO_debounce_filter : entity work.gpib_debounce_filter
 		generic map(
-			length => DIO_filter_length,
-			threshold => DIO_filter_threshold,
+			max_length => DIO_filter_length,
 			num_inputs => 8
 		)
 		port map(
 			reset => safe_reset,
 			clock => clock,
+			threshold => DIO_filter_threshold,
 			inputs => gpib_DIO_inverted,
 			outputs => filtered_DIO_inverted
 		);
