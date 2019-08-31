@@ -45,10 +45,11 @@ begin
 			if (acceptor_handshake_state = ACDS and to_X01(CFE) = '1') then
 				configuration_state <= CNCS;
 				num_meters <= to_unsigned(0, num_meters'LENGTH);
-			elsif noninterlocked_configuration_state_buffer = NCAS and acceptor_handshake_state = ACDS then
+			elsif noninterlocked_configuration_state_buffer = NCAS and 
+				acceptor_handshake_state = ACDS and 
+				to_X01(CFGn) = '1' and CFGn_meters /= X"0" then
 				configuration_state <= CnnS;
 				num_meters <= CFGn_meters;
-				assert CFGn_meters /= to_unsigned(0, num_meters'LENGTH); 
 			end if;
 
 			case noninterlocked_configuration_state_buffer is
