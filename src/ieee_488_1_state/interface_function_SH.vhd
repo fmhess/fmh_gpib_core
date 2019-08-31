@@ -38,7 +38,7 @@ entity interface_function_SHE is
 		check_for_listeners : in std_logic; -- do optional check in SDYS for listeners
 
 		source_handshake_state : out SH_state;
-		noninterlocked_enable_state : out SH_noninterlocked_state;
+		source_noninterlocked_state : out SH_noninterlocked_state;
 		DAV : out std_logic;
 		NIC : out std_logic;
 		no_listeners : out std_logic -- pulses true during SDYS if no listeners are detected at end of T1 delay
@@ -64,7 +64,7 @@ begin
 		 (to_bit(ATN) = '0' and talker_state_p1 /= TACS and talker_state_p1 /= SPAS);
 	active <= talker_state_p1 = TACS or talker_state_p1 = SPAS or controller_state_p1 = CACS;	
 	source_handshake_state <= source_handshake_state_buffer;
-	noninterlocked_enable_state <= noninterlocked_enable_state_buffer;
+	source_noninterlocked_state <= noninterlocked_enable_state_buffer;
 	ready_for_noninterlocked <= to_X01(nie) = '1' and configuration_state_p1 /= CNCS;
 	
 	process(pon, clock) 

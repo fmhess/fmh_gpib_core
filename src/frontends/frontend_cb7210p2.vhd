@@ -15,8 +15,8 @@
 -- * a "RFD holdoff ASAP" auxilliary command, which causes an RFD holdoff to take effect
 --   as soon as possible (IEEE 488.1 forbids rdy from becoming false while in ACRS).
 -- * reqt/reqf setting similar to NI tnt4882 serial poll mode SP1
--- * a "state 5" register to allow the current SHE IEEE 488.1 interface
---   states to be read
+-- * a "state 5" and a "state 6" register to allow the full AHE/CF/SHE IEEE 488.1 interface
+--   states to be read.
 -- * support for AHE/SHE noninterlocked handshaking, a.k.a. HS488.
 -- * the addition or a misc register at page 2, offset 5 (unpaged offset 0x15) with
 --   a hs488_enable bit 4, which enables noninterlocked source and acceptor handshaking.
@@ -155,6 +155,10 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal host_to_gpib_command_byte_write : std_logic;
 	signal host_to_gpib_command_byte_latched : std_logic;
 	signal acceptor_handshake_state : AH_state;
+	signal acceptor_noninterlocked_state : AH_noninterlocked_state;
+	signal configuration_state_p1 : CF_state_p1;
+	signal configuration_state_p1_num_meters : unsigned(3 downto 0);
+	signal configuration_state_p2 : CF_state_p2;
 	signal controller_state_p1 : C_state_p1;
 	signal controller_state_p2 : C_state_p2;
 	signal controller_state_p3 : C_state_p3;
@@ -169,6 +173,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal remote_local_state : RL_state;
 	signal service_request_state : SR_state;
 	signal source_handshake_state : SH_state;
+	signal source_noninterlocked_state : SH_noninterlocked_state;
 	signal talker_state_p1 : TE_state_p1;
 	signal talker_state_p2 : TE_state_p2;
 	signal talker_state_p3 : TE_state_p3;
@@ -396,6 +401,10 @@ begin
 			host_to_gpib_command_byte_write => host_to_gpib_command_byte_write,
 			host_to_gpib_command_byte_latched => host_to_gpib_command_byte_latched,
 			acceptor_handshake_state => acceptor_handshake_state,
+			acceptor_noninterlocked_state => acceptor_noninterlocked_state,
+			configuration_state_p1 => configuration_state_p1,
+			configuration_state_p1_num_meters => configuration_state_p1_num_meters,
+			configuration_state_p2 => configuration_state_p2,
 			controller_state_p1 => controller_state_p1,
 			controller_state_p2 => controller_state_p2,
 			controller_state_p3 => controller_state_p3,
@@ -410,6 +419,7 @@ begin
 			remote_local_state => remote_local_state,
 			service_request_state => service_request_state,
 			source_handshake_state => source_handshake_state,
+			source_noninterlocked_state => source_noninterlocked_state,
 			talker_state_p1 => talker_state_p1,
 			talker_state_p2 => talker_state_p2,
 			talker_state_p3 => talker_state_p3,
@@ -820,6 +830,37 @@ begin
 							host_data_bus_out_buffer(3 downto 0) <= "0111";
 						when SNGS =>
 							host_data_bus_out_buffer(3 downto 0) <= "1000";
+					end case;
+					case source_noninterlocked_state is
+						when SNDS => host_data_bus_out_buffer(4) <= '0';
+						when SNES => host_data_bus_out_buffer(4) <= '1';
+					end case;
+					case acceptor_noninterlocked_state is
+						when ANIS =>
+							host_data_bus_out_buffer(7 downto 5) <= "000";
+						when ANYS =>
+							host_data_bus_out_buffer(7 downto 5) <= "001";
+						when AWAS =>
+							host_data_bus_out_buffer(7 downto 5) <= "010";
+						when AIAS =>
+							host_data_bus_out_buffer(7 downto 5) <= "011";
+						when ANCS =>
+							host_data_bus_out_buffer(7 downto 5) <= "100";
+						when ANAS =>
+							host_data_bus_out_buffer(7 downto 5) <= "101";
+						when ALNS =>
+							host_data_bus_out_buffer(7 downto 5) <= "110";
+					end case;
+				when 16#34# => -- state 6 register
+					case configuration_state_p1 is
+						when CNCS =>
+							host_data_bus_out_buffer(3 downto 0) <= "0000";
+						when CnnS =>
+							host_data_bus_out_buffer(3 downto 0) <= std_logic_vector(configuration_state_p1_num_meters);
+					end case;
+					case configuration_state_p2 is
+						when NCIS => host_data_bus_out_buffer(4) <= '0';
+						when NCAS => host_data_bus_out_buffer(4) <= '1';
 					end case;
 				when others =>
 			end case;

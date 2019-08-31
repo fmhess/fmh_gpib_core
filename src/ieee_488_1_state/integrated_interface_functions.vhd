@@ -102,6 +102,10 @@ entity integrated_interface_functions is
 		bus_NRFD_inverted_out : out std_logic;
 		bus_DAV_inverted_out : out std_logic;
 		acceptor_handshake_state : out AH_state;
+		acceptor_noninterlocked_state : out AH_noninterlocked_state;
+		configuration_state_p1 : out CF_state_p1;
+		configuration_state_p1_num_meters : out unsigned(3 downto 0);
+		configuration_state_p2 : out CF_state_p2;
 		controller_state_p1 : out C_state_p1;
 		controller_state_p2 : out C_state_p2;
 		controller_state_p3 : out C_state_p3;
@@ -116,12 +120,10 @@ entity integrated_interface_functions is
 		remote_local_state : out RL_state;
 		service_request_state : out SR_state;
 		source_handshake_state : out SH_state;
+		source_noninterlocked_state : out SH_noninterlocked_state;
 		talker_state_p1 : out TE_state_p1;
 		talker_state_p2 : out TE_state_p2;
 		talker_state_p3 : out TE_state_p3;
-		configuration_state_p1 : out CF_state_p1;
-		configuration_state_p1_num_meters : out unsigned(3 downto 0);
-		configuration_state_p2 : out CF_state_p2;
 		no_listeners : out std_logic;
 		gpib_to_host_byte : out std_logic_vector(7 downto 0);
 		gpib_to_host_byte_eos : out std_logic;
@@ -452,6 +454,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			T17_terminal_count => timer_clock_ticks_750ns,
 			T18_terminal_count => T18_terminal_count,
 			acceptor_handshake_state => acceptor_handshake_state_buffer,
+			acceptor_noninterlocked_state => acceptor_noninterlocked_state,
 			RFD => local_RFD,
 			DAC => local_DAC
 		);
@@ -560,6 +563,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			check_for_listeners => check_for_listeners,
 			
 			source_handshake_state => source_handshake_state_buffer,
+			source_noninterlocked_state => source_noninterlocked_state,
 			DAV => local_DAV,
 			NIC => local_NIC,
 			no_listeners => no_listeners
