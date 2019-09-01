@@ -22,6 +22,7 @@ FMH_GPIB_TOP_TEST_SRC = \
 	../../src/util/gpib_control_debounce_filter.vhd \
 	../../src/util/dma_fifos.vhd \
 	../../src/frontends/frontend_cb7210p2.vhd \
+	../../src/frontends/integrated_cb7210p2.vhd \
 	../../src/example/fmh_gpib_top.vhd \
 	../test_common.vhd \
 	fmh_gpib_top_testbench.vhd
