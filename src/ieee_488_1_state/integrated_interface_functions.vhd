@@ -224,6 +224,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	signal local_SRQ : std_logic;
 	signal local_IDY : std_logic;
 	signal local_TCT : std_logic;
+	signal remote_ATN : std_logic;
 	
 	signal acceptor_handshake_state_buffer : AH_state;
 	signal controller_state_p1_buffer : C_state_p1;
@@ -394,7 +395,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			command_valid => command_valid,
 			command_invalid => command_invalid,
 			enable_EOS_detection => enable_gpib_to_host_EOS,
-			ATN => ATN,
+			ATN => remote_ATN,
 			CFE => CFE,
 			CFGn => CFGn,
 			CFGn_meters => CFGn_meters,
@@ -689,6 +690,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			empty => acceptor_fifo_empty
 		);
  
+	ATN <= local_ATN or remote_ATN;
 	acceptor_handshake_state <= acceptor_handshake_state_buffer;
 	controller_state_p1 <= controller_state_p1_buffer;
 	controller_state_p2 <= controller_state_p2_buffer;
