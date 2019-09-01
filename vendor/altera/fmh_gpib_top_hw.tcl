@@ -43,8 +43,10 @@ set_fileset_property quartus_synth ENABLE_FILE_OVERWRITE_MODE false
 add_fileset_file fmh_gpib_top.vhd VHDL PATH ../../src/example/fmh_gpib_top.vhd TOP_LEVEL_FILE
 add_fileset_file frontend_cb7210p2.vhd VHDL PATH ../../src/frontends/frontend_cb7210p2.vhd
 add_fileset_file integrated_interface_functions.vhd VHDL PATH ../../src/ieee_488_1_state/integrated_interface_functions.vhd
+add_fileset_file interface_function_acceptor_fifo.vhd VHDL PATH ../../src/ieee_488_1_state/acceptor_fifo.vhd
 add_fileset_file interface_function_AH.vhd VHDL PATH ../../src/ieee_488_1_state/interface_function_AH.vhd
 add_fileset_file interface_function_C.vhd VHDL PATH ../../src/ieee_488_1_state/interface_function_C.vhd
+add_fileset_file interface_function_CF.vhd VHDL PATH ../../src/ieee_488_1_state/interface_function_CF.vhd
 add_fileset_file interface_function_DC.vhd VHDL PATH ../../src/ieee_488_1_state/interface_function_DC.vhd
 add_fileset_file interface_function_DT.vhd VHDL PATH ../../src/ieee_488_1_state/interface_function_DT.vhd
 add_fileset_file interface_function_LE.vhd VHDL PATH ../../src/ieee_488_1_state/interface_function_LE.vhd
@@ -67,7 +69,7 @@ add_fileset_file std_fifo.vhd VHDL PATH ../../src/util/std_fifo.vhd
 # 
 add_parameter clock_frequency_KHz NATURAL 0
 set_parameter_property clock_frequency_KHz DISPLAY_NAME clock_frequency_KHz
-set_parameter_property clock_frequency_KHz TYPE POSITIVE
+set_parameter_property clock_frequency_KHz TYPE NATURAL
 set_parameter_property clock_frequency_KHz UNITS None
 set_parameter_property clock_frequency_KHz HDL_PARAMETER true
 add_parameter fifo_depth POSITIVE 32
@@ -76,6 +78,12 @@ set_parameter_property fifo_depth DISPLAY_NAME fifo_depth
 set_parameter_property fifo_depth TYPE POSITIVE
 set_parameter_property fifo_depth UNITS None
 set_parameter_property fifo_depth HDL_PARAMETER true
+add_parameter max_filter_length POSITIVE 32
+set_parameter_property max_filter_length DEFAULT_VALUE 63
+set_parameter_property max_filter_length DISPLAY_NAME max_filter_length
+set_parameter_property max_filter_length TYPE POSITIVE
+set_parameter_property max_filter_length UNITS None
+set_parameter_property max_filter_length HDL_PARAMETER true
 
 
 # 

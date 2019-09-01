@@ -23,7 +23,8 @@ entity fmh_gpib_top is
 		-- default it to the invalid value of zero to make the Quartus Component Editor
 		-- able to "Analyze Synthesis files".
 		clock_frequency_KHz : natural := 0; 
-		fifo_depth : positive := 32 -- must be at least 2, the maximum dma burst length is half the fifo depth
+		fifo_depth : positive := 32; -- must be at least 2, the maximum dma burst length is half the fifo depth
+		max_filter_length : positive := 63
 	);
 	port (
 		clock : in std_logic;
@@ -103,8 +104,6 @@ architecture structural of fmh_gpib_top is
 		return threshold;
 	end suggest_filter_threshold;
 	
-
-	constant max_filter_length : positive := 63;
 	-- IEEE 488.1 has a couple 200ns response time requirements for control lines, so that should be taken into account when
 	-- setting the filter length/threshold given your clock frequency.
 	constant filter_length_25ns : positive := suggest_filter_length (clock_frequency_KHz * 2, 25, 2, max_filter_length); 
