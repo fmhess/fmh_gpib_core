@@ -54,7 +54,8 @@ architecture arch of gpib_debounce_filter is
 	signal falling_count : falling_count_type;
 
 	-- Inputs may be changing asynchronously so we latch them on both rising and
-	-- falling edges, using the most recent one (rising latch during falling clock edge, etc).
+	-- falling edges.  We actually latch rising_inputs_latch on falling clock edges
+	-- and vice-versa, in order to reduce latency by a half clock cycle.
 	signal rising_inputs_latch : std_logic_vector(num_inputs - 1 downto 0);
 	signal falling_inputs_latch : std_logic_vector(num_inputs - 1 downto 0);
 	
@@ -100,32 +101,19 @@ begin
 			length_latch <= max_length;
 			threshold_latch <= max_length;
 		elsif rising_edge(clock) then
--- 			assert false report "length " & integer'image(length_latch) & " -> " & integer'image(length) severity note;
--- 			assert false report "threshold " & integer'image(threshold_latch) & " -> " & integer'image(threshold) severity note;
--- 			assert false report "rising length " & integer'image(rising_length) & "/" & integer'image(max_rising_length) severity note;
--- 			assert false report "falling length " & integer'image(falling_length) & "/" & integer'image(max_falling_length) severity note;
-			rising_inputs_latch <= to_X01(inputs);
-			
-			for i in max_rising_length - 1 downto 1 loop
-				rising_inputs_history(i) <= rising_inputs_history(i - 1);
-			end loop;
-			rising_inputs_history(0) <= falling_inputs_latch;
-			
-			-- update count due to new bit coming in and old bit going out
-			for j in 0 to num_inputs - 1 loop
-				if falling_inputs_latch(j) = '1' and
-					rising_inputs_history(rising_length - 1)(j) = '0'then
-					rising_count(j) <= rising_count(j) + 1;
-				elsif falling_inputs_latch(j) = '0' and
-					rising_inputs_history(rising_length - 1)(j) = '1' then
-					rising_count(j) <= rising_count(j) - 1;
-				end if;
-			end loop;
+			-- Cycle through bitvector to make sure everything is a solid '0' or '1'
+			-- The alternative to_01 is less than ideal since it sets everything
+			-- to '0' if any element is invalid.
+			rising_inputs_latch <= to_stdlogicvector(to_bitvector(inputs));
 			
 			-- handle dynamic changes to filter length and threshold
 			assert threshold <= length report "the threshold may not be greater than the length";
 			assert (threshold * 2) > length report "the threshold must be greater than half the length";
 			if length /= length_latch or threshold /= threshold_latch then
+-- 				assert false report "length " & integer'image(length_latch) & " -> " & integer'image(length) severity note;
+-- 				assert false report "threshold " & integer'image(threshold_latch) & " -> " & integer'image(threshold) severity note;
+-- 				assert false report "rising length " & integer'image(rising_length) & "/" & integer'image(max_rising_length) severity note;
+-- 				assert false report "falling length " & integer'image(falling_length) & "/" & integer'image(max_falling_length) severity note;
 				configuration_change <= '1';
 				length_latch <= length;
 				threshold_latch <= threshold;
@@ -134,6 +122,7 @@ begin
 			else
 				configuration_change <= '0';
 			end if;
+			
 			if configuration_change = '1' then
 				-- reinitialize channel histories to whatever their current output is, to suppress
 				-- spurious transitions when the length/threshold is changed
@@ -143,6 +132,22 @@ begin
 						rising_count(channel) <= rising_length;
 					else
 						rising_count(channel) <= 0;
+					end if;
+				end loop;
+			else -- normal update
+				for i in max_rising_length - 1 downto 1 loop
+					rising_inputs_history(i) <= rising_inputs_history(i - 1);
+				end loop;
+				rising_inputs_history(0) <= falling_inputs_latch;
+				
+				-- update count due to new bit coming in and old bit going out
+				for j in 0 to num_inputs - 1 loop
+					if falling_inputs_latch(j) = '1' and
+						rising_inputs_history(rising_length - 1)(j) = '0'then
+						rising_count(j) <= rising_count(j) + 1;
+					elsif falling_inputs_latch(j) = '0' and
+						rising_inputs_history(rising_length - 1)(j) = '1' then
+						rising_count(j) <= rising_count(j) - 1;
 					end if;
 				end loop;
 			end if;
@@ -158,24 +163,11 @@ begin
 			falling_count <= (others => max_falling_length);
 		elsif rising_edge(clock) then
 		elsif falling_edge(clock) then
-			falling_inputs_latch <= to_X01(inputs);
+			-- Cycle through bitvector to make sure everything is a solid '0' or '1'
+			-- The alternative to_01 is less than ideal since it sets everything
+			-- to '0' if any element is invalid.
+			falling_inputs_latch <= to_stdlogicvector(to_bitvector(inputs));
 
-			for i in max_falling_length - 1 downto 1 loop
-				falling_inputs_history(i) <= falling_inputs_history(i - 1);
-			end loop;
-			falling_inputs_history(0) <= rising_inputs_latch;
-
-			-- update count due to new bit coming in and old bit going out
-			for j in 0 to num_inputs - 1 loop
-				if rising_inputs_latch(j) = '1' and
-					falling_inputs_history(falling_length - 1)(j) = '0'then
-					falling_count(j) <= falling_count(j) + 1;
-				elsif rising_inputs_latch(j) = '0' and
-					falling_inputs_history(falling_length - 1)(j) = '1' then
-					falling_count(j) <= falling_count(j) - 1;
-				end if;
-			end loop;
-			
 			-- handle dynamic changes to filter length and threshold
 			if configuration_change = '1' then
 				-- reinitialize channel histories to whatever their current output is, to suppress
@@ -186,6 +178,22 @@ begin
 						falling_count(channel) <= falling_length;
 					else
 						falling_count(channel) <= 0;
+					end if;
+				end loop;
+			else -- normal update
+				for i in max_falling_length - 1 downto 1 loop
+					falling_inputs_history(i) <= falling_inputs_history(i - 1);
+				end loop;
+				falling_inputs_history(0) <= rising_inputs_latch;
+
+				-- update count due to new bit coming in and old bit going out
+				for j in 0 to num_inputs - 1 loop
+					if rising_inputs_latch(j) = '1' and
+						falling_inputs_history(falling_length - 1)(j) = '0'then
+						falling_count(j) <= falling_count(j) + 1;
+					elsif rising_inputs_latch(j) = '0' and
+						falling_inputs_history(falling_length - 1)(j) = '1' then
+						falling_count(j) <= falling_count(j) - 1;
 					end if;
 				end loop;
 			end if;
