@@ -39,8 +39,8 @@ architecture arch of gpib_debounce_filter is
 	
 	signal rising_length : integer range 0 to max_rising_length;
 	signal falling_length : integer range 0 to max_falling_length;
-	signal prev_length : positive range 1 to max_length;
-	signal prev_threshold : positive range 1 to max_length;
+	signal length_latch : positive range 1 to max_length;
+	signal threshold_latch : positive range 1 to max_length;
 	signal configuration_change : std_logic;
 	
 	type history_type is array (natural range <>) of std_logic_vector(num_inputs - 1 downto 0);
@@ -97,15 +97,16 @@ begin
 
 			falling_length <= max_falling_length;
 			configuration_change <= '0';
-			prev_length <= length;
-			prev_threshold <= threshold;
+			length_latch <= max_length;
+			threshold_latch <= max_length;
 		elsif rising_edge(clock) then
-			--assert false report "length " & integer'image(prev_length) & " -> " & integer'image(length) severity note;
-			--assert false report "rising length " & integer'image(rising_length) & "/" & integer'image(max_rising_length) severity note;
-			--assert false report "falling length " & integer'image(falling_length) & "/" & integer'image(max_falling_length) severity note;
+-- 			assert false report "length " & integer'image(length_latch) & " -> " & integer'image(length) severity note;
+-- 			assert false report "threshold " & integer'image(threshold_latch) & " -> " & integer'image(threshold) severity note;
+-- 			assert false report "rising length " & integer'image(rising_length) & "/" & integer'image(max_rising_length) severity note;
+-- 			assert false report "falling length " & integer'image(falling_length) & "/" & integer'image(max_falling_length) severity note;
 			rising_inputs_latch <= to_X01(inputs);
 			
-			for i in rising_length - 1 downto 1 loop
+			for i in max_rising_length - 1 downto 1 loop
 				rising_inputs_history(i) <= rising_inputs_history(i - 1);
 			end loop;
 			rising_inputs_history(0) <= falling_inputs_latch;
@@ -124,10 +125,12 @@ begin
 			-- handle dynamic changes to filter length and threshold
 			assert threshold <= length report "the threshold may not be greater than the length";
 			assert (threshold * 2) > length report "the threshold must be greater than half the length";
-			if length /= prev_length or threshold /= prev_threshold then
+			if length /= length_latch or threshold /= threshold_latch then
 				configuration_change <= '1';
-				rising_length <= to_integer(shift_right(to_unsigned(length, max_rising_length), 1));
-				falling_length <= to_integer(shift_right(to_unsigned(length + 1, max_falling_length), 1));
+				length_latch <= length;
+				threshold_latch <= threshold;
+				rising_length <= length / 2;
+				falling_length <= (length + 1) / 2;
 			else
 				configuration_change <= '0';
 			end if;
@@ -143,8 +146,6 @@ begin
 					end if;
 				end loop;
 			end if;
-			prev_length <= length;
-			prev_threshold <= threshold;
 		end if;
 	end process;
 
@@ -159,7 +160,7 @@ begin
 		elsif falling_edge(clock) then
 			falling_inputs_latch <= to_X01(inputs);
 
-			for i in falling_length - 1 downto 1 loop
+			for i in max_falling_length - 1 downto 1 loop
 				falling_inputs_history(i) <= falling_inputs_history(i - 1);
 			end loop;
 			falling_inputs_history(0) <= rising_inputs_latch;
@@ -193,20 +194,23 @@ begin
 
 	-- combine rising and falling counts and update outputs
 	process (safe_reset, clock)
-		variable total_count : integer range 0 to length;
+		variable total_count : integer range 0 to max_length;
 	begin
 		if to_X01(safe_reset) = '1' then
 			outputs_buffer <= (others => '1');
 			total_count := 0;
 		elsif rising_edge(clock) then
-			for j in 0 to num_inputs - 1 loop
-				total_count := rising_count(j) + falling_count(j);
-				if total_count >= threshold then
-					outputs_buffer(j) <= '1';
-				elsif total_count <= length - threshold then
-					outputs_buffer(j) <= '0';
-				end if;
-			end loop;
+			-- suppress updating the outputs while we are changing length/threshold to avoid glitches
+			if configuration_change = '0' then 
+				for j in 0 to num_inputs - 1 loop
+					total_count := rising_count(j) + falling_count(j);
+					if total_count >= threshold_latch then
+						outputs_buffer(j) <= '1';
+					elsif total_count <= length_latch - threshold_latch then
+						outputs_buffer(j) <= '0';
+					end if;
+				end loop;
+			end if;
 		end if;
 	end process;
 
