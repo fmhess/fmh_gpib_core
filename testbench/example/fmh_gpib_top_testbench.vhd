@@ -648,6 +648,7 @@ architecture behav of fmh_gpib_top_testbench is
 		-- NRFD should clear since the dma fifos will automatically
 		-- read the data byte out of the gpib chip and we are in normal
 		-- handshake mode
+		wait for 200ns;
 		assert to_X01(bus_NRFD_inverted) = '1';
 		
 		dma_read("00", host_read_result_16);
@@ -679,6 +680,7 @@ architecture behav of fmh_gpib_top_testbench is
 		if to_X01(dma_single) /= '1' then
 			wait until to_X01(dma_single) = '1';
 		end if;
+		wait for 200ns;
 		assert to_X01(bus_NRFD_inverted) = '1';
 		
 		dma_read("00", host_read_result_16);
