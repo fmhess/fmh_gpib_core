@@ -102,19 +102,70 @@ architecture structural of fmh_gpib_top is
 		end if;
 		return threshold;
 	end suggest_filter_threshold;
+	
 
+	constant max_filter_length : positive := 63;
 	-- IEEE 488.1 has a couple 200ns response time requirements for control lines, so that should be taken into account when
 	-- setting the filter length/threshold given your clock frequency.
-	constant control_filter_length : positive := suggest_filter_length (clock_frequency_KHz * 2, 150, 2, 100); 
-	constant control_filter_threshold : positive := suggest_filter_threshold (control_filter_length);
-	-- in the tightest noninterlocked case, DAV needs to have a response time of 33ns for noninterlocked source handshake
-	-- with a cable <= 1 meter.  In theory we could dynamically adjust the filter when the
-	-- cable length is changed with CFGn commands (but we don't).
-	constant DAV_filter_length : positive := suggest_filter_length (clock_frequency_KHz * 2, 33, 2, 100); 
-	constant DAV_filter_threshold : positive := suggest_filter_threshold (DAV_filter_length);
-	-- in the tightest noninterlocked case, DIO will settle for 80ns before DAV is asserted
-	constant DIO_filter_length : positive := suggest_filter_length (clock_frequency_KHz * 2, 80, 2, 100); 
-	constant DIO_filter_threshold : positive := suggest_filter_threshold (DIO_filter_length);
+	constant filter_length_25ns : positive := suggest_filter_length (clock_frequency_KHz * 2, 25, 2, max_filter_length); 
+	constant filter_threshold_25ns : positive := suggest_filter_threshold (filter_length_25ns);
+	constant filter_length_40ns : positive := suggest_filter_length (clock_frequency_KHz * 2, 40, 2, max_filter_length); 
+	constant filter_threshold_40ns : positive := suggest_filter_threshold (filter_length_40ns);
+	constant filter_length_75ns : positive := suggest_filter_length (clock_frequency_KHz * 2, 75, 2, max_filter_length); 
+	constant filter_threshold_75ns : positive := suggest_filter_threshold (filter_length_75ns);
+	constant filter_length_80ns : positive := suggest_filter_length (clock_frequency_KHz * 2, 80, 2, max_filter_length); 
+	constant filter_threshold_80ns : positive := suggest_filter_threshold (filter_length_80ns);
+	constant filter_length_120ns : positive := suggest_filter_length (clock_frequency_KHz * 2, 120, 2, max_filter_length); 
+	constant filter_threshold_120ns : positive := suggest_filter_threshold (filter_length_120ns);
+	constant filter_length_151ns : positive := suggest_filter_length (clock_frequency_KHz * 2, 151, 2, max_filter_length); 
+	constant filter_threshold_151ns : positive := suggest_filter_threshold (filter_length_151ns);
+	constant filter_length_200ns : positive := suggest_filter_length (clock_frequency_KHz * 2, 200, 2, max_filter_length); 
+	constant filter_threshold_200ns : positive := suggest_filter_threshold (filter_length_200ns);
+
+	procedure set_DAV_filter_parameters (num_meters : in unsigned; 
+		signal length : out positive;
+		signal threshold : out positive) is
+	begin
+		-- filters based on T19 response requirements, or
+		-- T2 of 200ns when interlocked 
+		if num_meters = 0 then
+			length <= filter_length_200ns;
+			threshold <= filter_threshold_200ns;
+		elsif num_meters <= 3 then
+			length <= filter_length_25ns;
+			threshold <= filter_threshold_25ns;
+		elsif num_meters <= 7 then
+			length <= filter_length_40ns;
+			threshold <= filter_threshold_40ns;
+		else
+			length <= filter_length_75ns;
+			threshold <= filter_threshold_75ns;
+		end if;
+	end set_DAV_filter_parameters;
+	
+	procedure set_DIO_filter_parameters (num_meters : unsigned;
+		signal length : out positive;
+		signal threshold : out positive) is
+	begin
+		-- filters based on T18 settle times, until we cap at 200ns 
+		-- due to T2 response requirement of IEEE 488.1
+		if num_meters = 0 then
+			length <= filter_length_200ns;
+			threshold <= filter_threshold_200ns;
+		elsif num_meters <= 1 then
+			length <= filter_length_80ns;
+			threshold <= filter_threshold_80ns;
+		elsif num_meters <= 2 then
+			length <= filter_length_120ns;
+			threshold <= filter_threshold_120ns;
+		elsif num_meters <= 3 then
+			length <= filter_length_151ns;
+			threshold <= filter_threshold_151ns;
+		else 
+			length <= filter_length_200ns;
+			threshold <= filter_threshold_200ns;
+		end if;
+	end set_DIO_filter_parameters;
 
 	signal safe_reset : std_logic;
 	
@@ -176,17 +227,22 @@ architecture structural of fmh_gpib_top is
 	
 	signal xfer_countdown : unsigned(11 downto 0);
 	signal force_lni : std_logic;
-	
+	signal configuration_num_meters : unsigned(3 downto 0);
+
+	signal DAV_filter_length : positive range 1 to filter_length_200ns;
+	signal DAV_filter_threshold : positive range 1 to filter_length_200ns;
+	signal DIO_filter_length : positive range 1 to filter_length_200ns;
+	signal DIO_filter_threshold : positive range 1 to filter_length_200ns;
 begin
 	my_control_debounce_filter : entity work.gpib_debounce_filter
 		generic map(
-			max_length => control_filter_length,
+			max_length => filter_length_200ns,
 			num_inputs => 7
 		)
 		port map(
 			reset => safe_reset,
 			clock => clock,
-			threshold => control_filter_threshold,
+			threshold => filter_threshold_200ns,
 			inputs(0) => gpib_ATN_inverted,
 			inputs(1) => gpib_EOI_inverted,
 			inputs(2) => gpib_IFC_inverted,
@@ -205,12 +261,13 @@ begin
 
 	my_DAV_debounce_filter : entity work.gpib_debounce_filter
 		generic map(
-			max_length => DAV_filter_length,
+			max_length => filter_length_200ns,
 			num_inputs => 1
 		)
 		port map(
 			reset => safe_reset,
 			clock => clock,
+			length => DAV_filter_length,
 			threshold => DAV_filter_threshold,
 			inputs(0) => gpib_DAV_inverted,
 			outputs(0) => filtered_DAV_inverted
@@ -218,12 +275,13 @@ begin
 
 	my_DIO_debounce_filter : entity work.gpib_debounce_filter
 		generic map(
-			max_length => DIO_filter_length,
+			max_length => filter_length_200ns,
 			num_inputs => 8
 		)
 		port map(
 			reset => safe_reset,
 			clock => clock,
+			length => DIO_filter_length,
 			threshold => DIO_filter_threshold,
 			inputs => gpib_DIO_inverted,
 			outputs => filtered_DIO_inverted
@@ -283,6 +341,7 @@ begin
 			gpib_SRQ_inverted_in => gated_SRQ_inverted,
 			gpib_DIO_inverted_in => filtered_DIO_inverted,
 			force_lni_true => force_lni,
+			configuration_num_meters => configuration_num_meters,
 			tr1 => ungated_talk_enable,
 			not_controller_in_charge => ungated_not_controller_in_charge,
 			pullup_disable => ungated_pullup_disable,
@@ -405,6 +464,19 @@ begin
 	cb7210p2_dma_write_inverted <= not cb7210p2_dma_write;
 	cb7210p2_dma_ack_inverted <= not cb7210p2_dma_ack;
 	
+	-- dynamic filter settings
+	process (safe_reset, clock)
+	begin
+		if to_X01(safe_reset) = '1' then
+			set_DAV_filter_parameters (X"0", DAV_filter_length, DAV_filter_threshold);
+			set_DIO_filter_parameters (X"0", DIO_filter_length, DIO_filter_threshold);
+		elsif rising_edge(clock) then
+			set_DAV_filter_parameters (configuration_num_meters, DAV_filter_length, DAV_filter_threshold);
+			set_DIO_filter_parameters (configuration_num_meters, DIO_filter_length, DIO_filter_threshold);
+		end if;
+	end process;
+
+	-- assert lni when we are near the end of a gpib-to-host transfer
 	process (safe_reset, clock)
 	begin
 		if to_X01(safe_reset) = '1' then

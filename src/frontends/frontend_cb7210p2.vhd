@@ -80,6 +80,9 @@ entity frontend_cb7210p2 is
 		-- to completely disable noninterlocked functionality, hard-wire force_nie_false
 		-- and force_lni_true to '1'
 		force_nie_false : in std_logic := '0';
+		-- number of meters of cable from CF function.  Useful
+		-- for adjusting filter frequencies.  Zero means CNCS
+		configuration_num_meters : out unsigned(3 downto 0);
 		
 		tr1 : out std_logic;
 		tr2 : out std_logic;
@@ -441,6 +444,7 @@ begin
 
 		any_force_lni <= to_X01(force_lni_true) or not hs488_enable;
 		nie <= hs488_enable and not force_nie_false;
+		configuration_num_meters <= configuration_state_p1_num_meters;
 		
 	-- sync local copies of gpib_to_host_* signals received from my_integrated_interface_functions
 	process (reset, clock)
