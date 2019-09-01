@@ -110,7 +110,7 @@ entity frontend_cb7210p2 is
 		-- of the tr2 and tr3 outputs, these outputs can be used instead
 		EOI_output_enable : out std_logic;
 		not_controller_in_charge : out std_logic; -- transceiver DC
-		pullup_disable : out std_logic; -- transceiver PE
+		pullup_enable_inverted : out std_logic; -- transceiver PE
 		trigger : out std_logic;
 		system_controller : out std_logic
 	);
@@ -1672,7 +1672,7 @@ begin
 	controller_in_charge_buffer <= '0' when controller_state_p1 = CIDS or controller_state_p1 = CADS else '1';
 	not_controller_in_charge <= not controller_in_charge_buffer;
 
-	pullup_disable <= pullup_disable_buffer;
+	pullup_enable_inverted <= pullup_disable_buffer;
 	
 	EOI_output_enable <= EOI_output_enable_buffer;
 

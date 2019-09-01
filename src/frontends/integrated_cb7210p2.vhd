@@ -38,7 +38,7 @@ entity integrated_cb7210p2 is
 		avalon_data_in : in  std_logic_vector(7 downto 0);
 		avalon_data_out : out std_logic_vector(7 downto 0);
 
-		irq : out std_logic;
+		interrupt : out std_logic;
 
 		-- dma, avalon mm io port
 		dma_fifos_chip_select : in std_logic;
@@ -75,12 +75,15 @@ entity integrated_cb7210p2 is
 		gpib_REN_inverted_out : out std_logic;
 
 		-- gpib transceiver control
-		pullup_enable_inverted : out std_logic;
-		controller_in_charge : out std_logic;
-		talk_enable : out std_logic;
+		talk_enable : out std_logic; -- aka talk enable
+		EOI_output_enable : out std_logic;
+		not_controller_in_charge : out std_logic; -- transceiver DC
+		pullup_enable_inverted : out std_logic; -- transceiver PE
+		trigger : out std_logic;
+		system_controller : out std_logic;
 
 		-- gpib bus disconnect
-		gpib_disable : in std_logic
+		gpib_disable : in std_logic := '0'
 	);
 end integrated_cb7210p2;
 
@@ -234,6 +237,8 @@ architecture structural of integrated_cb7210p2 is
 	signal ungated_talk_enable : std_logic;
 	signal ungated_pullup_disable : std_logic;
 	signal ungated_not_controller_in_charge : std_logic;
+	signal ungated_system_controller : std_logic;
+	signal ungated_EOI_output_enable : std_logic;
 	
 	signal xfer_countdown : unsigned(11 downto 0);
 	signal force_lni : std_logic;
@@ -353,9 +358,11 @@ begin
 			force_lni_true => force_lni,
 			configuration_num_meters => configuration_num_meters,
 			tr1 => ungated_talk_enable,
+			EOI_output_enable => ungated_EOI_output_enable,
 			not_controller_in_charge => ungated_not_controller_in_charge,
-			pullup_disable => ungated_pullup_disable,
-			interrupt => irq,
+			pullup_enable_inverted => ungated_pullup_disable,
+			system_controller => ungated_system_controller,
+			interrupt => interrupt,
 			dma_bus_in_request => cb7210p2_dma_bus_in_request,
 			dma_bus_out_request => cb7210p2_dma_bus_out_request,
 			host_data_bus_out => avalon_data_out,
@@ -396,10 +403,23 @@ begin
 			gated_REN_inverted <= '1';
 			gated_SRQ_inverted <= '1';
 
+			--outputs
+			gpib_DIO_inverted_out <= (others => 'Z');
+			gpib_ATN_inverted_out <= 'Z';
+			gpib_DAV_inverted_out <= 'Z';
+			gpib_EOI_inverted_out <= 'Z';
+			gpib_IFC_inverted_out <= 'Z';
+			gpib_NDAC_inverted_out <= 'Z';
+			gpib_NRFD_inverted_out <= 'Z';
+			gpib_REN_inverted_out <= 'Z';
+			gpib_SRQ_inverted_out <= 'Z';
+			
 			-- transceiver control
 			talk_enable <= '0';
 			pullup_enable_inverted <= '0';
-			controller_in_charge <= '0';
+			not_controller_in_charge <= '1';
+			system_controller <= '0';
+			EOI_output_enable <= '0';
 		elsif rising_edge(clock) then
 			if to_X01(gpib_disable) = '1' then
 				-- inputs
@@ -412,10 +432,23 @@ begin
 				gated_REN_inverted <= '1';
 				gated_SRQ_inverted <= '1';
 
+				--outputs
+				gpib_DIO_inverted_out <= (others => 'Z');
+				gpib_ATN_inverted_out <= 'Z';
+				gpib_DAV_inverted_out <= 'Z';
+				gpib_EOI_inverted_out <= 'Z';
+				gpib_IFC_inverted_out <= 'Z';
+				gpib_NDAC_inverted_out <= 'Z';
+				gpib_NRFD_inverted_out <= 'Z';
+				gpib_REN_inverted_out <= 'Z';
+				gpib_SRQ_inverted_out <= 'Z';
+
 				-- transceiver control
 				talk_enable <= '0';
 				pullup_enable_inverted <= '0';
-				controller_in_charge <= '0';
+				not_controller_in_charge <= '1';
+				system_controller <= '0';
+				EOI_output_enable <= '0';
 			else
 				-- inputs
  				gated_ATN_inverted <= filtered_ATN_inverted;
@@ -427,10 +460,23 @@ begin
  				gated_REN_inverted <= filtered_REN_inverted;
  				gated_SRQ_inverted <= filtered_SRQ_inverted;
 
+ 				--outputs
+				gpib_DIO_inverted_out <=  ungated_DIO_inverted_out;
+				gpib_ATN_inverted_out <= ungated_ATN_inverted_out;
+				gpib_DAV_inverted_out <= ungated_DAV_inverted_out;
+				gpib_EOI_inverted_out <= ungated_EOI_inverted_out;
+				gpib_IFC_inverted_out <= ungated_IFC_inverted_out;
+				gpib_NDAC_inverted_out <= ungated_NDAC_inverted_out;
+				gpib_NRFD_inverted_out <= ungated_NRFD_inverted_out;
+				gpib_REN_inverted_out <= ungated_REN_inverted_out;
+				gpib_SRQ_inverted_out <= ungated_SRQ_inverted_out;
+
 				-- transceiver control
 				talk_enable <= ungated_talk_enable;
 				pullup_enable_inverted <= ungated_pullup_disable;
-				controller_in_charge <= not ungated_not_controller_in_charge;
+				not_controller_in_charge <= ungated_not_controller_in_charge;
+				EOI_output_enable <= ungated_EOI_output_enable;
+				system_controller <= ungated_system_controller;
 			end if;
 		end if;
 	end process;
@@ -459,16 +505,6 @@ begin
 			end if;
 		end if;
 	end process;
-
-	gpib_DIO_inverted_out <= (others => 'Z') when gpib_disable = '1' else ungated_DIO_inverted_out;
-	gpib_ATN_inverted_out <= 'Z' when gpib_disable = '1' else ungated_ATN_inverted_out;
-	gpib_DAV_inverted_out <= 'Z' when gpib_disable = '1' else ungated_DAV_inverted_out;
-	gpib_EOI_inverted_out <= 'Z' when gpib_disable = '1' else ungated_EOI_inverted_out;
-	gpib_IFC_inverted_out <= 'Z' when gpib_disable = '1' else ungated_IFC_inverted_out;
-	gpib_NDAC_inverted_out <= 'Z' when gpib_disable = '1' else ungated_NDAC_inverted_out;
-	gpib_NRFD_inverted_out <= 'Z' when gpib_disable = '1' else ungated_NRFD_inverted_out;
-	gpib_REN_inverted_out <= 'Z' when gpib_disable = '1' else ungated_REN_inverted_out;
-	gpib_SRQ_inverted_out <= 'Z' when gpib_disable = '1' else ungated_SRQ_inverted_out;
 	
 	cb7210p2_dma_read_inverted <= not cb7210p2_dma_read;
 	cb7210p2_dma_write_inverted <= not cb7210p2_dma_write;

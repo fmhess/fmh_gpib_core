@@ -65,7 +65,8 @@ entity fmh_gpib_top is
 end fmh_gpib_top;
 
 architecture structural of fmh_gpib_top is
-
+	signal not_controller_in_charge : std_logic;
+	
 begin
 	my_integrated_cb7210p2 : entity work.integrated_cb7210p2
 		generic map (
@@ -82,7 +83,7 @@ begin
 			avalon_address => avalon_address,
 			avalon_data_in => avalon_data_in,
 			avalon_data_out => avalon_data_out,
-			irq => irq,
+			interrupt => irq,
 			dma_fifos_chip_select => dma_fifos_chip_select,
 			dma_fifos_address => dma_fifos_address,
 			dma_fifos_read => dma_fifos_read,
@@ -111,9 +112,10 @@ begin
 			gpib_SRQ_inverted_out => gpib_SRQ_inverted,
 			gpib_REN_inverted_out => gpib_REN_inverted,
 			pullup_enable_inverted => pullup_enable_inverted,
-			controller_in_charge => controller_in_charge,
+			not_controller_in_charge => not_controller_in_charge,
 			talk_enable => talk_enable,
 			gpib_disable => gpib_disable
 		);
 
+		controller_in_charge <= not not_controller_in_charge;
 end architecture structural;

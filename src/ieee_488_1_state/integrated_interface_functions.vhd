@@ -211,13 +211,13 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	signal TAG : std_logic;
 	signal UNL : std_logic;
 	signal UNT : std_logic;
-	signal local_PPR : std_logic_vector(7 downto 0);
 	signal local_ATN : std_logic;
 	signal local_DAC : std_logic;
 	signal local_DAV : std_logic;
 	signal local_END : std_logic;
 	signal local_IFC : std_logic;
 	signal local_NIC : std_logic;
+	signal local_PPR : std_logic_vector(7 downto 0);
 	signal local_REN : std_logic;
 	signal local_RFD : std_logic;
 	signal local_RQS : std_logic;

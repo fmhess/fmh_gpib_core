@@ -1,4 +1,4 @@
--- testbench consisting of two cb7210.2 instances, one
+-- testbench consisting of two integrated_cb7210_2 instances, one
 -- controller and one device.  They talk to each other
 -- from behind transceivers, and use different clocks.
 --
@@ -12,12 +12,12 @@ use ieee.numeric_std.all;
 use work.interface_function_common.all;
 use work.gpib_transceiver.all;
 use work.test_common.all;
-use work.frontend_cb7210p2.all;
+use work.integrated_cb7210p2.all;
 
-entity dual_cb7210p2_testbench is
-end dual_cb7210p2_testbench;
+entity dual_integrated_cb7210p2_testbench is
+end dual_integrated_cb7210p2_testbench;
      
-architecture behav of dual_cb7210p2_testbench is
+architecture behav of dual_integrated_cb7210p2_testbench is
 	signal device_clock : std_logic;
 	signal controller_clock : std_logic;
 	signal device_ATN_inverted : std_logic;
@@ -49,28 +49,34 @@ architecture behav of dual_cb7210p2_testbench is
 	signal bus_DIO_inverted : std_logic_vector(7 downto 0);
 
 	signal device_chip_select_inverted : std_logic;
-	signal device_dma_bus_ack_inverted : std_logic;
-	signal device_dma_bus_in_request : std_logic;
-	signal device_dma_bus_out_request : std_logic;
-	signal device_dma_bus : std_logic_vector(7 downto 0);
-	signal device_dma_read_inverted : std_logic;
-	signal device_dma_write_inverted : std_logic;
 	signal device_read_inverted : std_logic;
 	signal device_reset : std_logic;
-	signal device_address : std_logic_vector(5 downto 0);
+	signal device_address : std_logic_vector(6 downto 0);
 	signal device_write_inverted : std_logic;
+	signal device_dma_fifos_chip_select : std_logic;
+	signal device_dma_fifos_address : std_logic_vector(1 downto 0);
+	signal device_dma_fifos_read : std_logic;
+	signal device_dma_fifos_write : std_logic;
+	signal device_dma_fifos_data_in : std_logic_vector(15 downto 0);
+	signal device_dma_fifos_data_out : std_logic_vector(15 downto 0);
+	signal device_dma_single : std_logic;
+	signal device_dma_req : std_logic;
+	signal device_dma_ack : std_logic;
 
 	signal controller_chip_select_inverted : std_logic;
-	signal controller_dma_bus_ack_inverted : std_logic;
-	signal controller_dma_bus_in_request : std_logic;
-	signal controller_dma_bus_out_request : std_logic;
-	signal controller_dma_bus : std_logic_vector(7 downto 0);
-	signal controller_dma_read_inverted : std_logic;
-	signal controller_dma_write_inverted : std_logic;
 	signal controller_read_inverted : std_logic;
 	signal controller_reset : std_logic;
-	signal controller_address : std_logic_vector(5 downto 0);
+	signal controller_address : std_logic_vector(6 downto 0);
 	signal controller_write_inverted : std_logic;
+	signal controller_dma_fifos_chip_select : std_logic;
+	signal controller_dma_fifos_address : std_logic_vector(1 downto 0);
+	signal controller_dma_fifos_read : std_logic;
+	signal controller_dma_fifos_write : std_logic;
+	signal controller_dma_fifos_data_in : std_logic_vector(15 downto 0);
+	signal controller_dma_fifos_data_out : std_logic_vector(15 downto 0);
+	signal controller_dma_single : std_logic;
+	signal controller_dma_req : std_logic;
+	signal controller_dma_ack : std_logic;
 
 	signal device_interrupt : std_logic;
 	signal device_host_data_bus_in : std_logic_vector(7 downto 0);
@@ -89,7 +95,7 @@ architecture behav of dual_cb7210p2_testbench is
 	signal controller_system_controller : std_logic;
 
 	constant device_clock_half_period : time := 7.5 ns;
-	constant controller_clock_half_period : time := 10 ns;
+	constant controller_clock_half_period : time := 5 ns;
 	constant loop_timeout : integer := 100;
 	
 	signal device_sync : integer := 0;
@@ -104,32 +110,32 @@ architecture behav of dual_cb7210p2_testbench is
 		
 
 	begin
-	device_frontend_cb7210p2: entity work.frontend_cb7210p2
+	device_integrated_cb7210p2: entity work.integrated_cb7210p2
 		generic map (
-			clock_frequency_KHz => 66667,
-			num_counter_bits => 16,
-			num_address_lines => 6
+			clock_frequency_KHz => 66667
 		)
 		port map (
 			clock => device_clock,
-			chip_select_inverted => device_chip_select_inverted, 
-			dma_bus_ack_inverted => device_dma_bus_ack_inverted,
-			dma_read_inverted => device_dma_read_inverted,
-			dma_write_inverted => device_dma_write_inverted,
-			read_inverted => device_read_inverted,
+			avalon_chip_select_inverted => device_chip_select_inverted, 
+			avalon_read_inverted => device_read_inverted,
 			reset => device_reset,
-			address => device_address,  
-			write_inverted => device_write_inverted,
+			avalon_address => device_address,  
+			avalon_write_inverted => device_write_inverted,
 			pullup_enable_inverted => device_pullup_disable,
-			tr1 => device_talk_enable,
+			talk_enable => device_talk_enable,
 			not_controller_in_charge => device_not_controller_in_charge,
 			system_controller => device_system_controller,
 			interrupt  => device_interrupt, 
-			dma_bus_out_request  => device_dma_bus_out_request, 
-			dma_bus_in_request  => device_dma_bus_in_request, 
-			dma_bus_out  => device_dma_bus, 
-			dma_bus_in  => device_dma_bus, 
-			host_data_bus_in  => device_host_data_bus_in, 
+			avalon_data_in  => device_host_data_bus_in, 
+			dma_fifos_chip_select => device_dma_fifos_chip_select,
+			dma_fifos_address => device_dma_fifos_address,
+			dma_fifos_read => device_dma_fifos_read,
+			dma_fifos_write => device_dma_fifos_write,
+			dma_fifos_data_in => device_dma_fifos_data_in,
+			dma_fifos_data_out => device_dma_fifos_data_out,
+			dma_single => device_dma_single,
+			dma_req => device_dma_req,
+			dma_ack => device_dma_ack,
 			gpib_ATN_inverted_in  => bus_ATN_inverted,
 			gpib_DAV_inverted_in  => bus_DAV_inverted, 
 			gpib_EOI_inverted_in  => bus_EOI_inverted, 
@@ -139,7 +145,7 @@ architecture behav of dual_cb7210p2_testbench is
 			gpib_REN_inverted_in  => bus_REN_inverted,
 			gpib_SRQ_inverted_in  => bus_SRQ_inverted, 
 			gpib_DIO_inverted_in  => bus_DIO_inverted, 
-			host_data_bus_out  => device_host_data_bus_out, 
+			avalon_data_out  => device_host_data_bus_out, 
 			gpib_ATN_inverted_out  => device_ATN_inverted,
 			gpib_DAV_inverted_out  => device_DAV_inverted, 
 			gpib_EOI_inverted_out  => device_EOI_inverted, 
@@ -150,7 +156,7 @@ architecture behav of dual_cb7210p2_testbench is
 			gpib_SRQ_inverted_out  => device_SRQ_inverted, 
 			gpib_DIO_inverted_out  => device_DIO_inverted 
 		);
-	
+
 	device_gpib_transceiver: entity work.gpib_transceiver
 		port map(
 			pullup_disable => device_pullup_disable,
@@ -178,31 +184,32 @@ architecture behav of dual_cb7210p2_testbench is
 			system_controller => device_system_controller
 		);
 
-	controller_frontend_cb7210p2: entity work.frontend_cb7210p2
+	controller_integrated_cb7210p2: entity work.integrated_cb7210p2
 		generic map (
-			clock_frequency_KHz => 50000,
-			num_address_lines => 6
+			clock_frequency_KHz => 100000
 		)
 		port map (
 			clock => controller_clock,
-			chip_select_inverted => controller_chip_select_inverted, 
-			dma_bus_ack_inverted => controller_dma_bus_ack_inverted,
-			dma_read_inverted => controller_dma_read_inverted,
-			dma_write_inverted => controller_dma_write_inverted,
-			read_inverted => controller_read_inverted,
+			avalon_chip_select_inverted => controller_chip_select_inverted, 
+			avalon_read_inverted => controller_read_inverted,
 			reset => controller_reset,
-			address => controller_address,  
-			write_inverted => controller_write_inverted,
+			avalon_address => controller_address,  
+			avalon_write_inverted => controller_write_inverted,
 			pullup_enable_inverted => controller_pullup_disable,
-			tr1 => controller_talk_enable,
+			talk_enable => controller_talk_enable,
 			not_controller_in_charge => controller_not_controller_in_charge,
 			system_controller => controller_system_controller,
 			interrupt  => controller_interrupt, 
-			dma_bus_out_request  => controller_dma_bus_out_request, 
-			dma_bus_in_request  => controller_dma_bus_in_request, 
-			dma_bus_out  => controller_dma_bus, 
-			dma_bus_in  => controller_dma_bus, 
-			host_data_bus_in  => controller_host_data_bus_in, 
+			avalon_data_in  => controller_host_data_bus_in, 
+			dma_fifos_chip_select => controller_dma_fifos_chip_select,
+			dma_fifos_address => controller_dma_fifos_address,
+			dma_fifos_read => controller_dma_fifos_read,
+			dma_fifos_write => controller_dma_fifos_write,
+			dma_fifos_data_in => controller_dma_fifos_data_in,
+			dma_fifos_data_out => controller_dma_fifos_data_out,
+			dma_single => controller_dma_single,
+			dma_req => controller_dma_req,
+			dma_ack => controller_dma_ack,
 			gpib_ATN_inverted_in  => bus_ATN_inverted,
 			gpib_DAV_inverted_in  => bus_DAV_inverted, 
 			gpib_EOI_inverted_in  => bus_EOI_inverted, 
@@ -212,7 +219,7 @@ architecture behav of dual_cb7210p2_testbench is
 			gpib_REN_inverted_in  => bus_REN_inverted,
 			gpib_SRQ_inverted_in  => bus_SRQ_inverted, 
 			gpib_DIO_inverted_in  => bus_DIO_inverted, 
-			host_data_bus_out  => controller_host_data_bus_out, 
+			avalon_data_out  => controller_host_data_bus_out, 
 			gpib_ATN_inverted_out  => controller_ATN_inverted,
 			gpib_DAV_inverted_out  => controller_DAV_inverted, 
 			gpib_EOI_inverted_out  => controller_EOI_inverted, 
@@ -223,7 +230,7 @@ architecture behav of dual_cb7210p2_testbench is
 			gpib_SRQ_inverted_out  => controller_SRQ_inverted, 
 			gpib_DIO_inverted_out  => controller_DIO_inverted 
 		);
-	
+
 	controller_gpib_transceiver: entity work.gpib_transceiver
 		port map(
 			pullup_disable => controller_pullup_disable,
@@ -293,7 +300,7 @@ architecture behav of dual_cb7210p2_testbench is
 			wait_for_ticks(num_clock_cycles, device_clock);
 		end procedure wait_for_ticks;
 
-		procedure host_write (addr: in std_logic_vector(5 downto 0);
+		procedure host_write (addr: in std_logic_vector(6 downto 0);
 			byte : in std_logic_vector(7 downto 0)) is
 		begin
 			host_write (addr, byte,
@@ -305,7 +312,7 @@ architecture behav of dual_cb7210p2_testbench is
 			);
 		end procedure host_write;
 
-		procedure host_read (addr: in std_logic_vector(5 downto 0);
+		procedure host_read (addr: in std_logic_vector(6 downto 0);
 			result: out std_logic_vector(7 downto 0)) is
 		begin
 			host_read (addr, result,
@@ -334,17 +341,17 @@ architecture behav of dual_cb7210p2_testbench is
 					wait until device_interrupt = '1';
 				end if;
 				-- read clear interrupts
-				host_read("001110", read_buffer); -- isr0
+				host_read("0001110", read_buffer); -- isr0
 				isr0_result := read_buffer;
 				if (read_buffer and isr0_wait_mask) /= X"00" then
 					wait_satisfied := true;
 				end if;
-				host_read("000001", read_buffer); -- isr1
+				host_read("0000001", read_buffer); -- isr1
 				isr1_result := read_buffer;
 				if (read_buffer and isr1_wait_mask) /= X"00" then
 					wait_satisfied := true;
 				end if;
-				host_read("000010", read_buffer); -- isr2
+				host_read("0000010", read_buffer); -- isr2
 				isr2_result := read_buffer;
 				if (read_buffer and isr2_wait_mask) /= X"00" then
 					wait_satisfied := true;
@@ -372,7 +379,7 @@ architecture behav of dual_cb7210p2_testbench is
 
 			-- soft reset
 			host_write_byte(7 downto 0) := "00000010";
-			host_write("000101", host_write_byte); -- aux mode register
+			host_write("0000101", host_write_byte); -- aux mode register
 
 		end init_device;
 
@@ -382,28 +389,28 @@ architecture behav of dual_cb7210p2_testbench is
 			-- set primary address
 			host_write_byte(7 downto 5) := "000";
 			host_write_byte(4 downto 0) := std_logic_vector(to_unsigned(device_primary_address, 5));
-			host_write("000110", host_write_byte); -- address register 0/1
+			host_write("0000110", host_write_byte); -- address register 0/1
 
 			-- turn on secondary addressing
 			host_write_byte(7 downto 5) := "100";
 			host_write_byte(4 downto 0) := std_logic_vector(to_unsigned(device_secondary_address, 5));
-			host_write("000110", host_write_byte); --address register 0/1
-			host_write("000100", X"32"); -- address mode register, transmit/receive mode 0x3 address mode 2
+			host_write("0000110", host_write_byte); --address register 0/1
+			host_write("0000100", X"32"); -- address mode register, transmit/receive mode 0x3 address mode 2
 			
-			host_write("001110", "00000000"); -- interrupt mask register 0
-			host_write("000001", "00101011"); -- interrupt mask register 1, DI, DO, DEC, DETC interrupt enables
-			host_write("000010", "00000001"); -- interrupt mask register 2, ADSC interrupt enable
+			host_write("0001110", "00000000"); -- interrupt mask register 0
+			host_write("0000001", "00101011"); -- interrupt mask register 1, DI, DO, DEC, DETC interrupt enables
+			host_write("0000010", "00000001"); -- interrupt mask register 2, ADSC interrupt enable
 		end setup_basic_io_test;
 		
 		procedure basic_io_test is
 		begin
 			-- wait to be addressed as listener
-			host_read("000100", host_read_result); -- address status register
+			host_read("0000100", host_read_result); -- address status register
 			if host_read_result(2) /= '1' then -- if not already addressed as listener
 				for i in 0 to loop_timeout loop
 					wait_for_interrupt(X"00", X"00", X"01"); -- wait for address status change interrupt
 					
-					host_read("000100", host_read_result); -- address status register
+					host_read("0000100", host_read_result); -- address status register
 					if host_read_result(2) = '1' then -- addressed as listener
 						exit;
 					end if;
@@ -415,18 +422,18 @@ architecture behav of dual_cb7210p2_testbench is
 			for n in 0 to 9 loop
 				wait_for_interrupt(X"00", X"01", X"00"); -- wait for DI interrupt
 				
-				host_read("000000", host_read_result);
+				host_read("0000000", host_read_result);
 				assert host_read_result = std_logic_vector(to_unsigned(n, 8));
 			end loop;
 
 			-- wait to be addressed as talker
-			host_read("000100", host_read_result); -- address status register
+			host_read("0000100", host_read_result); -- address status register
 			if host_read_result(1) /= '1' then -- if not already addressed as talker
 				-- wait to be addressed as talker
 				for i in 0 to loop_timeout loop
 					wait_for_interrupt(X"00", X"00", X"01"); -- wait for address status change interrupt
 					
-					host_read("000100", host_read_result); -- address status register
+					host_read("0000100", host_read_result); -- address status register
 					if host_read_result(1) = '1' then -- addressed as talker
 						exit;
 					end if;
@@ -436,11 +443,11 @@ architecture behav of dual_cb7210p2_testbench is
 			
 			-- send n data bytes
 			for n in 16#10# to 16#19# loop
-				host_read("001001", host_read_result);
+				host_read("0001001", host_read_result);
 				if host_read_result(1) /= '1' then
 					wait_for_interrupt(X"00", X"02", X"00"); -- wait for DO interrupt
 				end if;
-				host_write("000000", std_logic_vector(to_unsigned(n, 8)));
+				host_write("0000000", std_logic_vector(to_unsigned(n, 8)));
 			end loop;
 			wait_for_interrupt(X"00", X"02", X"00"); -- wait for DO interrupt
 		end basic_io_test;
@@ -448,21 +455,21 @@ architecture behav of dual_cb7210p2_testbench is
 		procedure setup_parallel_poll_test is
 		begin
 			-- remote parallel poll mode
-			host_write("000101", "01100000"); -- parallel poll enabled 
-			host_write("000101", "11100000"); -- aux reg I, remote mode 
-			host_write("000101", "10110000"); -- aux reg B, use SRQS as ist
+			host_write("0000101", "01100000"); -- parallel poll enabled 
+			host_write("0000101", "11100000"); -- aux reg I, remote mode 
+			host_write("0000101", "10110000"); -- aux reg B, use SRQS as ist
 		end setup_parallel_poll_test;
 		
 		procedure pass_control_test is
 		begin
 			-- wait to be made controller in charge
-			host_read("000100", host_read_result); -- address status register
+			host_read("0000100", host_read_result); -- address status register
 			if host_read_result(7) /= '1' then -- if not already CIC
 				-- wait to become CIC
 				for i in 0 to loop_timeout loop
 					wait_for_interrupt(X"00", X"00", X"01"); -- wait for address status change interrupt
 					
-					host_read("000100", host_read_result); -- address status register
+					host_read("0000100", host_read_result); -- address status register
 					if host_read_result(7) = '1' then -- CIC
 						exit;
 					end if;
@@ -478,20 +485,20 @@ architecture behav of dual_cb7210p2_testbench is
 			device_primary_address := 4;
 			host_write_byte(7 downto 5) := "000";
 			host_write_byte(4 downto 0) := std_logic_vector(to_unsigned(device_primary_address, 5));
-			host_write("000110", host_write_byte); -- address register 0/1
+			host_write("0000110", host_write_byte); -- address register 0/1
 
 			-- turn off secondary addressing
 			device_secondary_address := to_integer(unsigned(NO_ADDRESS_CONFIGURED));
 			host_write_byte(7 downto 5) := "111";
 			host_write_byte(4 downto 0) := (others => '0');
-			host_write("000110", host_write_byte); --address register 0/1
-			host_write("000100", X"31"); -- address mode register, transmit/receive mode 0x3 address mode 1
+			host_write("0000110", host_write_byte); --address register 0/1
+			host_write("0000100", X"31"); -- address mode register, transmit/receive mode 0x3 address mode 1
 			
-			host_write("001110", "00000000"); -- interrupt mask register 0
-			host_write("000001", "00111011"); -- interrupt mask register 1, DI, DO, DEC, DET, END interrupt enables
-			host_write("000010", "00000001"); -- interrupt mask register 2, ADSC interrupt enable
+			host_write("0001110", "00000000"); -- interrupt mask register 0
+			host_write("0000001", "00111011"); -- interrupt mask register 1, DI, DO, DEC, DET, END interrupt enables
+			host_write("0000010", "00000001"); -- interrupt mask register 2, ADSC interrupt enable
 			
-			host_write("000101", "10000010"); -- aux A register, holdoff on end
+			host_write("0000101", "10000010"); -- aux A register, holdoff on end
 		end setup_rfd_holdoff_test;
 
 		procedure rfd_holdoff_test is
@@ -500,12 +507,12 @@ architecture behav of dual_cb7210p2_testbench is
 			variable isr2_result: std_logic_vector(7 downto 0);
 		begin
 			-- wait to be addressed as listener
-			host_read("000100", host_read_result); -- address status register
+			host_read("0000100", host_read_result); -- address status register
 			if host_read_result(2) /= '1' then -- if not already addressed as listener
 				for i in 0 to loop_timeout loop
 					wait_for_interrupt(X"00", X"00", X"01"); -- wait for address status change interrupt
 					
-					host_read("000100", host_read_result); -- address status register
+					host_read("0000100", host_read_result); -- address status register
 					if host_read_result(2) = '1' then -- addressed as listener
 						exit;
 					end if;
@@ -520,16 +527,17 @@ architecture behav of dual_cb7210p2_testbench is
 				-- receive a data byte with EOI asserted
 				wait_for_interrupt(X"00", X"11", X"00", isr0_result, isr1_result, isr2_result); -- wait for DI/END interrupt
 				assert isr1_result(0) = '1' and isr1_result(4) = '1';
-				host_read("000000", host_read_result);
+				host_read("0000000", host_read_result);
 				assert host_read_result = std_logic_vector(to_unsigned(n, 8));
 				-- check that we saw EOI using address1 reg
-				host_read("000111", host_read_result);
+				host_read("0000111", host_read_result);
 				assert host_read_result(7) = '1';
 				-- check that holdoff is still in effect after we read the byte
 				wait_for_ticks(10);
 				assert to_X01(bus_NRFD_inverted) = '0';
 				-- release holdoff
-				host_write("000101", "00000011"); -- aux mode register, release rfd holdoff
+				host_write("0000101", "00000011"); -- aux mode register, release rfd holdoff
+				wait for 200ns; -- wait for bus signal to get through input filtering
 				wait_for_ticks(3);
 				-- Check that NRFD has deasserted.  We don't check on the last byte because
 				-- the acceptor actually gets stuck in AWNS after the last byte is received
@@ -540,15 +548,16 @@ architecture behav of dual_cb7210p2_testbench is
 			end loop;
 		end rfd_holdoff_test;
 	begin
+		device_dma_fifos_chip_select <= '0';
+		device_dma_fifos_address <= "00";
+		device_dma_fifos_read <= '0';
+		device_dma_fifos_write <= '0';
+		device_dma_fifos_data_in <= X"0000";
 		device_chip_select_inverted <= '1';
-		device_dma_bus_ack_inverted <= '1';
-		device_dma_bus <= (others => 'Z');
 		device_host_data_bus_in <= (others => '0');
 		device_host_data_bus_out <= (others => 'Z');
 		device_read_inverted <= '1';
 		device_write_inverted <= '1';
-		device_dma_read_inverted <= '1';
-		device_dma_write_inverted <= '1';
 		device_address <= ( others => '0' );
 		device_primary_address := 4;
 		device_secondary_address := 17;
@@ -608,7 +617,7 @@ architecture behav of dual_cb7210p2_testbench is
 			wait_for_ticks(num_clock_cycles, controller_clock);
 		end procedure wait_for_ticks;
 
-		procedure host_write (addr: in std_logic_vector(5 downto 0);
+		procedure host_write (addr: in std_logic_vector(6 downto 0);
 			byte : in std_logic_vector(7 downto 0)) is
 		begin
 			host_write (addr, byte,
@@ -620,7 +629,7 @@ architecture behav of dual_cb7210p2_testbench is
 			);
 		end procedure host_write;
 
-		procedure host_read (addr: in std_logic_vector(5 downto 0);
+		procedure host_read (addr: in std_logic_vector(6 downto 0);
 			result: out std_logic_vector(7 downto 0)) is
 		begin
 			host_read (addr, result,
@@ -645,15 +654,15 @@ architecture behav of dual_cb7210p2_testbench is
 					wait until controller_interrupt = '1';
 				end if;
 				-- read clear interrupts
-				host_read("001110", host_read_result); -- isr0
+				host_read("0001110", host_read_result); -- isr0
 				if (host_read_result and isr0_wait_mask) /= X"00" then
 					wait_satisfied := true;
 				end if;
-				host_read("000001", host_read_result); -- isr1
+				host_read("0000001", host_read_result); -- isr1
 				if (host_read_result and isr1_wait_mask) /= X"00" then
 					wait_satisfied := true;
 				end if;
-				host_read("000010", host_read_result); -- isr2
+				host_read("0000010", host_read_result); -- isr2
 				if (host_read_result and isr2_wait_mask) /= X"00" then
 					wait_satisfied := true;
 				end if;
@@ -667,18 +676,18 @@ architecture behav of dual_cb7210p2_testbench is
 		
 		procedure take_control is
 		begin
-			host_write("000101", "00010010"); -- tcs
+			host_write("0000101", "00010010"); -- tcs
 			wait for 4 us;
 			if to_X01(bus_ATN_inverted) /= '0' then
-				host_write("000101", "00010001"); -- fall back on tca
+				host_write("0000101", "00010001"); -- fall back on tca
 			end if;
 			-- wait for CACS
-			host_read("100100", host_read_result); -- state 4 register
+			host_read("0100100", host_read_result); -- state 4 register
 			if host_read_result(3 downto 0) /= "0011" then -- if not already CACS
 				for i in 0 to loop_timeout loop
 					wait_for_interrupt(X"00", X"00", X"09"); -- wait for address status change or CO interrupt
 					
-					host_read("100100", host_read_result); -- state 4 register
+					host_read("0100100", host_read_result); -- state 4 register
 					if host_read_result(3 downto 0) = "0011" then -- if CACS
 						exit;
 					end if;
@@ -689,7 +698,7 @@ architecture behav of dual_cb7210p2_testbench is
 		
 		procedure wait_for_CO is
 		begin
-			host_read("001001", host_read_result); 
+			host_read("0001001", host_read_result); 
 			if host_read_result(2) /= '1' then
 				wait_for_interrupt(X"00", X"00", X"08"); -- wait for CO interrupt
 			end if;
@@ -703,32 +712,32 @@ architecture behav of dual_cb7210p2_testbench is
 
 			host_write_byte(7 downto 5) := "010";
 			host_write_byte(4 downto 0) := std_logic_vector(to_unsigned(controller_primary_address, 5));
-			host_write("000000", host_write_byte); -- controller MTA
+			host_write("0000000", host_write_byte); -- controller MTA
 
 			if controller_secondary_address /= to_integer(unsigned(NO_ADDRESS_CONFIGURED)) then
 				wait_for_CO;
 			
 				host_write_byte(7 downto 5) := "011";
 				host_write_byte(4 downto 0) := std_logic_vector(to_unsigned(controller_secondary_address, 5));
-				host_write("000000", host_write_byte); -- controller MSA
+				host_write("0000000", host_write_byte); -- controller MSA
 			end if;
 
 			wait_for_CO;
 
-			host_write("000000", "00111111"); -- UNL
+			host_write("0000000", "00111111"); -- UNL
 
 			wait_for_CO;
 			
 			host_write_byte(7 downto 5) := "001";
 			host_write_byte(4 downto 0) := std_logic_vector(to_unsigned(device_primary_address, 5));
-			host_write("000000", host_write_byte); -- device MLA
+			host_write("0000000", host_write_byte); -- device MLA
 
 			if device_secondary_address /= to_integer(unsigned(NO_ADDRESS_CONFIGURED)) then
 				wait_for_CO;
 			
 				host_write_byte(7 downto 5) := "011";
 				host_write_byte(4 downto 0) := std_logic_vector(to_unsigned(device_secondary_address, 5));
-				host_write("000000", host_write_byte); -- device MSA
+				host_write("0000000", host_write_byte); -- device MSA
 			end if;
 			
 			wait_for_CO;
@@ -740,34 +749,34 @@ architecture behav of dual_cb7210p2_testbench is
 
 			wait_for_CO;
 
-			host_write("000000", "00111111"); -- UNL
+			host_write("0000000", "00111111"); -- UNL
 
 			wait_for_CO;
 
 			host_write_byte(7 downto 5) := "001";
 			host_write_byte(4 downto 0) := std_logic_vector(to_unsigned(controller_primary_address, 5));
-			host_write("000000", host_write_byte); -- controller MLA
+			host_write("0000000", host_write_byte); -- controller MLA
 
 			if controller_secondary_address /= to_integer(unsigned(NO_ADDRESS_CONFIGURED)) then
 				wait_for_CO;
 			
 				host_write_byte(7 downto 5) := "011";
 				host_write_byte(4 downto 0) := std_logic_vector(to_unsigned(controller_secondary_address, 5));
-				host_write("000000", host_write_byte); -- controller MSA
+				host_write("0000000", host_write_byte); -- controller MSA
 			end if;
 
 			wait_for_CO;
 			
 			host_write_byte(7 downto 5) := "010";
 			host_write_byte(4 downto 0) := std_logic_vector(to_unsigned(device_primary_address, 5));
-			host_write("000000", host_write_byte); -- device MTA
+			host_write("0000000", host_write_byte); -- device MTA
 
 			if device_secondary_address /= to_integer(unsigned(NO_ADDRESS_CONFIGURED)) then
 				wait_for_CO;
 			
 				host_write_byte(7 downto 5) := "011";
 				host_write_byte(4 downto 0) := std_logic_vector(to_unsigned(device_secondary_address, 5));
-				host_write("000000", host_write_byte); -- device MSA
+				host_write("0000000", host_write_byte); -- device MSA
 			end if;
 			wait_for_CO;
 		end receive_setup;
@@ -777,14 +786,14 @@ architecture behav of dual_cb7210p2_testbench is
 
 			-- soft reset
 			host_write_byte(7 downto 0) := "00000010";
-			host_write("000101", host_write_byte); -- aux mode register
+			host_write("0000101", host_write_byte); -- aux mode register
 
-			host_write("000101", "00011111"); -- set REN
-			host_write("000101", "00011110"); -- set IFC
+			host_write("0000101", "00011111"); -- set REN
+			host_write("0000101", "00011110"); -- set IFC
 			wait_for_ticks(3);
 			assert to_X01(bus_IFC_inverted) = '0';
 			wait for 101 us;
-			host_write("000101", "00010110"); -- release IFC
+			host_write("0000101", "00010110"); -- release IFC
 			wait_for_ticks(3);
 			assert to_X01(bus_IFC_inverted) = '1';
 			assert to_X01(bus_REN_inverted) = '0';
@@ -796,12 +805,12 @@ architecture behav of dual_cb7210p2_testbench is
 			-- set primary address
 			host_write_byte(7 downto 5) := "000";
 			host_write_byte(4 downto 0) := std_logic_vector(to_unsigned(controller_primary_address, 5));
-			host_write("000110", host_write_byte); -- address register 0/1
-			host_write("000100", X"31"); -- address mode register, transmit/receive mode 0x3 address mode 1
+			host_write("0000110", host_write_byte); -- address register 0/1
+			host_write("0000100", X"31"); -- address mode register, transmit/receive mode 0x3 address mode 1
 
-			host_write("001110", "00000000"); -- interrupt mask register 0
-			host_write("000001", "00000011"); -- interrupt mask register 1, DI, DO interrupt enables
-			host_write("000010", "00001001"); -- interrupt mask register 2, ADSR and CO interrupt enables
+			host_write("0001110", "00000000"); -- interrupt mask register 0
+			host_write("0000001", "00000011"); -- interrupt mask register 1, DI, DO interrupt enables
+			host_write("0000010", "00001001"); -- interrupt mask register 2, ADSR and CO interrupt enables
 
 		end setup_basic_io_test;
 		
@@ -811,14 +820,14 @@ architecture behav of dual_cb7210p2_testbench is
 
 			send_setup;
 			
-			host_write("000101", "00010000"); -- gts			
+			host_write("0000101", "00010000"); -- gts			
 			wait_for_ticks(5);
 			assert to_X01(bus_ATN_inverted) = '1';
 
 			for n in 0 to 9 loop
 				wait_for_interrupt(X"00", X"02", X"00"); -- wait for DO interrupt
 				host_write_byte := std_logic_vector(to_unsigned(n, 8));
-				host_write("000000", host_write_byte);
+				host_write("0000000", host_write_byte);
 			end loop;
 			wait_for_interrupt(X"00", X"02", X"00"); -- wait for DO interrupt
 
@@ -826,16 +835,16 @@ architecture behav of dual_cb7210p2_testbench is
 
 			receive_setup;
 			
-			host_write("000101", "00010000"); -- gts			
+			host_write("0000101", "00010000"); -- gts			
 			wait_for_ticks(5);
 			assert to_X01(bus_ATN_inverted) = '1';
 
 			for n in 16#10# to 16#19# loop
-				host_read("001001", host_read_result);
+				host_read("0001001", host_read_result);
 				if host_read_result(0) /= '1' then
 					wait_for_interrupt(X"00", X"01", X"00"); -- wait for DI interrupt
 				end if;
-				host_read("000000", host_read_result);
+				host_read("0000000", host_read_result);
 				assert host_read_result = std_logic_vector(to_unsigned(n, 8));
 			end loop;
 		end basic_io_test;
@@ -848,15 +857,15 @@ architecture behav of dual_cb7210p2_testbench is
 			send_setup;
 
 			wait_for_CO;
-			host_write("000000", "00000101"); -- PPC
+			host_write("0000000", "00000101"); -- PPC
 
 			wait_for_CO;
-			host_write("000000", "01100010"); -- PPE, sense 0, line 2
+			host_write("0000000", "01100010"); -- PPE, sense 0, line 2
 
 			wait_for_CO;
-			host_read("000010", host_read_result); -- read clear isr2 so CO interrupt is not set
+			host_read("0000010", host_read_result); -- read clear isr2 so CO interrupt is not set
 			
-			host_write("000101", "00011101"); -- execute parallel poll
+			host_write("0000101", "00011101"); -- execute parallel poll
 			if to_X01(bus_EOI_inverted) /= '0' then
 				wait until to_X01(bus_EOI_inverted) = '0';
 			end if;
@@ -865,7 +874,7 @@ architecture behav of dual_cb7210p2_testbench is
 			wait_for_CO;
 			assert to_X01(bus_EOI_inverted) = '1';
 			-- read parallel poll result
-			host_read("000101", host_read_result); -- read CPT reg
+			host_read("0000101", host_read_result); -- read CPT reg
 			assert host_read_result = X"04";
 		end parallel_poll_test;
 		
@@ -874,15 +883,15 @@ architecture behav of dual_cb7210p2_testbench is
 			receive_setup;
 
 			wait_for_CO;
-			host_write("000000", "00001001"); -- TCT
+			host_write("0000000", "00001001"); -- TCT
 			-- wait until we are no longer controller in charge
-			host_read("000100", host_read_result); -- address status register
+			host_read("0000100", host_read_result); -- address status register
 			if host_read_result(7) /= '0' then -- if CIC not already lost
 				-- wait to lose CIC
 				for i in 0 to loop_timeout loop
 					wait_for_interrupt(X"00", X"00", X"01"); -- wait for address status change interrupt
 					
-					host_read("000100", host_read_result); -- address status register
+					host_read("0000100", host_read_result); -- address status register
 					if host_read_result(7) = '0' then -- not CIC
 						exit;
 					end if;
@@ -896,40 +905,41 @@ architecture behav of dual_cb7210p2_testbench is
 			-- set primary address
 			host_write_byte(7 downto 5) := "000";
 			host_write_byte(4 downto 0) := std_logic_vector(to_unsigned(controller_primary_address, 5));
-			host_write("000110", host_write_byte); -- address register 0/1
-			host_write("000100", X"31"); -- address mode register, transmit/receive mode 0x3 address mode 1
+			host_write("0000110", host_write_byte); -- address register 0/1
+			host_write("0000100", X"31"); -- address mode register, transmit/receive mode 0x3 address mode 1
 
-			host_write("001110", "00000000"); -- interrupt mask register 0
-			host_write("000001", "00000011"); -- interrupt mask register 1, DI, DO interrupt enables
-			host_write("000010", "00001001"); -- interrupt mask register 2, ADSR and CO interrupt enables
+			host_write("0001110", "00000000"); -- interrupt mask register 0
+			host_write("0000001", "00000011"); -- interrupt mask register 1, DI, DO interrupt enables
+			host_write("0000010", "00001001"); -- interrupt mask register 2, ADSR and CO interrupt enables
 
 			send_setup;
 			
-			host_write("000101", "00010000"); -- gts			
+			host_write("0000101", "00010000"); -- gts			
 			wait_for_ticks(5);
 			assert to_X01(bus_ATN_inverted) = '1';
 
 			for n in 16#80# to 16#81# loop
 				-- send data byte with EOI asserted 
 				wait_for_interrupt(X"00", X"02", X"00"); -- wait for DO interrupt
-				host_write("000101", "00000110"); -- send eoi
+				host_write("0000101", "00000110"); -- send eoi
 				host_write_byte := std_logic_vector(to_unsigned(n, 8));
-				host_write("000000", host_write_byte);
+				host_write("0000000", host_write_byte);
 			end loop;
 
 			wait_for_interrupt(X"00", X"02", X"00"); -- wait for DO interrupt
 		end rfd_holdoff_test;
 
 	begin
+		controller_dma_fifos_chip_select <= '0';
+		controller_dma_fifos_address <= "00";
+		controller_dma_fifos_read <= '0';
+		controller_dma_fifos_write <= '0';
+		controller_dma_fifos_data_in <= X"0000";
 		controller_chip_select_inverted <= '1';
-		controller_dma_bus_ack_inverted <= '1';
-		controller_dma_bus <= (others => 'Z');
 		controller_host_data_bus_in <= (others => '0');
 		controller_host_data_bus_out <= (others => 'Z');
 		controller_read_inverted <= '1';
 		controller_write_inverted <= '1';
-		controller_dma_read_inverted <= '1';
-		controller_dma_write_inverted <= '1';
 		controller_address <= ( others => '0' );
 		controller_primary_address := 8;
 		controller_secondary_address := to_integer(unsigned(NO_ADDRESS_CONFIGURED));
