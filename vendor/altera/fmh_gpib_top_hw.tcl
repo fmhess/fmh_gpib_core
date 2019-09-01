@@ -42,6 +42,7 @@ set_fileset_property quartus_synth ENABLE_RELATIVE_INCLUDE_PATHS false
 set_fileset_property quartus_synth ENABLE_FILE_OVERWRITE_MODE false
 add_fileset_file fmh_gpib_top.vhd VHDL PATH ../../src/example/fmh_gpib_top.vhd TOP_LEVEL_FILE
 add_fileset_file frontend_cb7210p2.vhd VHDL PATH ../../src/frontends/frontend_cb7210p2.vhd
+add_fileset_file integrated_cb7210p2.vhd VHDL PATH ../../src/frontends/integrated_cb7210p2.vhd
 add_fileset_file integrated_interface_functions.vhd VHDL PATH ../../src/ieee_488_1_state/integrated_interface_functions.vhd
 add_fileset_file interface_function_acceptor_fifo.vhd VHDL PATH ../../src/ieee_488_1_state/acceptor_fifo.vhd
 add_fileset_file interface_function_AH.vhd VHDL PATH ../../src/ieee_488_1_state/interface_function_AH.vhd
