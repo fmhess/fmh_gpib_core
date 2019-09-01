@@ -246,7 +246,7 @@ begin
 	end process;
 
 	-- set local message outputs as soon as state changes for low latency
-	process(source_handshake_state_buffer) begin
+	process(source_handshake_state_buffer, SWNS_DAV) begin
 		case source_handshake_state_buffer is
 			when SIDS =>
 				DAV <= 'L';
