@@ -62,13 +62,13 @@ add_fileset_file remote_message_decoder.vhd VHDL PATH ../../src/ieee_488_1_state
 add_fileset_file dma_fifos.vhd VHDL PATH ../../src/util/dma_fifos.vhd
 add_fileset_file std_fifo.vhd VHDL PATH ../../src/util/std_fifo.vhd
 add_fileset_file gpib_control_debounce_filter.vhd VHDL PATH ../../src/util/gpib_control_debounce_filter.vhd
-add_fileset_file std_fifo.vhd VHDL PATH ../../src/util/std_fifo.vhd
 
 
 # 
 # parameters
 # 
 add_parameter clock_frequency_KHz NATURAL 0
+set_parameter_property clock_frequency_KHz DEFAULT_VALUE 0
 set_parameter_property clock_frequency_KHz DISPLAY_NAME clock_frequency_KHz
 set_parameter_property clock_frequency_KHz TYPE NATURAL
 set_parameter_property clock_frequency_KHz UNITS None
@@ -79,7 +79,7 @@ set_parameter_property fifo_depth DISPLAY_NAME fifo_depth
 set_parameter_property fifo_depth TYPE POSITIVE
 set_parameter_property fifo_depth UNITS None
 set_parameter_property fifo_depth HDL_PARAMETER true
-add_parameter max_filter_length POSITIVE 32
+add_parameter max_filter_length POSITIVE 63
 set_parameter_property max_filter_length DEFAULT_VALUE 63
 set_parameter_property max_filter_length DISPLAY_NAME max_filter_length
 set_parameter_property max_filter_length TYPE POSITIVE
