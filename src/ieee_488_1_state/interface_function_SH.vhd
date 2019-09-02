@@ -207,7 +207,7 @@ begin
 
 					if interrupt then
 						source_handshake_state_buffer <= SIDS;
-					elsif TN_counter_done and to_X01(RFD) = '1' then
+					elsif TN_counter_done then
 						source_handshake_state_buffer <= SNGS;
 						current_count <= to_unsigned(0, current_count'length);
 						TN_counter_done := false;
@@ -221,7 +221,7 @@ begin
 
 					if interrupt then
 						source_handshake_state_buffer <= SIDS;
-					elsif TN_counter_done and to_X01(RFD) = '1' then
+					elsif TN_counter_done then
 						source_handshake_state_buffer <= SGNS;
 					end if;
 			end case;
