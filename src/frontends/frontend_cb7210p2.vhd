@@ -1372,7 +1372,7 @@ begin
 									else
 										command_invalid <= '1';
 									end if;
-								when others =>
+								when others => assert false;
 							end case;
 						when "01" => -- primary listen address
 							case address_mode is
@@ -1402,7 +1402,7 @@ begin
 									else
 										command_invalid <= '1';
 									end if;
-								when others =>
+								when others => assert false;
 							end case;
 						when "11" => -- secondary address
 							case address_mode is
@@ -1420,9 +1420,9 @@ begin
 									end if;
 								when "11" =>
 									APT_needs_host_response <= '1';
-								when others =>
+								when others => assert false;
 							end case;
-						when others =>
+						when others => 
 					end case;
 				end if;
 			else -- not ACDS

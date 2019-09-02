@@ -76,14 +76,15 @@ end remote_message_decoder;
 architecture remote_message_decoder_arch of remote_message_decoder is
 
 	signal ACG_buffer : std_logic;
+	signal CFGn_buffer : std_logic;
 	signal LAG_buffer : std_logic;
 	signal TAG_buffer : std_logic;
 	signal SCG_buffer : std_logic;
 	signal UCG_buffer : std_logic;
+	signal UNT_buffer : std_logic;
 	signal MTA_buffer : std_logic;
 	signal MSA_buffer : std_logic;
 	signal PPE_buffer : std_logic;
-	signal CFGn_buffer : std_logic;
 
 begin
 
@@ -128,7 +129,7 @@ begin
 	MSA <= MSA_buffer;
 
 	OSA <= SCG_buffer and command_invalid;
-	OTA <= TAG_buffer and command_invalid;
+	OTA <= TAG_buffer and (command_invalid or UNT_buffer);
 	PCG <= ACG_buffer or UCG_buffer or LAG_buffer or TAG_buffer;
 	PPC <= '1' when ACG_buffer = '1' and not bus_DIO_inverted(3 downto 0) = "0101" and not bus_ATN_inverted = '1' else
 		'0';
@@ -171,10 +172,13 @@ begin
 		'0';
 	UCG <= UCG_buffer;
 		
-	UNL <= '1' when LAG_buffer = '1' and not bus_DIO_inverted(4 downto 0) = "11111" and not bus_ATN_inverted = '1' else
+	UNL <= '1' when LAG_buffer = '1' and not bus_DIO_inverted(4 downto 0) = "11111" else
 		'0';
-	UNT <= '1' when TAG_buffer = '1' and not bus_DIO_inverted(4 downto 0) = "11111" and not bus_ATN_inverted = '1' else
+
+	UNT_buffer <= '1' when TAG_buffer = '1' and not bus_DIO_inverted(4 downto 0) = "11111" else
 		'0';
+	UNT <= UNT_buffer;
+	
 	NIC <= not bus_NRFD_inverted;
 	CFE <= '1' when UCG_buffer = '1' and not bus_DIO_inverted(3 downto 0) = "1111" and not bus_ATN_inverted = '1' else
 		'0';
