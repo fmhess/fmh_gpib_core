@@ -301,7 +301,7 @@ architecture behav of dual_integrated_cb7210p2_testbench is
 		end procedure wait_for_ticks;
 
 		procedure host_write (addr: in std_logic_vector(6 downto 0);
-			byte : in std_logic_vector(7 downto 0)) is
+			byte : in std_logic_vector) is
 		begin
 			host_write (addr, byte,
 				device_clock,
@@ -313,7 +313,7 @@ architecture behav of dual_integrated_cb7210p2_testbench is
 		end procedure host_write;
 
 		procedure host_read (addr: in std_logic_vector(6 downto 0);
-			result: out std_logic_vector(7 downto 0)) is
+			result: out std_logic_vector) is
 		begin
 			host_read (addr, result,
 				device_clock,
@@ -326,7 +326,48 @@ architecture behav of dual_integrated_cb7210p2_testbench is
 
 		variable host_read_result : std_logic_vector(7 downto 0);
 		variable host_write_byte : std_logic_vector(7 downto 0);
+		variable host_read_result_16 : std_logic_vector(15 downto 0);
 	
+		procedure do_dma_ack is
+		begin
+			wait_for_ticks(1);
+			device_dma_ack <= '1';
+			if to_X01(device_dma_req) = '1' or to_X01(device_dma_single) = '1' then
+				wait until to_X01(device_dma_req) = '0' and to_X01(device_dma_single) = '0';
+			end if;
+			wait_for_ticks(1);
+			device_dma_ack <= '0';
+			wait_for_ticks(1);
+		end procedure do_dma_ack;
+		
+		procedure dma_write (addr: in std_logic_vector(1 downto 0);
+			data : in std_logic_vector(15 downto 0)) is
+		begin
+			host_write (addr, data,
+				device_clock,
+				device_dma_fifos_chip_select,
+				device_dma_fifos_address,
+				device_dma_fifos_write,
+				device_dma_fifos_data_in,
+				'0'
+			);
+			do_dma_ack;
+		end procedure dma_write;
+
+		procedure dma_read (addr: in std_logic_vector(1 downto 0);
+			result: out std_logic_vector(15 downto 0)) is
+		begin
+			host_read (addr, result,
+				device_clock,
+				device_dma_fifos_chip_select,
+				device_dma_fifos_address,
+				device_dma_fifos_read,
+				device_dma_fifos_data_out,
+				'0'
+			);
+			do_dma_ack;
+		end procedure dma_read;
+
 		procedure wait_for_interrupt(isr0_wait_mask : std_logic_vector;
 			isr1_wait_mask : std_logic_vector; isr2_wait_mask : std_logic_vector;
 			isr0_result : out std_logic_vector(7 downto 0); 
@@ -452,6 +493,82 @@ architecture behav of dual_integrated_cb7210p2_testbench is
 			wait_for_interrupt(X"00", X"02", X"00"); -- wait for DO interrupt
 		end basic_io_test;
 
+		procedure noninterlocked_io_test is
+		begin
+			host_write("0000101", "10000000");  -- Aux A register, normal handshake
+			host_write("0000010", "00000000"); -- imr2 register, clear
+			dma_write("01",X"0300"); -- fifo control, clear and enable gpib-to-host fifo dma requests
+			host_write("0000010", "00010001"); -- imr2 register, dma input enable, ADSC interrupt enable
+				
+			dma_write("10", X"0040"); -- transfer count
+		
+			-- wait to be addressed as listener
+			host_read("0000100", host_read_result); -- address status register
+			if host_read_result(2) /= '1' then -- if not already addressed as listener
+				for i in 0 to loop_timeout loop
+					wait_for_interrupt(X"00", X"00", X"01"); -- wait for address status change interrupt
+
+					host_read("0000100", host_read_result); -- address status register
+					if host_read_result(2) = '1' then -- addressed as listener
+						exit;
+					end if;
+					assert i < loop_timeout;
+				end loop;
+			end if;
+			
+			-- receive n data bytes
+			for n in 16#80# to 16#bf# loop
+				if to_X01(device_dma_single) /= '1' then
+					wait until to_X01(device_dma_single) = '1';
+				end if;
+				
+				dma_read("00", host_read_result_16);
+				assert host_read_result_16(7 downto 0) = std_logic_vector(to_unsigned(n, 8));
+			end loop;
+
+			-- wait to be addressed as talker
+			host_read("0000100", host_read_result); -- address status register
+			if host_read_result(1) /= '1' then -- if not already addressed as talker
+				-- wait to be addressed as talker
+				for i in 0 to loop_timeout loop
+					wait_for_interrupt(X"00", X"00", X"01"); -- wait for address status change interrupt
+					
+					host_read("0000100", host_read_result); -- address status register
+					if host_read_result(1) = '1' then -- addressed as talker
+						exit;
+					end if;
+					assert i < loop_timeout;
+				end loop;
+			end if;
+			
+			host_write("0000010", "00000000"); -- imr2 register, clear
+			dma_write("01",X"0003"); -- fifo control, clear and enable host-to-gpib fifo dma requests
+			dma_write("10", X"0040"); -- transfer count
+			host_write("0000010", "00100001"); -- imr2 register, dma output enable, ADSC interrupt enable
+
+			-- send n data bytes
+			for n in 16#c0# to 16#ff# loop
+				if to_X01(device_dma_single) /= '1' then
+					wait until to_X01(device_dma_single) = '1';
+				end if;
+				dma_write("00", std_logic_vector(to_unsigned(n, 16)));
+			end loop;
+			
+			-- wait until host-to-gpib fifo empties
+			dma_read("01", host_read_result_16);
+			while host_read_result_16(0) /= '1' loop
+				dma_read("01", host_read_result_16);
+			end loop;
+			-- wait until cb7210 has sent last byte
+			host_read("0001001", host_read_result);
+			while host_read_result(1) /= '1' loop
+				host_read("0001001", host_read_result);
+			end loop;
+			
+			dma_write("01",X"0000"); -- fifo control, disable fifo dma requests
+			host_write("0000010", "00000001"); -- imr2 register ADSC interrupt enable
+		end noninterlocked_io_test;
+
 		procedure setup_parallel_poll_test is
 		begin
 			-- remote parallel poll mode
@@ -574,6 +691,8 @@ architecture behav of dual_integrated_cb7210p2_testbench is
 		
 		basic_io_test;
 		
+		noninterlocked_io_test;
+		
 		setup_parallel_poll_test;
 		
 		sync_with_controller(2);
@@ -594,7 +713,7 @@ architecture behav of dual_integrated_cb7210p2_testbench is
 		rfd_holdoff_test;
 
 		sync_with_controller(6);
-
+		
 		wait_for_ticks(10);	
 		assert false report "end of device process" severity note;
 		device_process_finished := true;
@@ -643,6 +762,47 @@ architecture behav of dual_integrated_cb7210p2_testbench is
 
 		variable host_read_result : std_logic_vector(7 downto 0);
 		variable host_write_byte : std_logic_vector(7 downto 0);
+		variable host_read_result_16 : std_logic_vector(15 downto 0);
+	
+		procedure do_dma_ack is
+		begin
+			wait_for_ticks(1);
+			controller_dma_ack <= '1';
+			if to_X01(controller_dma_req) = '1' or to_X01(controller_dma_single) = '1' then
+				wait until to_X01(controller_dma_req) = '0' and to_X01(controller_dma_single) = '0';
+			end if;
+			wait_for_ticks(1);
+			controller_dma_ack <= '0';
+			wait_for_ticks(1);
+		end procedure do_dma_ack;
+		
+		procedure dma_write (addr: in std_logic_vector(1 downto 0);
+			data : in std_logic_vector(15 downto 0)) is
+		begin
+			host_write (addr, data,
+				controller_clock,
+				controller_dma_fifos_chip_select,
+				controller_dma_fifos_address,
+				controller_dma_fifos_write,
+				controller_dma_fifos_data_in,
+				'0'
+			);
+			do_dma_ack;
+		end procedure dma_write;
+
+		procedure dma_read (addr: in std_logic_vector(1 downto 0);
+			result: out std_logic_vector(15 downto 0)) is
+		begin
+			host_read (addr, result,
+				controller_clock,
+				controller_dma_fifos_chip_select,
+				controller_dma_fifos_address,
+				controller_dma_fifos_read,
+				controller_dma_fifos_data_out,
+				'0'
+			);
+			do_dma_ack;
+		end procedure dma_read;
 	
 		procedure wait_for_interrupt(isr0_wait_mask : std_logic_vector;
 			isr1_wait_mask : std_logic_vector; isr2_wait_mask : std_logic_vector) is
@@ -781,6 +941,28 @@ architecture behav of dual_integrated_cb7210p2_testbench is
 			wait_for_CO;
 		end receive_setup;
 
+		procedure configure_cable_length (num_meters : in natural) is
+		begin
+			take_control;
+			
+			wait_for_CO;
+
+			host_write_byte(7 downto 0) := X"1f";
+			host_write("0000000", host_write_byte); -- CFE
+
+			assert num_meters < 16;
+			if num_meters > 0 then
+				wait_for_CO;
+
+				host_write_byte(7 downto 4) := "0110";
+				host_write_byte(3 downto 0) := std_logic_vector(to_unsigned(num_meters, 4));
+				host_write("0000000", host_write_byte); -- CFGn
+			end if;
+
+			wait_for_CO;
+
+		end configure_cable_length;
+
 		procedure init_controller is
 		begin
 
@@ -849,6 +1031,68 @@ architecture behav of dual_integrated_cb7210p2_testbench is
 			end loop;
 		end basic_io_test;
 		
+		procedure noninterlocked_io_test is
+		begin
+			configure_cable_length(1);
+
+			-- send n data bytes
+			send_setup;
+			
+			host_write("0000101", "00010000"); -- gts			
+			wait_for_ticks(5);
+			assert to_X01(bus_ATN_inverted) = '1';
+
+			host_write("0000010", "00000000"); -- imr2 register, clear
+			dma_write("01",X"0003"); -- fifo control, clear and enable host-to-gpib fifo dma requests
+			dma_write("10", X"0040"); -- transfer count
+			host_write("0000010", "00101001"); -- imr2 register, CO interrupt, dma output enable, ADSC interrupts
+
+			for n in 16#80# to 16#bf# loop
+				if to_X01(controller_dma_single) /= '1' then
+					wait until to_X01(controller_dma_single) = '1';
+				end if;
+				dma_write("00", std_logic_vector(to_unsigned(n, 16)));
+			end loop;
+
+			-- wait until host-to-gpib fifo empties
+			dma_read("01", host_read_result_16);
+			while host_read_result_16(0) /= '1' loop
+				dma_read("01", host_read_result_16);
+			end loop;
+			-- wait until cb7210 has sent last byte
+			host_read("0001001", host_read_result);
+			while host_read_result(1) /= '1' loop
+				host_read("0001001", host_read_result);
+			end loop;
+
+			-- read n data bytes
+
+			receive_setup;
+			
+			host_write("0000101", "00010000"); -- gts			
+			wait_for_ticks(5);
+			assert to_X01(bus_ATN_inverted) = '1';
+
+			host_write("0000101", "10000000");  -- Aux A register, normal handshake
+			host_write("0000010", "00000000"); -- imr2 register, clear
+			dma_write("01",X"0300"); -- fifo control, clear and enable gpib-to-host fifo dma requests
+			dma_write("10", X"0040"); -- transfer count
+			host_write("0000010", "00011001"); -- imr2 register, CO interrupt, dma input enable, ADSC interrupts
+
+			for n in 16#c0# to 16#ff# loop
+				if to_X01(controller_dma_single) /= '1' then
+					wait until to_X01(controller_dma_single) = '1';
+				end if;
+				dma_read("00", host_read_result_16);
+				assert host_read_result_16(7 downto 0) = std_logic_vector(to_unsigned(n, 8));
+			end loop;
+			
+			dma_write("01",X"0000"); -- fifo control, disable fifo dma requests
+			host_write("0000010", "00001001"); -- imr2 register, CO interrupt, ADSC interrupts
+
+			configure_cable_length(0);
+		end noninterlocked_io_test;
+
 		procedure parallel_poll_test is
 		begin
 			take_control;
@@ -956,6 +1200,8 @@ architecture behav of dual_integrated_cb7210p2_testbench is
 		
 		basic_io_test;
 		
+		noninterlocked_io_test;
+
 		sync_with_device(2);
 		
 		parallel_poll_test;
@@ -976,7 +1222,6 @@ architecture behav of dual_integrated_cb7210p2_testbench is
 
 		sync_with_device (6);
 
-		wait_for_ticks(10);	
 		assert false report "end of controller process" severity note;
 		controller_process_finished := true;
 		wait;
