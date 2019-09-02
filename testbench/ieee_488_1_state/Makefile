@@ -111,6 +111,7 @@ interface_function_AH_testbench.fst: $(AH_TEST_SRC)
 
 SH_TEST_SRC = ../../src/ieee_488_1_state/interface_function_common.vhd \
 	../../src/ieee_488_1_state/interface_function_SH.vhd \
+	../test_common.vhd \
 	interface_function_SH_testbench.vhd
 interface_function_SH_testbench.fst: $(SH_TEST_SRC)
 	nvc -a $(SH_TEST_SRC)

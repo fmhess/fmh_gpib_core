@@ -8,6 +8,7 @@ library IEEE;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 use work.interface_function_common.all;
+use work.test_common.all;
 
 entity interface_function_SH_testbench is
 end interface_function_SH_testbench;
@@ -35,6 +36,11 @@ architecture behav of interface_function_SH_testbench is
 
 	shared variable test_finished : boolean := false;
 
+	procedure wait_for_ticks(n : integer) is
+	begin
+		wait_for_ticks(n, clock);
+	end wait_for_ticks;
+	
 	begin
 	my_SH : entity work.interface_function_SHE
 		port map (
@@ -148,27 +154,19 @@ architecture behav of interface_function_SH_testbench is
 		data_byte_available <= '1';
 		
 		wait until rising_edge(clock);
-		wait until rising_edge(clock);
-		assert source_handshake_state = SGNS;
 		check_for_listeners <= '0';
 
-		wait until rising_edge(clock);
 		wait until rising_edge(clock);
 		assert source_handshake_state = SDYS;
 
 		-- This is the second cycle so T1 should be shorter this time.
-		for i in 1 to 2 loop
-			wait until rising_edge(clock);
-		end loop;
-		assert source_handshake_state = SDYS;
 
 		-- There is no listener and we turned off check so we go to STRS
-		wait until rising_edge(clock);
+		wait_for_ticks(4);
 		assert source_handshake_state = STRS;
 		data_byte_available <= '0';
 
 		wait until rising_edge(clock);
-		assert source_handshake_state = SWNS;
 
 		-- interrupt to SIWS
 		ATN <= '1';

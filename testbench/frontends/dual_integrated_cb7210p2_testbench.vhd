@@ -94,7 +94,7 @@ architecture behav of dual_integrated_cb7210p2_testbench is
 	signal controller_not_controller_in_charge : std_logic;
 	signal controller_system_controller : std_logic;
 
-	constant device_clock_half_period : time := 7.5 ns;
+	constant device_clock_half_period : time := 8.333 ns;
 	constant controller_clock_half_period : time := 5 ns;
 	constant loop_timeout : integer := 100;
 	
@@ -112,7 +112,7 @@ architecture behav of dual_integrated_cb7210p2_testbench is
 	begin
 	device_integrated_cb7210p2: entity work.integrated_cb7210p2
 		generic map (
-			clock_frequency_KHz => 66667
+			clock_frequency_KHz => 60000
 		)
 		port map (
 			clock => device_clock,
