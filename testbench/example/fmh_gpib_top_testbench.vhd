@@ -649,7 +649,7 @@ architecture behav of fmh_gpib_top_testbench is
 		-- read the data byte out of the gpib chip and we are in normal
 		-- handshake mode
 		wait for 200ns;
-		wait_for_ticks(2);
+		wait_for_ticks(3);
 		assert to_X01(bus_NRFD_inverted) = '1';
 		
 		dma_read("00", host_read_result_16);
@@ -682,7 +682,7 @@ architecture behav of fmh_gpib_top_testbench is
 			wait until to_X01(dma_single) = '1';
 		end if;
 		wait for 200ns;
-		wait_for_ticks(2);
+		wait_for_ticks(3);
 		assert to_X01(bus_NRFD_inverted) = '1';
 		
 		dma_read("00", host_read_result_16);

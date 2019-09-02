@@ -954,8 +954,8 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			internal_host_to_gpib_command_byte_latched <= '0';
 			prev_source_handshake_state := SIDS;
 		elsif rising_edge(clock) then
-			if prev_source_handshake_state /= STRS and 
-				source_handshake_state_buffer = STRS then
+			if prev_source_handshake_state /= SDYS and 
+				source_handshake_state_buffer = SDYS then
 				if ATN = '0' then
 					internal_host_to_gpib_data_byte_latched <= '0';
 				else

@@ -24,8 +24,6 @@ entity interface_function_SHE is
 		DAC : in std_logic;
 		IFC : in std_logic;
 		RFD : in std_logic;
-		-- *_byte_available inputs must clear during first cycle of STRS that
-		-- transmits the byte
 		command_byte_available : in std_logic;
 		data_byte_available : in std_logic;
 		nie : in std_logic := '0';
@@ -74,6 +72,7 @@ begin
 		variable T13_counter_done : boolean;
 		variable TN_counter_done : boolean;
 		variable nba : boolean;
+		variable should_linger : boolean;
 		
 		-- the handle_transitions_from_* functions exist to optimize the
 		-- path of transitions from STRS back to SDYS.  This matters in 
@@ -96,18 +95,14 @@ begin
 
 		procedure handle_transitions_from_SWNS is
 		begin
+			nba := false;
 			-- When we are in TACS, we want to linger here unless there is actually 
 			-- data another byte available
 			-- to send (for the sake of AHE acceptors during noninterlocked transfers, see
 			-- comment below in SWNS section of the case statement farther down).
-			-- Ironically, we are settings "new byte available" when the opposite
-			-- is true.  The standard expects the nba check in SWNS to be used to
-			-- insure nba has gone false after the old byte is sent in STRS 
-			-- before we wait for it to
-			-- go true again in SGNS for the next byte.
-			nba := to_X01(data_byte_available) = '0' and talker_state_p1 = TACS;
+			should_linger := to_X01(data_byte_available) = '0' and talker_state_p1 = TACS;
 
-			if not nba then
+			if not nba and not should_linger then
 				source_handshake_state_buffer <= SGNS;
 				-- immediately handle SGNS as optimization
 				handle_transitions_from_SGNS;
@@ -120,26 +115,23 @@ begin
 		begin
 			-- check if T14 delay is done
 			TN_counter_done := (current_count >= T14_terminal_count);
-			current_count <= current_count + 1;
+			if TN_counter_done = false then
+				current_count <= current_count + 1;
+			end if;
 			
-			-- check current_count to insure we spend at least
-			-- 2 cycles in STRS to give a chance for *_byte_available
-			-- signals to clear before going into SWNS
-			if to_integer(current_count) > 0 then
-				if interrupt then
-					source_handshake_state_buffer <= SIWS;
-				elsif to_X01(DAC) = '1' and 
-					(
-						configuration_state_p1 = CNCS or talker_state_p1 /= TACS or 
-						(noninterlocked_enable_state_buffer = SNDS and to_X01(RFD) = '0') or 
-						(noninterlocked_enable_state_buffer = SNES and TN_counter_done)
-					) 
-				then
-					source_handshake_state_buffer <= SWNS;
-					SWNS_DAV <= '1';
-					-- immediately handle SWNS as optimization
-					handle_transitions_from_SWNS;
-				end if;
+			if interrupt then
+				source_handshake_state_buffer <= SIWS;
+			elsif to_X01(DAC) = '1' and 
+				(
+					configuration_state_p1 = CNCS or talker_state_p1 /= TACS or 
+					(noninterlocked_enable_state_buffer = SNDS and to_X01(RFD) = '0') or 
+					(noninterlocked_enable_state_buffer = SNES and TN_counter_done)
+				) 
+			then
+				source_handshake_state_buffer <= SWNS;
+				SWNS_DAV <= '1';
+				-- immediately handle SWNS as optimization
+				handle_transitions_from_SWNS;
 			end if;
 		end handle_transitions_from_STRS;
 		

@@ -1083,8 +1083,23 @@ begin
 		end if;
 	end process;
 		
-	DO_interrupt_condition <= '1' when talker_state_p1 = TACS and host_to_gpib_data_byte_latched = '0' else '0';
-	CO_interrupt_condition <= '1' when controller_state_p1 = CACS and host_to_gpib_command_byte_latched = '0' else '0';
+	-- We suppress DO and CO interrupt conditions while in STRS or SDYS because
+	-- the user may rely on them to know if the previous
+	-- byte has been completely and successfully sent to all listeners.
+	-- The host_to_gpib_data_byte_latched signal clears on
+	-- entering SDYS, but we don't know the byte has reached all listeners
+	-- until leaving STRS.  Having host_to_gpib_data_byte_latched clear
+	-- early (on entering SDYS) allows reduced latency for host-to-gpib
+	-- dma transfers, which is important for high speed noninterlocked
+	-- source handshake.
+	DO_interrupt_condition <= '1' when talker_state_p1 = TACS and
+			source_handshake_state /= STRS and source_handshake_state /= SDYS and 
+			host_to_gpib_data_byte_latched = '0' 
+		else '0';
+	CO_interrupt_condition <= '1' when controller_state_p1 = CACS and 
+			source_handshake_state /= STRS and source_handshake_state /= SDYS and 
+			host_to_gpib_command_byte_latched = '0' 
+		else '0';
 	DI_interrupt_condition <= gpib_to_host_byte_latched when RFD_holdoff_mode /= continuous_mode else '0';
 	END_interrupt_condition <= gpib_to_host_byte_end or gpib_to_host_byte_eos;
 
