@@ -121,7 +121,7 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	signal host_read_from_bus_state : host_io_enum;
 	signal host_write_to_bus_state : host_io_enum;
 
-	type dma_enum is (dma_idle, dma_waiting_for_idle);
+	type dma_enum is (dma_idle, dma_delay_state, dma_waiting_for_idle);
 	signal host_to_gpib_dma_state : dma_enum;
 	signal gpib_to_host_dma_state : dma_enum;
 
@@ -876,7 +876,6 @@ begin
 			host_data_bus_out_buffer <= (others => '0');
 			gpib_to_host_dma_state <= dma_idle;
 			gpib_to_data_byte_read <= '0';
-			dma_bus_out_request <= '0';
 			dma_bus_out <= (others => '0');
 			dma_bus_end_out <= '0';
 			prev_controller_state_p2 := CSNS;
@@ -929,17 +928,15 @@ begin
 			case gpib_to_host_dma_state is
 				when dma_idle =>
 					dma_bus_out <= (others => '0');
-					if DMA_input_enable = '1' and gpib_to_host_byte_latched = '1' then
-						dma_bus_out_request <= '1';
-					else
-						dma_bus_out_request <= '0';
-					end if;
 					if dma_read_selected = '1' then
 						dma_bus_out <= gpib_to_host_byte;
 						dma_bus_end_out <= gpib_to_host_byte_end or gpib_to_host_byte_eos;
 						gpib_to_data_byte_read <= '1';
+						gpib_to_host_dma_state <= dma_delay_state;
+					end if;
+				when dma_delay_state =>
+					if gpib_to_host_byte_latched = '0' then
 						gpib_to_host_dma_state <= dma_waiting_for_idle;
-						dma_bus_out_request <= '0';
 					end if;
 				when dma_waiting_for_idle =>
 					if dma_read_selected = '0' then
@@ -1516,7 +1513,6 @@ begin
 			register_page <= (others => '0');
 			pon_pulse <= '0';
 			soft_reset_pulse <= '0';
-			dma_bus_in_request <= '0';
 			release_RFD_holdoff_pulse <= '0';
 			set_RFD_holdoff_pulse <= '0';
 			trigger_aux_command_pulse <= '0';
@@ -1543,18 +1539,20 @@ begin
 			-- host to gpib dma state machine
 			case host_to_gpib_dma_state is
 				when dma_idle =>
-					if DMA_output_enable = '1' and host_to_gpib_data_byte_latched = '0' then
-						dma_bus_in_request <= '1';
-					else
-						dma_bus_in_request <= '0';
-					end if;
 					if dma_write_selected = '1' then
 						if to_X01(dma_bus_eoi_in) = '1' then
 							send_eoi := '1';
 						end if;
 						write_host_to_gpib_data_byte(dma_bus_in);
-						host_to_gpib_dma_state <= dma_waiting_for_idle;
-						dma_bus_in_request <= '0';
+						host_to_gpib_dma_state <= dma_delay_state;
+					end if;
+				when dma_delay_state =>
+					if host_to_gpib_data_byte_latched = '1' then
+						if dma_write_selected = '0' then
+							host_to_gpib_dma_state <= dma_idle;
+						else
+							host_to_gpib_dma_state <= dma_waiting_for_idle;
+						end if;
 					end if;
 				when dma_waiting_for_idle =>
 					if dma_write_selected = '0' then
@@ -1637,6 +1635,13 @@ begin
 		end if;
 	end process;	
 
+	dma_bus_in_request <= '1' when DMA_output_enable = '1' and host_to_gpib_data_byte_latched = '0' and
+			host_to_gpib_dma_state = dma_idle else 
+		'0';
+	dma_bus_out_request <= '1' when DMA_input_enable = '1' and gpib_to_host_byte_latched = '1' and
+			gpib_to_host_dma_state = dma_idle else
+		'0';
+	
 	RFD_holdoff_mode <= continuous_mode when listen_with_continuous_mode = '1' else
 		configured_RFD_holdoff_mode;
 	
