@@ -961,9 +961,10 @@ begin
 			-- set read-clearable interrupts
 			
 			if host_to_gpib_data_byte_latched = '0' then
-				if (prev_source_handshake_state = SIDS and source_handshake_state = SGNS) or 
-				(prev_source_handshake_state = STRS and source_handshake_state = SWNS)
-			then
+				if ((prev_source_handshake_state = SIDS or prev_source_handshake_state = SNGS) and 
+					source_handshake_state = SGNS) or 
+					(prev_source_handshake_state = STRS and source_handshake_state = SWNS)
+				then
 					if DO_interrupt_condition = '1' then
 						DO_interrupt <= '1';
 					end if;
