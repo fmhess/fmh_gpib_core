@@ -106,7 +106,7 @@ package body interface_function_common is
 				unsigned_stripped_byte = X"13" or
 				unsigned_stripped_byte = X"16" or
 				unsigned_stripped_byte = X"17" or
-				(unsigned_stripped_byte >= X"1a" and unsigned_stripped_byte <= X"1f");
+				(unsigned_stripped_byte >= X"1a" and unsigned_stripped_byte <= X"1e");
 		end if;
 	end is_passthrough_primary_command;
 	
@@ -126,7 +126,7 @@ package body interface_function_common is
 			unsigned_stripped_byte = X"13" or
 			unsigned_stripped_byte = X"16" or
 			unsigned_stripped_byte = X"17" or
-			(unsigned_stripped_byte >= X"1a" and unsigned_stripped_byte <= X"1f");
+			(unsigned_stripped_byte >= X"1a" and unsigned_stripped_byte <= X"1e");
 	end is_unrecognized_primary_command;
 
 	function is_addressed_command (byte : std_logic_vector(7 downto 0)) return boolean is
