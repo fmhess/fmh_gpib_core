@@ -338,6 +338,18 @@ architecture behav of frontend_cb7210p2_testbench is
 			host_write("110", host_write_byte); --address register 0/1
 			host_write("100", X"32"); -- address mode register, transmit/receive mode 0x3 address mode 2
 
+			--address chip as talker
+			gpib_address_as_talker;
+			host_read("100", host_read_result); -- address status register
+			assert host_read_result(1) = '1'; -- talker addressed
+			assert host_read_result(2) = '0'; -- listener addressed
+			
+			gpib_write("01111111", false); -- UNT
+			gpib_address_as_talker(17, to_integer(unsigned(NO_ADDRESS_CONFIGURED)));
+			host_read("100", host_read_result); -- address status register
+			assert host_read_result(1) = '0'; -- talker addressed
+			assert host_read_result(2) = '0'; -- listener addressed
+
 			gpib_address_as_listener;
 			host_read("100", host_read_result); -- address status register
 			assert host_read_result(1) = '0'; -- talker addressed
