@@ -88,7 +88,7 @@ package body interface_function_common is
 		listener_state : LE_state_p1) return boolean is
 		variable unsigned_stripped_byte : unsigned(7 downto 0);
 	begin
-		unsigned_stripped_byte(6 downto 0) := to_01(unsigned(byte(6 downto 0)));
+		unsigned_stripped_byte(6 downto 0) := unsigned(to_X01(byte(6 downto 0)));
 		unsigned_stripped_byte(7) := '0';
 		if is_addressed_command(byte) and listener_state /= LIDS then
 			-- these are addressed commands and should be ignored if they were
@@ -113,7 +113,7 @@ package body interface_function_common is
 	function is_unrecognized_primary_command (byte : std_logic_vector(7 downto 0)) return boolean is
 		variable unsigned_stripped_byte : unsigned(7 downto 0);
 	begin
-		unsigned_stripped_byte(6 downto 0) := to_01(unsigned(byte(6 downto 0)));
+		unsigned_stripped_byte(6 downto 0) := unsigned(to_X01(byte(6 downto 0)));
 		unsigned_stripped_byte(7) := '0';
 		return unsigned_stripped_byte = X"00" or
 			unsigned_stripped_byte = X"02" or
