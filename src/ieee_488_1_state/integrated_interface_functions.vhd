@@ -1041,7 +1041,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 							address_passthrough_buffer <= '1';
 							command_passthrough_buffer <= '0';
 							DAC_holdoff <= '1';
-						elsif parallel_poll_state_p2_buffer /= PACS and last_primary_command_unrecognized = '1' then
+						elsif last_primary_command_unrecognized = '1' then
 							address_passthrough_buffer <= '0';
 							command_passthrough_buffer <= '1';
 							DAC_holdoff <= '1';
