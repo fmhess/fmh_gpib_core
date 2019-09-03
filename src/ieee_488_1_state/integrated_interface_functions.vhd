@@ -690,7 +690,8 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			empty => acceptor_fifo_empty
 		);
  
-	ATN <= local_ATN or remote_ATN;
+	ATN <= local_ATN when controller_state_p1_buffer /= CIDS and controller_state_p1_buffer /= CADS
+		else remote_ATN;
 	acceptor_handshake_state <= acceptor_handshake_state_buffer;
 	controller_state_p1 <= controller_state_p1_buffer;
 	controller_state_p2 <= controller_state_p2_buffer;
