@@ -31,6 +31,8 @@ frontend_cb7210p2_testbench.fst: $(FRONTEND_CB7210P2_TEST_SRC)
 	nvc -r frontend_cb7210p2_testbench --wave 
 
 DUAL_CB7210P2_TEST_SRC = \
+	../../src/util/std_fifo.vhd \
+	../../src/ieee_488_1_state/acceptor_fifo.vhd \
 	../../src/ieee_488_1_state/interface_function_common.vhd \
 	../../src/ieee_488_1_state/interface_function_AH.vhd \
 	../../src/ieee_488_1_state/interface_function_C.vhd \
