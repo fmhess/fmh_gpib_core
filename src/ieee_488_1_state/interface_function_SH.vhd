@@ -25,7 +25,11 @@ entity interface_function_SHE is
 		IFC : in std_logic;
 		RFD : in std_logic;
 		command_byte_available : in std_logic;
+		command_byte : in std_logic_vector(7 downto 0);
 		data_byte_available : in std_logic;
+		data_byte : in std_logic_vector(7 downto 0);
+		data_byte_end : in std_logic;
+		status_byte : in std_logic_vector(7 downto 0);
 		nie : in std_logic := '0';
 		pon : in std_logic;
 		first_T1_terminal_count : in unsigned (num_counter_bits - 1 downto 0); -- longer T1 used for first cycle only
@@ -39,6 +43,8 @@ entity interface_function_SHE is
 
 		source_handshake_state : out SH_state;
 		source_noninterlocked_state : out SH_noninterlocked_state;
+		source_handshake_byte : out std_logic_vector(7 downto 0);
+		source_handshake_end : out std_logic;
 		DAV : out std_logic;
 		NIC : out std_logic;
 		no_listeners : out std_logic -- pulses true during SDYS if no listeners are detected at end of T1 delay
@@ -88,6 +94,20 @@ begin
 				current_count <= to_unsigned(0, current_count'length);
 				no_listeners_reported <= false;
 				source_handshake_state_buffer <= SDYS;
+				
+				-- update DIO and END as we transition into SDYS
+				if talker_state_p1 = TACS then
+					source_handshake_byte <= data_byte;
+					source_handshake_end <= data_byte_end;
+				elsif talker_state_p1 = SPAS then
+					source_handshake_byte <= status_byte;
+					source_handshake_end <= '0';
+				elsif controller_state_p1 = CACS then
+					source_handshake_byte <= command_byte;
+					source_handshake_end <= '0';
+				else
+					assert false;
+				end if;
 			elsif interrupt then
 				source_handshake_state_buffer <= SIDS;
 			end if;
@@ -148,6 +168,8 @@ begin
 			no_listeners_reported <= false;
 			nba := false;
 			SWNS_DAV <= '0';
+			source_handshake_byte <= (others => '0');
+			source_handshake_end <= '0';
 		elsif rising_edge(clock) then
 			-- no_listeners only pulses high for 1 clock so clear it.  no_listeners may
 			-- be set high (for a cycle) later in this process.
@@ -155,6 +177,9 @@ begin
 			
 			case source_handshake_state_buffer is
 				when SIDS =>
+					source_handshake_byte <= (others => '0');
+					source_handshake_end <= '0';
+
 					if (talker_state_p1 = TACS and not ready_for_noninterlocked) or 
 						talker_state_p1 = SPAS or controller_state_p1 = CACS then
 						source_handshake_state_buffer <= SGNS;
@@ -201,6 +226,8 @@ begin
 				when SWNS =>
 					handle_transitions_from_SWNS;
 				when SIWS =>
+					source_handshake_byte <= (others => '0');
+					source_handshake_end <= '0';
 					nba := false;
 					
 					if not nba then

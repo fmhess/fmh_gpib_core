@@ -22,7 +22,11 @@ architecture behav of interface_function_SH_testbench is
 	signal IFC : std_logic;
 	signal RFD : std_logic;
 	signal command_byte_available : std_logic;
+	signal command_byte : std_logic_vector(7 downto 0);
 	signal data_byte_available : std_logic;
+	signal data_byte : std_logic_vector(7 downto 0);
+	signal data_byte_end : std_logic;
+	signal status_byte : std_logic_vector(7 downto 0);
 	signal pon : std_logic;
 	signal first_T1_terminal_count : unsigned (7 downto 0);
 	signal T1_terminal_count : unsigned (7 downto 0);
@@ -52,7 +56,11 @@ architecture behav of interface_function_SH_testbench is
 			DAC => DAC,
 			RFD => RFD,
 			command_byte_available => command_byte_available,
+			command_byte => command_byte,
 			data_byte_available => data_byte_available,
+			data_byte => data_byte,
+			data_byte_end => data_byte_end,
+			status_byte => status_byte,
 			pon => pon,
 			first_T1_terminal_count => first_T1_terminal_count,
 			T1_terminal_count => T1_terminal_count,
@@ -83,8 +91,12 @@ architecture behav of interface_function_SH_testbench is
 		RFD <= 'H';
 		IFC <= 'H';
 		command_byte_available <= '0';
+		command_byte <= (others => '0');
 		data_byte_available <= '0';
-		
+		data_byte <= (others => '0');
+		data_byte_end <= '0';
+		status_byte <= (others => '0');
+
 		
 		first_T1_terminal_count <= X"05";
 		T1_terminal_count <= X"03";

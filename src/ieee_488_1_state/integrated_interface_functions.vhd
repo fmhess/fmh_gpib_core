@@ -246,7 +246,10 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	signal talker_state_p3_buffer : TE_state_p3;
 	signal configuration_state_p1_num_meters_buffer : unsigned(3 downto 0);
 
-	signal bus_dio_inverted_out_buffer : std_logic_vector(7 downto 0);
+	signal source_handshake_byte : std_logic_vector(7 downto 0);
+	signal source_handshake_end : std_logic;
+	signal talker_end : std_logic;
+	
 	signal bus_DIO_in : std_logic_vector(7 downto 0);
 	
 	signal talk_enable_buffer : std_logic;
@@ -550,8 +553,12 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			DAC => DAC,
 			IFC => IFC,
 			RFD => RFD,
-			command_byte_available => internal_host_to_gpib_command_byte_latched ,
-			data_byte_available => internal_host_to_gpib_data_byte_latched ,
+			command_byte_available => internal_host_to_gpib_command_byte_latched,
+			command_byte => internal_host_to_gpib_command_byte,
+			data_byte_available => internal_host_to_gpib_data_byte_latched,
+			data_byte => internal_host_to_gpib_data_byte,
+			data_byte_end => internal_host_to_gpib_data_byte_end,
+			status_byte => status_byte_buffer,
 			nie => nie,
 			pon => pon,
 			first_T1_terminal_count => first_T1_terminal_count,
@@ -565,6 +572,8 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			
 			source_handshake_state => source_handshake_state_buffer,
 			source_noninterlocked_state => source_noninterlocked_state,
+			source_handshake_byte => source_handshake_byte,
+			source_handshake_end => source_handshake_end,
 			DAV => local_DAV,
 			NIC => local_NIC,
 			no_listeners => no_listeners
@@ -618,7 +627,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			talker_state_p1 => talker_state_p1_buffer,
 			talker_state_p2 => talker_state_p2_buffer,
 			talker_state_p3 => talker_state_p3_buffer,
-			END_msg => local_END,
+			END_msg => talker_end,
 			RQS => local_RQS
 		);
 		
@@ -716,13 +725,14 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	host_to_gpib_data_byte_latched <= internal_host_to_gpib_data_byte_latched;
 	host_to_gpib_command_byte_latched <= internal_host_to_gpib_command_byte_latched;
 	
-	status_byte_buffer(7) <= not local_STB(7); 
-	status_byte_buffer(6) <= not local_RQS; 
-	status_byte_buffer(5 downto 0) <= not local_STB(5 downto 0);
+	status_byte_buffer(7) <= local_STB(7); 
+	status_byte_buffer(6) <= local_RQS; 
+	status_byte_buffer(5 downto 0) <= local_STB(5 downto 0);
 
 	bus_ATN_inverted_out <= not local_ATN when
 		controller_state_p1_buffer /= CIDS and controller_state_p1_buffer /= CADS else 'Z';
 	bus_DAV_inverted_out <= not local_DAV when talk_enable_buffer = '1' else 'Z';
+	local_END <= talker_end or source_handshake_end;
 	bus_EOI_inverted_out <= not (local_END) when
 			talker_state_p1_buffer = TACS or talker_state_p1_buffer = SPAS else
 		not local_IDY when 
@@ -768,50 +778,12 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 		end if;
 	end process;
 	
-	process(pon, clock)
-		variable prev_source_handshake_state  : SH_state;
-	begin
-		if pon = '1' then
-			bus_DIO_inverted_out_buffer <= (others => 'Z');
-			prev_source_handshake_state := SIDS;
-		elsif rising_edge(clock) then
-		
-			if (source_handshake_state_buffer = SDYS) then
-				-- we should only update the output lines when we first enter SDYS,
-				-- since the purpose of SDYS is to give time for the lines to settle
-				if (prev_source_handshake_state /= SDYS) then
-					if talker_state_p1_buffer = TACS then
-						bus_DIO_inverted_out_buffer <= not internal_host_to_gpib_data_byte;
-					elsif controller_state_p1_buffer = CACS then
-						bus_DIO_inverted_out_buffer <= not internal_host_to_gpib_command_byte;
-					elsif talker_state_p1_buffer = SPAS then
-						bus_DIO_inverted_out_buffer <= status_byte_buffer;
-					end if;
-				else
-					bus_DIO_inverted_out_buffer <= bus_DIO_inverted_out_buffer;
-				end if;
-			elsif source_handshake_state_buffer = STRS or
-				source_handshake_state_buffer = SWNS then
-				-- DIO lines should already be in correct state from SDYS, just keep it steady until we are out of STRS.
-				-- This allows the next output byte to be accepted by the chip without disturbing the state of the DIO
-				-- lines.
-				-- In the case of SWNS, we are leaving DAV in whatever state it was on entering SWNS so we might
-				-- as well do the same for the DIO lines
-				bus_DIO_inverted_out_buffer <= bus_DIO_inverted_out_buffer;
-			elsif to_X01(local_TCT) = '1' then
-				bus_DIO_inverted_out_buffer <= not "00001001";
-			elsif parallel_poll_state_p1_buffer = PPAS then
-				bus_DIO_inverted_out_buffer <= to_X0Z(not local_PPR);
-			elsif (talk_enable_buffer = '1') then
-				bus_DIO_inverted_out_buffer <= (others => '1');
-			else
-				bus_DIO_inverted_out_buffer <= (others => 'Z');
-			end if;
-			
-			prev_source_handshake_state := source_handshake_state_buffer;
-		end if;
-	end process;
-	bus_DIO_inverted_out <= bus_DIO_inverted_out_buffer;
+	bus_DIO_inverted_out <= not source_handshake_byte when 
+			(talker_state_p1_buffer = TACS or talker_state_p1_buffer = SPAS or controller_state_p1_buffer = CACS)
+		else not "00001001" when to_X01(local_TCT) = '1'
+		else to_X0Z(not local_PPR) when parallel_poll_state_p1_buffer = PPAS
+		else (others => '1') when (talk_enable_buffer = '1') 
+		else (others => 'Z');
 
 	talk_enable_buffer <= '1' when
 		(
