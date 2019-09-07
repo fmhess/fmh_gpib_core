@@ -622,7 +622,6 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			SPD => SPD,
 			PCG => PCG,
 			enable_secondary_addressing => enable_secondary_addressing,
-			host_to_gpib_data_byte_end => internal_host_to_gpib_data_byte_end,
 			assert_END_in_SPAS => assert_END_in_SPAS,
 			talker_state_p1 => talker_state_p1_buffer,
 			talker_state_p2 => talker_state_p2_buffer,

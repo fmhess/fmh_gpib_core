@@ -29,7 +29,6 @@ entity interface_function_TE is
 		SPD : in std_logic;
 		PCG : in std_logic;
 		enable_secondary_addressing : in std_logic; -- true for extended talker, false for talker
-		host_to_gpib_data_byte_end : in std_logic;
 		assert_END_in_SPAS : in std_logic;
 		
 		talker_state_p1 : out TE_state_p1;
