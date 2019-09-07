@@ -252,26 +252,24 @@ begin
 	my_control_debounce_filter : entity work.gpib_debounce_filter
 		generic map(
 			max_length => filter_length_200ns,
-			num_inputs => 7
+			num_inputs => 6
 		)
 		port map(
 			reset => safe_reset,
 			clock => clock,
 			threshold => filter_threshold_200ns,
 			inputs(0) => gpib_ATN_inverted_in,
-			inputs(1) => gpib_EOI_inverted_in,
-			inputs(2) => gpib_IFC_inverted_in,
-			inputs(3) => gpib_NDAC_inverted_in,
-			inputs(4) => gpib_NRFD_inverted_in,
-			inputs(5) => gpib_REN_inverted_in,
-			inputs(6) => gpib_SRQ_inverted_in,
+			inputs(1) => gpib_IFC_inverted_in,
+			inputs(2) => gpib_NDAC_inverted_in,
+			inputs(3) => gpib_NRFD_inverted_in,
+			inputs(4) => gpib_REN_inverted_in,
+			inputs(5) => gpib_SRQ_inverted_in,
 			outputs(0) => filtered_ATN_inverted,
-			outputs(1) => filtered_EOI_inverted,
-			outputs(2) => filtered_IFC_inverted,
-			outputs(3) => filtered_NDAC_inverted,
-			outputs(4) => filtered_NRFD_inverted,
-			outputs(5) => filtered_REN_inverted,
-			outputs(6) => filtered_SRQ_inverted
+			outputs(1) => filtered_IFC_inverted,
+			outputs(2) => filtered_NDAC_inverted,
+			outputs(3) => filtered_NRFD_inverted,
+			outputs(4) => filtered_REN_inverted,
+			outputs(5) => filtered_SRQ_inverted
 		);
 
 	my_DAV_debounce_filter : entity work.gpib_debounce_filter
@@ -291,15 +289,17 @@ begin
 	my_DIO_debounce_filter : entity work.gpib_debounce_filter
 		generic map(
 			max_length => filter_length_200ns,
-			num_inputs => 8
+			num_inputs => 9
 		)
 		port map(
 			reset => safe_reset,
 			clock => clock,
 			length => DIO_filter_length,
 			threshold => DIO_filter_threshold,
-			inputs => gpib_DIO_inverted_in,
-			outputs => filtered_DIO_inverted
+			inputs(7 downto 0) => gpib_DIO_inverted_in,
+			inputs(8) => gpib_EOI_inverted_in,
+			outputs(7 downto 0) => filtered_DIO_inverted,
+			outputs(8) => filtered_EOI_inverted
 		);
 	
 	my_dma_fifos : entity work.dma_fifos
