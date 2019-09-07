@@ -1,6 +1,5 @@
 .PHONY: all
 all: frontend_cb7210p2_testbench.fst \
-	dual_cb7210p2_testbench.fst \
 	dual_integrated_cb7210p2_testbench.fst
 
 FRONTEND_CB7210P2_TEST_SRC = \
@@ -30,7 +29,7 @@ frontend_cb7210p2_testbench.fst: $(FRONTEND_CB7210P2_TEST_SRC)
 	nvc -e frontend_cb7210p2_testbench
 	nvc -r frontend_cb7210p2_testbench --wave 
 
-DUAL_CB7210P2_TEST_SRC = \
+DUAL_INTEGRATED_CB7210P2_TEST_SRC = \
 	../../src/util/std_fifo.vhd \
 	../../src/ieee_488_1_state/acceptor_fifo.vhd \
 	../../src/ieee_488_1_state/interface_function_common.vhd \
@@ -51,14 +50,6 @@ DUAL_CB7210P2_TEST_SRC = \
 	../../src/util/gpib_transceiver.vhd \
 	../../src/frontends/frontend_cb7210p2.vhd \
 	../test_common.vhd \
-	dual_cb7210p2_testbench.vhd
-dual_cb7210p2_testbench.fst: $(DUAL_CB7210P2_TEST_SRC)
-	nvc -a $(DUAL_CB7210P2_TEST_SRC)
-	nvc -e dual_cb7210p2_testbench
-	nvc -r dual_cb7210p2_testbench --wave 
-
-DUAL_INTEGRATED_CB7210P2_TEST_SRC = \
-	$(DUAL_CB7210P2_TEST_SRC) \
 	../../src/util/gpib_control_debounce_filter.vhd \
 	../../src/util/dma_fifos.vhd \
 	../../src/util/gpib_transceiver.vhd \
