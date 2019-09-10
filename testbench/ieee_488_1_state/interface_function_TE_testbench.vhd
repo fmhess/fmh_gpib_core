@@ -30,7 +30,6 @@ architecture behav of interface_function_TE_testbench is
 	signal SPD : std_logic;
 	signal PCG : std_logic;
 	signal enable_secondary_addressing : std_logic;
-	signal host_to_gpib_data_byte_end : std_logic;
 	signal assert_END_in_SPAS : std_logic;
 	signal talker_state_p1 : TE_state_p1;
 	signal talker_state_p2 : TE_state_p2;
@@ -63,7 +62,6 @@ architecture behav of interface_function_TE_testbench is
 			SPD => SPD,
 			PCG => PCG,
 			enable_secondary_addressing => enable_secondary_addressing,
-			host_to_gpib_data_byte_end => host_to_gpib_data_byte_end,
 			assert_END_in_SPAS => assert_END_in_SPAS,
 			talker_state_p1 => talker_state_p1,
 			talker_state_p2 => talker_state_p2,
@@ -110,7 +108,6 @@ architecture behav of interface_function_TE_testbench is
 		SPD <= '0';
 		PCG <= '0';
 		enable_secondary_addressing <= '0';
-		host_to_gpib_data_byte_end <= '0';
 		assert_END_in_SPAS <= '0';
 		
 		wait until rising_edge(clock);
