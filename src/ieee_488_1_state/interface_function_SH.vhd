@@ -86,6 +86,9 @@ begin
 		-- where single clock cycles make a significant impact on throughput
 		procedure handle_transitions_from_SGNS is
 		begin
+			source_handshake_byte <= (others => '0');
+			source_handshake_end <= '0';
+
 			nba := 	(to_X01(data_byte_available) = '1' and talker_state_p1 = TACS) or
 				(to_X01(command_byte_available) = '1' and controller_state_p1 = CACS) or
 				talker_state_p1 = SPAS;
