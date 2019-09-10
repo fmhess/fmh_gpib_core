@@ -441,6 +441,7 @@ architecture behav of dual_integrated_cb7210p2_testbench is
 			host_write("0001110", "00000000"); -- interrupt mask register 0
 			host_write("0000001", "00101011"); -- interrupt mask register 1, DI, DO, DEC, DETC interrupt enables
 			host_write("0000010", "00000001"); -- interrupt mask register 2, ADSC interrupt enable
+			host_write("0000101", "10000000");  -- Aux A register, normal handshake
 		end setup_basic_io_test;
 		
 		procedure basic_io_test is
@@ -495,7 +496,6 @@ architecture behav of dual_integrated_cb7210p2_testbench is
 
 		procedure noninterlocked_io_test is
 		begin
-			host_write("0000101", "10000000");  -- Aux A register, normal handshake
 			host_write("0000010", "00000000"); -- imr2 register, clear
 			dma_write("01",X"0300"); -- fifo control, clear and enable gpib-to-host fifo dma requests
 			host_write("0000010", "00010001"); -- imr2 register, dma input enable, ADSC interrupt enable
@@ -551,7 +551,12 @@ architecture behav of dual_integrated_cb7210p2_testbench is
 				if to_X01(device_dma_single) /= '1' then
 					wait until to_X01(device_dma_single) = '1';
 				end if;
-				dma_write("00", std_logic_vector(to_unsigned(n, 16)));
+				if n mod 16#10# = 16#f# then
+					-- assert EOI every 16th byte
+					dma_write("00", std_logic_vector(to_unsigned(n, 16)) or X"0100");
+				else
+					dma_write("00", std_logic_vector(to_unsigned(n, 16)));
+				end if;
 			end loop;
 			
 			-- wait until host-to-gpib fifo empties
@@ -994,6 +999,7 @@ architecture behav of dual_integrated_cb7210p2_testbench is
 			host_write("0000001", "00000011"); -- interrupt mask register 1, DI, DO interrupt enables
 			host_write("0000010", "00001001"); -- interrupt mask register 2, ADSR and CO interrupt enables
 
+			host_write("0000101", "10000000");  -- Aux A register, normal handshake
 		end setup_basic_io_test;
 		
 		procedure basic_io_test is
@@ -1051,7 +1057,12 @@ architecture behav of dual_integrated_cb7210p2_testbench is
 				if to_X01(controller_dma_single) /= '1' then
 					wait until to_X01(controller_dma_single) = '1';
 				end if;
-				dma_write("00", std_logic_vector(to_unsigned(n, 16)));
+				if n mod 16#10# = 16#f# then
+					-- assert EOI every 16th byte
+					dma_write("00", std_logic_vector(to_unsigned(n, 16)) or X"0100");
+				else
+					dma_write("00", std_logic_vector(to_unsigned(n, 16)));
+				end if;
 			end loop;
 
 			-- wait until host-to-gpib fifo empties
@@ -1073,7 +1084,6 @@ architecture behav of dual_integrated_cb7210p2_testbench is
 			wait_for_ticks(5);
 			assert to_X01(bus_ATN_inverted) = '1';
 
-			host_write("0000101", "10000000");  -- Aux A register, normal handshake
 			host_write("0000010", "00000000"); -- imr2 register, clear
 			dma_write("01",X"0300"); -- fifo control, clear and enable gpib-to-host fifo dma requests
 			dma_write("10", X"0040"); -- transfer count

@@ -772,7 +772,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			first_T1_terminal_count <= time_selection_to_clock_ticks(first_T1_time);
 			T1_terminal_count <= time_selection_to_clock_ticks(T1_time);
 			T13_terminal_count <= T13_clock_ticks(configuration_state_p1_num_meters_buffer);
-			T14_terminal_count <= T14_clock_ticks(configuration_state_p1_num_meters_buffer, EOS or END_msg);
+			T14_terminal_count <= T14_clock_ticks(configuration_state_p1_num_meters_buffer, source_handshake_end);
 			T18_terminal_count <= T18_clock_ticks(configuration_state_p1_num_meters_buffer);
 		end if;
 	end process;
