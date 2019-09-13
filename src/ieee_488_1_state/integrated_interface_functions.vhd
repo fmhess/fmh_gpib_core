@@ -240,6 +240,8 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	signal parallel_poll_state_p2_buffer : PP_state_p2;
 	signal remote_local_state_buffer : RL_state;
 	signal source_handshake_state_buffer : SH_state;
+	signal prev_source_handshake_state : SH_state;
+	signal first_STRS_cycle : boolean;
 	signal service_request_state_buffer : SR_state;
 	signal talker_state_p1_buffer : TE_state_p1;
 	signal talker_state_p2_buffer : TE_state_p2;
@@ -721,7 +723,13 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	configuration_state_p1 <= configuration_state_p1_buffer;
 	configuration_state_p1_num_meters <= configuration_state_p1_num_meters_buffer;
 		
-	host_to_gpib_data_byte_latched <= internal_host_to_gpib_data_byte_latched;
+	-- By clearing host_to_gpib_data_byte_latched on first_STRS_cycle, 
+	-- we reduce latency by 1 clock cycle.  This helps achieve 8MB/s maximum
+	-- noninterlocked source handshake speed, while still waiting for STRS
+	-- before clearing (we could just clear in SDYS but then we might
+	-- unnecesarily discard an unsent byte when interrupted by the controller).
+	host_to_gpib_data_byte_latched <= '1' when internal_host_to_gpib_data_byte_latched = '1' and not first_STRS_cycle
+		else '0';
 	host_to_gpib_command_byte_latched <= internal_host_to_gpib_command_byte_latched;
 	
 	status_byte_buffer(7) <= local_STB(7); 
@@ -916,7 +924,6 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 	
 	-- deal with byte written by host to gpib bus
 	process(pon, clock)
-		variable prev_source_handshake_state  : SH_state;
 	begin
 		if to_bit(pon) = '1' then
 			internal_host_to_gpib_data_byte_latched <= '0';
@@ -924,10 +931,9 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 			internal_host_to_gpib_data_byte_end <= '0';
 			internal_host_to_gpib_command_byte <= (others => '0');
 			internal_host_to_gpib_command_byte_latched <= '0';
-			prev_source_handshake_state := SIDS;
+			prev_source_handshake_state <= SIDS;
 		elsif rising_edge(clock) then
-			if prev_source_handshake_state /= SDYS and 
-				source_handshake_state_buffer = SDYS then
+			if first_STRS_cycle then
 				if ATN = '0' then
 					internal_host_to_gpib_data_byte_latched <= '0';
 				else
@@ -950,10 +956,12 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 				internal_host_to_gpib_command_byte <= host_to_gpib_byte;
 				internal_host_to_gpib_command_byte_latched <= '1';
 			end if;
-			prev_source_handshake_state := source_handshake_state_buffer;
+			prev_source_handshake_state <= source_handshake_state_buffer;
 		end if;
 	end process;
 
+	first_STRS_cycle <= source_handshake_state_buffer = STRS and prev_source_handshake_state /= STRS;
+	
 	-- update parallel poll sense and line
 	process(pon, clock) 
 	begin
