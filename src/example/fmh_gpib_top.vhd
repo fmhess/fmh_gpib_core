@@ -58,6 +58,9 @@ entity fmh_gpib_top is
 		pullup_enable_inverted : out std_logic;
 		controller_in_charge : out std_logic;
 		talk_enable : out std_logic;
+		EOI_output_enable : out std_logic;
+		trigger : out std_logic;
+		system_controller : out std_logic;
 
 		-- gpib bus disconnect
 		gpib_disable : in std_logic
@@ -114,6 +117,9 @@ begin
 			pullup_enable_inverted => pullup_enable_inverted,
 			not_controller_in_charge => not_controller_in_charge,
 			talk_enable => talk_enable,
+			EOI_output_enable => EOI_output_enable,
+			trigger => trigger,
+			system_controller => system_controller,
 			gpib_disable => gpib_disable
 		);
 
