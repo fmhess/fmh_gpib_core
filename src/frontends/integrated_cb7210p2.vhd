@@ -404,24 +404,6 @@ begin
 			gated_NRFD_inverted <= '1';
 			gated_REN_inverted <= '1';
 			gated_SRQ_inverted <= '1';
-
-			--outputs
-			gpib_DIO_inverted_out <= (others => 'Z');
-			gpib_ATN_inverted_out <= 'Z';
-			gpib_DAV_inverted_out <= 'Z';
-			gpib_EOI_inverted_out <= 'Z';
-			gpib_IFC_inverted_out <= 'Z';
-			gpib_NDAC_inverted_out <= 'Z';
-			gpib_NRFD_inverted_out <= 'Z';
-			gpib_REN_inverted_out <= 'Z';
-			gpib_SRQ_inverted_out <= 'Z';
-			
-			-- transceiver control
-			talk_enable <= '0';
-			pullup_enable_inverted <= '0';
-			not_controller_in_charge <= '1';
-			system_controller <= '0';
-			EOI_output_enable <= '0';
 		elsif rising_edge(clock) then
 			if to_X01(gpib_disable) = '1' then
 				-- inputs
@@ -433,24 +415,6 @@ begin
 				gated_NRFD_inverted <= '1';
 				gated_REN_inverted <= '1';
 				gated_SRQ_inverted <= '1';
-
-				--outputs
-				gpib_DIO_inverted_out <= (others => 'Z');
-				gpib_ATN_inverted_out <= 'Z';
-				gpib_DAV_inverted_out <= 'Z';
-				gpib_EOI_inverted_out <= 'Z';
-				gpib_IFC_inverted_out <= 'Z';
-				gpib_NDAC_inverted_out <= 'Z';
-				gpib_NRFD_inverted_out <= 'Z';
-				gpib_REN_inverted_out <= 'Z';
-				gpib_SRQ_inverted_out <= 'Z';
-
-				-- transceiver control
-				talk_enable <= '0';
-				pullup_enable_inverted <= '0';
-				not_controller_in_charge <= '1';
-				system_controller <= '0';
-				EOI_output_enable <= '0';
 			else
 				-- inputs
  				gated_ATN_inverted <= filtered_ATN_inverted;
@@ -462,26 +426,44 @@ begin
  				gated_REN_inverted <= filtered_REN_inverted;
  				gated_SRQ_inverted <= filtered_SRQ_inverted;
 
- 				--outputs
-				gpib_DIO_inverted_out <=  ungated_DIO_inverted_out;
-				gpib_ATN_inverted_out <= ungated_ATN_inverted_out;
-				gpib_DAV_inverted_out <= ungated_DAV_inverted_out;
-				gpib_EOI_inverted_out <= ungated_EOI_inverted_out;
-				gpib_IFC_inverted_out <= ungated_IFC_inverted_out;
-				gpib_NDAC_inverted_out <= ungated_NDAC_inverted_out;
-				gpib_NRFD_inverted_out <= ungated_NRFD_inverted_out;
-				gpib_REN_inverted_out <= ungated_REN_inverted_out;
-				gpib_SRQ_inverted_out <= ungated_SRQ_inverted_out;
-
-				-- transceiver control
-				talk_enable <= ungated_talk_enable;
-				pullup_enable_inverted <= ungated_pullup_disable;
-				not_controller_in_charge <= ungated_not_controller_in_charge;
-				EOI_output_enable <= ungated_EOI_output_enable;
-				system_controller <= ungated_system_controller;
 			end if;
 		end if;
 	end process;
+
+	-- outputs, cannot be set in clocked process above because they must drive
+	-- bidir output pins directly or Quartus chokes on them
+	gpib_DIO_inverted_out <= (others => 'Z') when to_X01(gpib_disable) = '1'
+		else ungated_DIO_inverted_out;
+	gpib_ATN_inverted_out <= 'Z' when to_X01(gpib_disable) = '1'
+		else ungated_ATN_inverted_out;
+	gpib_DAV_inverted_out <= 'Z' when to_X01(gpib_disable) = '1'
+		else ungated_DAV_inverted_out;
+	gpib_EOI_inverted_out <= 'Z' when to_X01(gpib_disable) = '1'
+		else ungated_EOI_inverted_out;
+	gpib_IFC_inverted_out <= 'Z' when to_X01(gpib_disable) = '1'
+		else ungated_IFC_inverted_out;
+	gpib_NDAC_inverted_out <= 'Z' when to_X01(gpib_disable) = '1'
+		else ungated_NDAC_inverted_out;
+	gpib_NRFD_inverted_out <= 'Z' when to_X01(gpib_disable) = '1'
+		else ungated_NRFD_inverted_out;
+	gpib_REN_inverted_out <= 'Z' when to_X01(gpib_disable) = '1'
+		else ungated_REN_inverted_out;
+	gpib_SRQ_inverted_out <= 'Z' when to_X01(gpib_disable) = '1'
+		else ungated_SRQ_inverted_out;
+
+	-- transceiver control, we set these here instead of in the clocked process
+	-- above to avoid getting a clock cycle out of sync with the outputs to
+	-- bidir pins
+	talk_enable <= '0' when to_X01(gpib_disable) = '1'
+		else ungated_talk_enable;
+	pullup_enable_inverted <= '0' when to_X01(gpib_disable) = '1'
+		else ungated_pullup_disable;
+	not_controller_in_charge <= '1' when to_X01(gpib_disable) = '1'
+		else ungated_not_controller_in_charge;
+	system_controller <= '0' when to_X01(gpib_disable) = '1'
+		else ungated_system_controller;
+	EOI_output_enable <= '0' when to_X01(gpib_disable) = '1'
+		else ungated_EOI_output_enable;
 
 	-- dma requests
 	process (safe_reset, clock)
