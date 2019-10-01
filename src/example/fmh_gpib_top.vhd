@@ -59,8 +59,9 @@ entity fmh_gpib_top is
 		controller_in_charge : out std_logic;
 		talk_enable : out std_logic;
 		EOI_output_enable : out std_logic;
-		trigger : out std_logic;
 		system_controller : out std_logic;
+
+		trigger : out std_logic;
 
 		-- gpib bus disconnect
 		gpib_disable : in std_logic

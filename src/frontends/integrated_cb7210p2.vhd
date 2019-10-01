@@ -79,8 +79,9 @@ entity integrated_cb7210p2 is
 		EOI_output_enable : out std_logic;
 		not_controller_in_charge : out std_logic; -- transceiver DC
 		pullup_enable_inverted : out std_logic; -- transceiver PE
-		trigger : out std_logic;
 		system_controller : out std_logic;
+
+		trigger : out std_logic;
 
 		-- gpib bus disconnect
 		gpib_disable : in std_logic := '0'
@@ -362,6 +363,7 @@ begin
 			not_controller_in_charge => ungated_not_controller_in_charge,
 			pullup_enable_inverted => ungated_pullup_disable,
 			system_controller => ungated_system_controller,
+			trigger => trigger,
 			interrupt => interrupt,
 			dma_bus_in_request => cb7210p2_dma_bus_in_request,
 			dma_bus_out_request => cb7210p2_dma_bus_out_request,
