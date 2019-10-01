@@ -49,14 +49,12 @@ architecture interface_function_AH_arch of interface_function_AH is
 	signal AH_count : unsigned(num_counter_bits - 1 downto 0);
 	-- timer counter local to AH_noninterlocked_state state machine
 	signal noninterlocked_count : unsigned(num_counter_bits - 1 downto 0);
-	signal RFD_buffer : std_logic;
 	signal lni_or_tcs : boolean;
 begin
  
 	acceptor_handshake_state <= acceptor_handshake_state_buffer;
 	acceptor_noninterlocked_state <= acceptor_noninterlocked_state_buffer;
 	addressed <= listener_state_p1 = LACS or listener_state_p1 = LADS;
-	RFD <= RFD_buffer;
 	lni_or_tcs <= to_X01(lni) = '1' or to_X01(tcs) = '1';
 	
 	process(pon, clock) 
@@ -191,7 +189,7 @@ begin
 					if to_X01(DAV) = '1' then
 						acceptor_noninterlocked_state_buffer <= AIAS;
 					elsif acceptor_handshake_state_buffer = ACRS and 
-						to_X01(RFD_buffer) = '1' and
+						to_X01(NIC) = '0' and -- in 488.1 this appears as a transition on RFD, which is the same as checking not NIC
 						noninterlocked_counter_done
 					then
 						acceptor_noninterlocked_state_buffer <= AWAS;
@@ -237,36 +235,36 @@ begin
 	process(acceptor_handshake_state_buffer, acceptor_noninterlocked_state_buffer, rft) begin
 		case acceptor_handshake_state_buffer is
 			when AIDS =>
-				RFD_buffer <= 'H';
+				RFD <= 'H';
 				DAC <= 'H';
 			when ANRS =>
-				RFD_buffer <= '0';
+				RFD <= '0';
 				DAC <= '0';
 			when ACRS =>
-				RFD_buffer <= 'H';
+				RFD <= 'H';
 				DAC <= '0';
 			when ACDS =>
-				RFD_buffer <= '0';
+				RFD <= '0';
 				DAC <= '0';
 			when AWNS =>
-				RFD_buffer <= '0';
+				RFD <= '0';
 				DAC <= 'H';
 			when ANDS =>
-				RFD_buffer <= 'H';
+				RFD <= 'H';
 				if acceptor_noninterlocked_state_buffer = ANAS and to_X01(rft) = '1' then
 					DAC <= 'H';
 				else
 					DAC <= '0';
 				end if;
 			when ANES =>
-				RFD_buffer <= 'H';
+				RFD <= 'H';
 				if acceptor_noninterlocked_state_buffer = ANAS and to_X01(rft) = '1' then
 					DAC <= 'H';
 				else
 					DAC <= '0';
 				end if;
 			when ANTS =>
-				RFD_buffer <= '0';
+				RFD <= '0';
 				DAC <= '0';
 		end case;
 	end process;
