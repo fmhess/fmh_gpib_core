@@ -37,10 +37,10 @@ architecture arch of gpib_debounce_filter is
 	-- length of falling edge history is rounded up to deal with case of odd length
 	constant max_falling_length : positive := (max_length + 1) / 2;
 	
-	signal rising_length : integer range 0 to max_rising_length;
-	signal falling_length : integer range 0 to max_falling_length;
-	signal length_latch : positive range 1 to max_length;
-	signal threshold_latch : positive range 1 to max_length;
+	signal rising_length : integer range 0 to max_rising_length := max_rising_length;
+	signal falling_length : integer range 0 to max_falling_length := max_falling_length;
+	signal length_latch : positive range 1 to max_length := max_length;
+	signal threshold_latch : positive range 1 to max_length := max_length;
 	signal configuration_change : std_logic;
 	
 	type history_type is array (natural range <>) of std_logic_vector(num_inputs - 1 downto 0);
@@ -48,10 +48,10 @@ architecture arch of gpib_debounce_filter is
 	signal falling_inputs_history : history_type(max_falling_length - 1 downto 0);
 
 	type rising_count_type is array (num_inputs - 1 downto 0) of integer range 0 to max_rising_length;
-	signal rising_count : rising_count_type;
+	signal rising_count : rising_count_type := (others => max_rising_length);
 
 	type falling_count_type is array (num_inputs - 1 downto 0) of integer range 0 to max_falling_length;
-	signal falling_count : falling_count_type;
+	signal falling_count : falling_count_type := (others => max_falling_length);
 
 	-- Inputs may be changing asynchronously so we latch them on both rising and
 	-- falling edges.  We actually latch rising_inputs_latch on falling clock edges
