@@ -245,10 +245,10 @@ architecture structural of integrated_cb7210p2 is
 	signal force_lni : std_logic;
 	signal configuration_num_meters : unsigned(3 downto 0);
 
-	signal DAV_filter_length : positive range 1 to filter_length_200ns;
-	signal DAV_filter_threshold : positive range 1 to filter_length_200ns;
-	signal DIO_filter_length : positive range 1 to filter_length_200ns;
-	signal DIO_filter_threshold : positive range 1 to filter_length_200ns;
+	signal DAV_filter_length : positive range 1 to filter_length_200ns := filter_length_200ns;
+	signal DAV_filter_threshold : positive range 1 to filter_length_200ns := filter_threshold_200ns;
+	signal DIO_filter_length : positive range 1 to filter_length_200ns := filter_length_200ns;
+	signal DIO_filter_threshold : positive range 1 to filter_length_200ns := filter_threshold_200ns;
 begin
 	my_control_debounce_filter : entity work.gpib_debounce_filter
 		generic map(
@@ -498,8 +498,10 @@ begin
 	process (safe_reset, clock)
 	begin
 		if to_X01(safe_reset) = '1' then
-			set_DAV_filter_parameters (X"0", DAV_filter_length, DAV_filter_threshold);
-			set_DIO_filter_parameters (X"0", DIO_filter_length, DIO_filter_threshold);
+			DAV_filter_length <= filter_length_200ns;
+			DAV_filter_threshold <= filter_threshold_200ns;
+			DIO_filter_length <= filter_length_200ns;
+			DIO_filter_threshold <= filter_threshold_200ns;
 		elsif rising_edge(clock) then
 			set_DAV_filter_parameters (configuration_num_meters, DAV_filter_length, DAV_filter_threshold);
 			set_DIO_filter_parameters (configuration_num_meters, DIO_filter_length, DIO_filter_threshold);
