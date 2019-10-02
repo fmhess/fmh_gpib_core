@@ -248,7 +248,7 @@ add_interface_port external_gpib_bus gpib_DAV_inverted gpib_dav Bidir 1
 add_interface_port external_gpib_bus gpib_IFC_inverted gpib_ifc Bidir 1
 add_interface_port external_gpib_bus pullup_enable_inverted gpib_pe Output 1
 add_interface_port external_gpib_bus talk_enable gpib_te Output 1
-add_interface_port external_gpib_bus controller_in_charge gpib_dc Output 1
+add_interface_port external_gpib_bus not_controller_in_charge gpib_dc Output 1
 add_interface_port external_gpib_bus system_controller gpib_sc Output 1
 add_interface_port external_gpib_bus EOI_output_enable gpib_eoi_output_enable Output 1
 add_interface_port external_gpib_bus trigger gpib_trigger Output 1

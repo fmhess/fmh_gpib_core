@@ -56,7 +56,7 @@ entity fmh_gpib_top is
 
 		-- gpib transceiver control
 		pullup_enable_inverted : out std_logic;
-		controller_in_charge : out std_logic;
+		not_controller_in_charge : out std_logic;
 		talk_enable : out std_logic;
 		EOI_output_enable : out std_logic;
 		system_controller : out std_logic;
@@ -69,7 +69,6 @@ entity fmh_gpib_top is
 end fmh_gpib_top;
 
 architecture structural of fmh_gpib_top is
-	signal not_controller_in_charge : std_logic;
 	
 begin
 	my_integrated_cb7210p2 : entity work.integrated_cb7210p2
@@ -124,5 +123,4 @@ begin
 			gpib_disable => gpib_disable
 		);
 
-		controller_in_charge <= not not_controller_in_charge;
 end architecture structural;

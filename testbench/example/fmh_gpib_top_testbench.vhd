@@ -39,7 +39,7 @@ architecture behav of fmh_gpib_top_testbench is
 	signal avalon_address : std_logic_vector(6 downto 0);
 	signal avalon_write_inverted : std_logic;
 	signal talk_enable : std_logic;
-	signal controller_in_charge : std_logic;
+	signal not_controller_in_charge : std_logic;
 	signal pullup_enable_inverted : std_logic;
 	signal interrupt : std_logic;
 	signal avalon_data_in : std_logic_vector(7 downto 0);
@@ -69,7 +69,7 @@ architecture behav of fmh_gpib_top_testbench is
 			avalon_address => avalon_address,  
 			avalon_write_inverted => avalon_write_inverted, 
 			pullup_enable_inverted => pullup_enable_inverted,
-			controller_in_charge => controller_in_charge,
+			not_controller_in_charge => not_controller_in_charge,
 			talk_enable => talk_enable,
 			irq  => interrupt, 
 			dma_single => dma_single,
