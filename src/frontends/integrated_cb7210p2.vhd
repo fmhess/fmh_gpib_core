@@ -201,8 +201,6 @@ architecture structural of integrated_cb7210p2 is
 	signal fifo_gpib_to_host_dma_single_request : std_logic;
 	signal fifo_gpib_to_host_dma_burst_request : std_logic;
 	
-	signal dma_transfer_active : std_logic;
-	
 	signal filtered_ATN_inverted : std_logic;
 	signal filtered_DAV_inverted : std_logic;
 	signal filtered_EOI_inverted : std_logic;
