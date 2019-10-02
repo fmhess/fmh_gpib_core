@@ -160,7 +160,7 @@ architecture behav of interface_function_SH_testbench is
 		wait until rising_edge(clock);
 		for i in 1 to 3 loop
 			wait until rising_edge(clock);
-			assert source_handshake_state = SWNS;
+			assert source_handshake_state = SGNS;
 		end loop;
 
 		data_byte_available <= '1';
@@ -186,7 +186,7 @@ architecture behav of interface_function_SH_testbench is
 		wait until rising_edge(clock);
 		talker_state_p1 <= TADS;
 		wait until rising_edge(clock);
-		assert source_handshake_state = SIWS;
+		assert source_handshake_state = SIDS;
 		
 		wait until rising_edge(clock);
 		for i in 1 to 3 loop

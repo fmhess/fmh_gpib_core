@@ -63,7 +63,6 @@ architecture interface_function_SHE_arch of interface_function_SHE is
 	signal no_listeners_reported : boolean;
 	signal source_handshake_state_buffer : SH_state; -- buffer works around inability to read outputs
 	signal noninterlocked_enable_state_buffer : SH_noninterlocked_state; -- buffer works around inability to read outputs
-	signal SWNS_DAV : std_logic;
 begin
  
 	interrupt <= (to_bit(ATN) = '1' and controller_state_p1 /= CACS and controller_state_p1 /= CTRS) or
@@ -119,13 +118,8 @@ begin
 		procedure handle_transitions_from_SWNS is
 		begin
 			nba := false;
-			-- When we are in TACS, we want to linger here unless there is actually 
-			-- data another byte available
-			-- to send (for the sake of AHE acceptors during noninterlocked transfers, see
-			-- comment below in SWNS section of the case statement farther down).
-			should_linger := to_X01(data_byte_available) = '0' and talker_state_p1 = TACS;
 
-			if not nba and not should_linger then
+			if not nba then
 				source_handshake_state_buffer <= SGNS;
 				-- immediately handle SGNS as optimization
 				handle_transitions_from_SGNS;
@@ -152,7 +146,6 @@ begin
 				) 
 			then
 				source_handshake_state_buffer <= SWNS;
-				SWNS_DAV <= '1';
 				-- immediately handle SWNS as optimization
 				handle_transitions_from_SWNS;
 			end if;
@@ -170,7 +163,6 @@ begin
 			first_cycle <= false;
 			no_listeners_reported <= false;
 			nba := false;
-			SWNS_DAV <= '0';
 			source_handshake_byte <= (others => '0');
 			source_handshake_end <= '0';
 		elsif rising_edge(clock) then
@@ -237,7 +229,6 @@ begin
 						source_handshake_state_buffer <= SIDS;
 					elsif active then
 						source_handshake_state_buffer <= SWNS;
-						SWNS_DAV <= '0';
 					end if;
 					first_cycle <= true;
 				when SWRS =>
@@ -301,7 +292,7 @@ begin
 	end process;
 
 	-- set local message outputs as soon as state changes for low latency
-	process(source_handshake_state_buffer, SWNS_DAV) begin
+	process(source_handshake_state_buffer) begin
 		case source_handshake_state_buffer is
 			when SIDS =>
 				DAV <= 'L';
@@ -316,16 +307,7 @@ begin
 				DAV <= '1';
 				NIC <= 'L';
 			when SWNS =>
-				-- IEEE 488.1 allows DAV to be T or F in SWNS.  We leave it  
-				-- as it was from the state we transitioned from.  Leaving
-				-- it true from STRS helps us keep an AHE acceptor in ANDS rather than ANES when
-				-- doing noninterlocked handshaking.  This makes it more likely the
-				-- acceptor will be able to leave noninterlocked mode through ANTS,
-				-- winding up in ANRS (with RFD holdoff in effect), rather than
-				-- leaving through ANES and winding up in ACRS (where it would be
-				-- unable to assert a RFD holdoff except when ATN transitions to
-				-- false).
-				DAV <= SWNS_DAV;
+				DAV <= '0';
 				NIC <= 'L';
 			when SIWS =>
 				DAV <= 'L';
