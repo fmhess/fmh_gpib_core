@@ -1086,12 +1086,8 @@ begin
 	-- We suppress DO and CO interrupt conditions while in STRS or SDYS because
 	-- the user may rely on them to know if the previous
 	-- byte has been completely and successfully sent to all listeners.
-	-- The host_to_gpib_data_byte_latched signal clears on
-	-- entering SDYS, but we don't know the byte has reached all listeners
-	-- until leaving STRS.  Having host_to_gpib_data_byte_latched clear
-	-- early (on entering SDYS) allows reduced latency for host-to-gpib
-	-- dma transfers, which is important for high speed noninterlocked
-	-- source handshake.
+	-- We don't know the byte has reached all listeners
+	-- until leaving STRS.
 	DO_interrupt_condition <= '1' when talker_state_p1 = TACS and
 			source_handshake_state /= STRS and source_handshake_state /= SDYS and 
 			host_to_gpib_data_byte_latched = '0' 
