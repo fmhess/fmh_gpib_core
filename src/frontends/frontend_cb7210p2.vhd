@@ -278,7 +278,6 @@ architecture frontend_cb7210p2_arch of frontend_cb7210p2 is
 	-- interrupt mask register 1 interrupts
 	signal DI_interrupt : std_logic;
 	signal DI_interrupt_condition : std_logic;
-	signal DI_interrupt_generator : std_logic;
 	signal DO_interrupt : std_logic;
 	signal DO_interrupt_condition : std_logic;
 	signal ERR_interrupt : std_logic;
