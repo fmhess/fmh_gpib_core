@@ -683,6 +683,7 @@ architecture behav of dual_integrated_cb7210p2_testbench is
 		device_address <= ( others => '0' );
 		device_primary_address := 4;
 		device_secondary_address := 17;
+		device_dma_ack <= '0';
 		
 		device_reset <= '1';
 		wait until rising_edge(device_clock);	
@@ -1197,6 +1198,7 @@ architecture behav of dual_integrated_cb7210p2_testbench is
 		controller_address <= ( others => '0' );
 		controller_primary_address := 8;
 		controller_secondary_address := to_integer(unsigned(NO_ADDRESS_CONFIGURED));
+		controller_dma_ack <= '0';
 		
 		controller_reset <= '1';
 		wait until rising_edge(controller_clock);	
