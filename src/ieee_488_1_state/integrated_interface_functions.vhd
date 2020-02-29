@@ -945,7 +945,7 @@ architecture integrated_interface_functions_arch of integrated_interface_functio
 				internal_host_to_gpib_data_byte <= host_to_gpib_byte;
 				if host_to_gpib_data_byte_end = '1' or
 					(host_to_gpib_auto_EOI_on_EOS = '1' and 
-					EOS_match(internal_host_to_gpib_data_byte, configured_eos_character, ignore_eos_bit_7)) then
+					EOS_match(host_to_gpib_byte, configured_eos_character, ignore_eos_bit_7)) then
 					internal_host_to_gpib_data_byte_end <= '1';
 				else
 					internal_host_to_gpib_data_byte_end <= '0';
