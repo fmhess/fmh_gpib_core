@@ -117,6 +117,8 @@ begin
 
 		procedure handle_transitions_from_SWNS is
 		begin
+			source_handshake_byte <= (others => '0');
+			source_handshake_end <= '0';
 			nba := false;
 
 			if not nba then
