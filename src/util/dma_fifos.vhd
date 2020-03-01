@@ -24,7 +24,9 @@ entity dma_fifos is
 		host_write : in std_logic;
 		host_data_in : in std_logic_vector(15 downto 0);
 		host_data_out : out std_logic_vector(15 downto 0);
-
+		-- optional byteenable allows safe 8 bit writes to address 0
+		host_byteenable : in std_logic_vector(1 downto 0) := (others => '1');
+		
 		host_to_gpib_dma_single_request : out std_logic;
 		host_to_gpib_dma_burst_request : out std_logic;
 		gpib_to_host_dma_single_request : out std_logic;
@@ -124,11 +126,22 @@ begin
 		variable xfer_count_var: unsigned (11 downto 0); -- Count of bytes in/out on the device side
 
 		procedure handle_host_write(address : in std_logic_vector(num_address_lines - 1 downto 0); 
-			data : in std_logic_vector(15 downto 0)) is
+			data : in std_logic_vector(15 downto 0); byteenable : in std_logic_vector(1 downto 0)) is
 		begin
 			case address is
 				when "00" => -- push byte into host-to-gpib fifo
-					host_to_gpib_fifo_data_in <= data(fifo_data_width - 1 downto 0);
+					if to_X01(byteenable(0)) = '1' then
+						host_to_gpib_fifo_data_in(7 downto 0) <= data(7 downto 0);
+					else
+						host_to_gpib_fifo_data_in(7 downto 0) <= (others => '0');
+					end if;
+
+					if to_X01(byteenable(1)) = '1' then
+						host_to_gpib_fifo_data_in(fifo_data_width - 1 downto 8) <= data(fifo_data_width - 1 downto 8);
+					else
+						host_to_gpib_fifo_data_in(fifo_data_width - 1 downto 8) <= (others => '0');
+					end if;
+					
 					host_to_gpib_fifo_write_enable <= '1';
 
 					-- immediately clear dma requests taking into account a byte is currently being pushed into the fifo
@@ -139,10 +152,14 @@ begin
 						host_to_gpib_dma_burst_request <= '0';
 					end if;
 				when "01" => -- control register
-					host_to_gpib_request_enable <= data(0);
-					host_to_gpib_fifo_reset <= data(1);
-					gpib_to_host_request_enable <= data(8);
-					gpib_to_host_fifo_reset <= data(9);
+					if to_X01(byteenable(0)) = '1' then
+						host_to_gpib_request_enable <= data(0);
+						host_to_gpib_fifo_reset <= data(1);
+					end if;
+					if to_X01(byteenable(1)) = '1' then
+						gpib_to_host_request_enable <= data(8);
+						gpib_to_host_fifo_reset <= data(9);
+					end if;
 				when "10" =>
 					xfer_count_var := unsigned(data(11 downto 0));
 				when others =>
@@ -218,7 +235,7 @@ begin
 			if host_write_pending = '0' then
 				if host_write_selected = '1' then
 					host_write_pending <= '1';
-					handle_host_write(host_address, host_data_in);
+					handle_host_write(host_address, host_data_in, host_byteenable);
 				else
 					host_to_gpib_dma_single_request <= host_to_gpib_request_enable and not host_to_gpib_fifo_full;
 					if host_to_gpib_request_enable = '1' and host_to_gpib_fifo_contents <= max_burst then

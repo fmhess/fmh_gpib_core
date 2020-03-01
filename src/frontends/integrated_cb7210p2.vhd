@@ -47,7 +47,9 @@ entity integrated_cb7210p2 is
 		dma_fifos_write : in std_logic;
 		dma_fifos_data_in : in  std_logic_vector(15 downto 0);
 		dma_fifos_data_out : out std_logic_vector(15 downto 0);
-
+		-- optional byteenable permits safely doing 8 bit writes to address 0
+		dma_fifos_byteenable : in std_logic_vector(1 downto 0) := (others => '1');
+		
 		-- dma peripherial request
 		dma_single : out std_logic;
 		dma_req : out std_logic;
@@ -312,6 +314,7 @@ begin
 			host_write => dma_fifos_write,
 			host_data_in => dma_fifos_data_in,
 			host_data_out => dma_fifos_data_out,
+			host_byteenable => dma_fifos_byteenable,
 			host_to_gpib_dma_single_request => fifo_host_to_gpib_dma_single_request,
 			host_to_gpib_dma_burst_request => fifo_host_to_gpib_dma_burst_request,
 			gpib_to_host_dma_single_request => fifo_gpib_to_host_dma_single_request,
