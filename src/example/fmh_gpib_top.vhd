@@ -37,7 +37,8 @@ entity fmh_gpib_top is
 		dma_fifos_write : in std_logic;
 		dma_fifos_data_in : in  std_logic_vector(15 downto 0);
 		dma_fifos_data_out : out std_logic_vector(15 downto 0);
-
+		dma_fifos_byteenable : in std_logic_vector(1 downto 0) := (others => '1');
+		
 		-- dma peripherial request
 		dma_single : out std_logic;
 		dma_req : out std_logic;
@@ -93,6 +94,7 @@ begin
 			dma_fifos_write => dma_fifos_write,
 			dma_fifos_data_in => dma_fifos_data_in,
 			dma_fifos_data_out => dma_fifos_data_out,
+			dma_fifos_byteenable => dma_fifos_byteenable,
 			dma_single => dma_single,
 			dma_req => dma_req,
 			dma_ack => dma_ack,
