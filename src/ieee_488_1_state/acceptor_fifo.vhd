@@ -1,13 +1,24 @@
+-- Copyright 2017 Frank Mori Hess fmh6jj@gmail.com
+
+-- Licensed under the Apache License, Version 2.0 (the "License");
+-- you may not use this file except in compliance with the License.
+-- You may obtain a copy of the License at
+
+--    http://www.apache.org/licenses/LICENSE-2.0
+
+-- Unless required by applicable law or agreed to in writing, software
+-- distributed under the License is distributed on an "AS IS" BASIS,
+-- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+-- See the License for the specific language governing permissions and
+-- limitations under the License.
+------------------------------------------------------------------------------
+
 -- A FIFO to hold data bytes (and EOI/EOS state) coming from noninterlocked AHE 
 -- handshake.  IEEE 488.1 requires a 3 entry fifo to hold such data, since
 -- the noninterlocked flow of data cannot be turned off instantly.  This
 -- entity owns the rft "ready for three" local message.  This FIFO is
 -- intended to sit between the physical GPIB bus lines and the rest of the
 -- GPIB logic (rather than between the host computer bus and GPIB logic).
---
--- Author: Frank Mori Hess fmh6jj@gmail.com
--- Copyright 2017 Frank Mori Hess
---
 
 library ieee;
 use ieee.std_logic_1164.all;

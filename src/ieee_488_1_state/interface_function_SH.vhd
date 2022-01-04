@@ -1,11 +1,23 @@
+-- Copyright 2017-2019 Frank Mori Hess fmh6jj@gmail.com
+
+-- Licensed under the Apache License, Version 2.0 (the "License");
+-- you may not use this file except in compliance with the License.
+-- You may obtain a copy of the License at
+
+--    http://www.apache.org/licenses/LICENSE-2.0
+
+-- Unless required by applicable law or agreed to in writing, software
+-- distributed under the License is distributed on an "AS IS" BASIS,
+-- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+-- See the License for the specific language governing permissions and
+-- limitations under the License.
+------------------------------------------------------------------------------
+
 -- IEEE 488.1 extended source handshake (SHE) interface function
 --
 -- If you just want the simpler SH function, you can leave the 
 -- defaulted inputs unconnected, Also
 -- it won't matter what you connect to the IFC input.
---
--- Author: Frank Mori Hess fmh6jj@gmail.com
--- Copyright Frank Mori Hess 2017, 2019
 
 
 library ieee;
