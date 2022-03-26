@@ -13,7 +13,7 @@
 -- limitations under the License.
 ------------------------------------------------------------------------------
 
--- fifo to accelerate dma transfers, sits between bus and gpib dma port.
+-- fifo to accelerate transfers between bus and gpib dma port.
 
 library ieee;
 use ieee.std_logic_1164.all;
@@ -37,6 +37,8 @@ entity dma_fifos is
 		host_data_out : out std_logic_vector(15 downto 0);
 		-- optional byteenable allows safe 8 bit writes to address 0
 		host_byteenable : in std_logic_vector(1 downto 0) := (others => '1');
+
+		host_interrupt : out std_logic;
 		
 		host_to_gpib_dma_single_request : out std_logic;
 		host_to_gpib_dma_burst_request : out std_logic;
@@ -63,7 +65,7 @@ end dma_fifos;
  
 architecture dma_fifos_arch of dma_fifos is
 	constant num_address_lines : positive := 2;
-	constant max_burst : natural := fifo_depth / 2;
+	constant half_fifo_depth : positive := fifo_depth / 2;
 	constant fifo_data_width : positive := 9;
 	
 	signal host_to_gpib_fifo_reset : std_logic;
@@ -72,6 +74,8 @@ architecture dma_fifos_arch of dma_fifos is
 	signal host_to_gpib_fifo_data_out : std_logic_vector(fifo_data_width - 1 downto 0);
 	signal host_to_gpib_fifo_read_ack : std_logic;
 	signal host_to_gpib_fifo_empty : std_logic;
+	signal host_to_gpib_fifo_half_empty : std_logic;
+	signal host_to_gpib_fifo_half_empty_interrupt_enable : std_logic;
 	signal host_to_gpib_fifo_full : std_logic;
 	signal host_to_gpib_fifo_contents : natural range 0 to fifo_depth;
 	
@@ -79,6 +83,8 @@ architecture dma_fifos_arch of dma_fifos is
 	signal gpib_to_host_fifo_write_enable : std_logic;
 	signal gpib_to_host_fifo_read_ack : std_logic;
 	signal gpib_to_host_fifo_empty : std_logic;
+	signal gpib_to_host_fifo_half_full : std_logic;
+	signal gpib_to_host_fifo_half_full_interrupt_enable : std_logic;
 	signal gpib_to_host_fifo_full : std_logic;
 	signal gpib_to_host_fifo_contents : natural range 0 to fifo_depth;
 	signal gpib_to_host_fifo_data_in : std_logic_vector(fifo_data_width - 1 downto 0);
@@ -130,6 +136,14 @@ begin
 	gpib_to_host_fifo_data_in(7 downto 0) <= device_data_in;
 	gpib_to_host_fifo_data_in(8) <= device_data_end_in;
 
+	
+	gpib_to_host_dma_burst_request <= gpib_to_host_fifo_half_full and gpib_to_host_request_enable;
+
+	host_to_gpib_dma_burst_request <= host_to_gpib_fifo_half_empty and host_to_gpib_request_enable;
+	
+	host_interrupt <= (gpib_to_host_fifo_half_full_interrupt_enable and gpib_to_host_fifo_half_full) or
+		(host_to_gpib_fifo_half_empty_interrupt_enable and host_to_gpib_fifo_half_empty);
+		
 	-- process host reads and writes
 	process(reset, clock)
 		variable host_write_selected : std_logic;
@@ -159,17 +173,19 @@ begin
 					if host_to_gpib_fifo_contents >= fifo_depth - 1 then
 						host_to_gpib_dma_single_request <= '0';
 					end if;
-					if host_to_gpib_fifo_contents >= max_burst then
-						host_to_gpib_dma_burst_request <= '0';
+					if host_to_gpib_fifo_contents >= half_fifo_depth then
+						host_to_gpib_fifo_half_empty <= '0';
 					end if;
 				when "01" => -- control register
 					if to_X01(byteenable(0)) = '1' then
 						host_to_gpib_request_enable <= data(0);
 						host_to_gpib_fifo_reset <= data(1);
+						host_to_gpib_fifo_half_empty_interrupt_enable <= data(2);
 					end if;
 					if to_X01(byteenable(1)) = '1' then
 						gpib_to_host_request_enable <= data(8);
 						gpib_to_host_fifo_reset <= data(9);
+						gpib_to_host_fifo_half_full_interrupt_enable <= data(10);
 					end if;
 				when "10" =>
 					xfer_count_var := unsigned(data(11 downto 0));
@@ -189,15 +205,17 @@ begin
 					if gpib_to_host_fifo_contents <= 1 then
 						gpib_to_host_dma_single_request <= '0';
 					end if;
-					if gpib_to_host_fifo_contents <= max_burst then
-						gpib_to_host_dma_burst_request <= '0';
+					if gpib_to_host_fifo_contents <= half_fifo_depth then
+						gpib_to_host_fifo_half_full <= '0';
 					end if;
 				when "01" => -- host-to-gpib status register
 					host_data_out <= (
 						0 => host_to_gpib_fifo_empty,
 						1 => host_to_gpib_fifo_full,
+						2 => host_to_gpib_fifo_half_empty,
 						8 => gpib_to_host_fifo_empty,
 						9 => gpib_to_host_fifo_full,
+						10 => gpib_to_host_fifo_half_full,
 						others => '0'
 					);
 				when "10" =>
@@ -205,7 +223,7 @@ begin
 					host_data_out(11 downto 0) <= std_logic_vector(xfer_count_var);
 				when "11" =>
 					host_data_out(15 downto 8) <= (others => '0');
-					host_data_out(7 downto 0) <= std_logic_vector(to_unsigned(max_burst, 8));
+					host_data_out(7 downto 0) <= std_logic_vector(to_unsigned(half_fifo_depth, 8));
 				when others =>
 			end case;
 		end handle_host_read;
@@ -217,7 +235,8 @@ begin
 			host_to_gpib_fifo_read_ack <= '0';
 			host_to_gpib_fifo_data_in <= (others => '0');
 			host_to_gpib_dma_single_request <= '0';
-			host_to_gpib_dma_burst_request <= '0';
+			host_to_gpib_fifo_half_empty <= '0';
+			host_to_gpib_fifo_half_empty_interrupt_enable <= '0';
 			host_data_out <= (others => '0');
 			
 			gpib_to_host_fifo_reset <= '1';
@@ -225,7 +244,8 @@ begin
 			gpib_to_host_fifo_write_enable <= '0';
 			gpib_to_host_request_enable <= '0';
 			gpib_to_host_dma_single_request <= '0';
-			gpib_to_host_dma_burst_request <= '0';
+			gpib_to_host_fifo_half_full <= '0';
+			gpib_to_host_fifo_half_full_interrupt_enable <= '0';
 		
 			device_chip_select <= '0';
 			device_write <= '0';
@@ -240,7 +260,6 @@ begin
 			xfer_count_var := (others => '0');
 			xfer_countdown <= (others => '0');
 		elsif rising_edge(clock) then
-
 			-- host write state machine
 			host_write_selected := host_chip_select and host_write ;
 			if host_write_pending = '0' then
@@ -249,10 +268,10 @@ begin
 					handle_host_write(host_address, host_data_in, host_byteenable);
 				else
 					host_to_gpib_dma_single_request <= host_to_gpib_request_enable and not host_to_gpib_fifo_full;
-					if host_to_gpib_request_enable = '1' and host_to_gpib_fifo_contents <= max_burst then
-						host_to_gpib_dma_burst_request <= '1';
+					if host_to_gpib_fifo_contents <= half_fifo_depth then
+						host_to_gpib_fifo_half_empty <= '1';
 					else 
-						host_to_gpib_dma_burst_request <= '0';
+						host_to_gpib_fifo_half_empty <= '0';
 					end if;
 				end if;
 			else -- host_write_pending = '1'
@@ -269,10 +288,10 @@ begin
 					handle_host_read(host_address);
 				else
 					gpib_to_host_dma_single_request <= gpib_to_host_request_enable and not gpib_to_host_fifo_empty;
-					if gpib_to_host_request_enable = '1' and gpib_to_host_fifo_contents >= max_burst then
-						gpib_to_host_dma_burst_request <= '1';
+					if gpib_to_host_fifo_contents >= half_fifo_depth then
+						gpib_to_host_fifo_half_full <= '1';
 					else
-						gpib_to_host_dma_burst_request <= '0';
+						gpib_to_host_fifo_half_full <= '0';
 					end if;
 				end if;
 			else -- host_read_pending = '1'

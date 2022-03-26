@@ -24,7 +24,8 @@ architecture behav of dma_fifos_testbench is
 	signal host_write_sig : std_logic;
 	signal host_data_in : std_logic_vector(15 downto 0);
 	signal host_data_out : std_logic_vector(15 downto 0);
-
+	signal host_interrupt : std_logic;
+	
 	signal gpib_to_host_dma_single_request : std_logic;
 	signal gpib_to_host_dma_burst_request : std_logic;
 	signal host_to_gpib_dma_single_request : std_logic;
@@ -64,6 +65,7 @@ begin
 			host_write => host_write_sig,
 			host_data_in => host_data_in,
 			host_data_out => host_data_out,
+			host_interrupt => host_interrupt,
 			host_to_gpib_dma_single_request => host_to_gpib_dma_single_request,
 			host_to_gpib_dma_burst_request => host_to_gpib_dma_burst_request,
 			gpib_to_host_dma_single_request => gpib_to_host_dma_single_request,
@@ -140,8 +142,8 @@ begin
 		wait until reset = '0';
 		wait_for_ticks(1);
 		
-		-- enable host-to-gpib dma requests
-		host_write("01", "0000000000000001");
+		-- enable host-to-gpib dma requests and fifo half empty interrupt
+		host_write("01", "0000000000000101");
 		-- init xfer count
 		host_write("10", std_logic_vector(to_unsigned(16#21#, 16)));
 		
@@ -171,8 +173,8 @@ begin
 		host_write("00", std_logic_vector(to_unsigned(16#140#, 16)));
 
 
-		-- enable gpib-to-host dma requests
-		host_write("01", "0000000100000000");
+		-- enable gpib-to-host dma requests and fifo half full interrupt
+		host_write("01", "0000010100000000");
 		-- init xfer count
 		host_write("10", std_logic_vector(to_unsigned(16#21#, 16)));
 

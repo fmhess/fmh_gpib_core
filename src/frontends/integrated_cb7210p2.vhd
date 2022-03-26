@@ -209,11 +209,13 @@ architecture structural of integrated_cb7210p2 is
 	signal cb7210p2_dma_data_eoi_in : std_logic;
 	signal cb7210p2_dma_data_out : std_logic_vector(7 downto 0);
 	signal cb7210p2_dma_data_end_out : std_logic;
+	signal cb7210p2_interrupt : std_logic;
 	
 	signal fifo_host_to_gpib_dma_single_request : std_logic;
 	signal fifo_host_to_gpib_dma_burst_request : std_logic;
 	signal fifo_gpib_to_host_dma_single_request : std_logic;
 	signal fifo_gpib_to_host_dma_burst_request : std_logic;
+	signal fifo_interrupt : std_logic;
 	
 	signal filtered_ATN_inverted : std_logic;
 	signal filtered_DAV_inverted : std_logic;
@@ -329,6 +331,7 @@ begin
 			host_byteenable => dma_fifos_byteenable,
 			host_to_gpib_dma_single_request => fifo_host_to_gpib_dma_single_request,
 			host_to_gpib_dma_burst_request => fifo_host_to_gpib_dma_burst_request,
+			host_interrupt => fifo_interrupt,
 			gpib_to_host_dma_single_request => fifo_gpib_to_host_dma_single_request,
 			gpib_to_host_dma_burst_request => fifo_gpib_to_host_dma_burst_request,
 			request_xfer_to_device => cb7210p2_dma_bus_in_request,
@@ -377,7 +380,7 @@ begin
 			pullup_enable_inverted => ungated_pullup_disable,
 			system_controller => ungated_system_controller,
 			trigger => trigger,
-			interrupt => interrupt,
+			interrupt => cb7210p2_interrupt,
 			dma_bus_in_request => cb7210p2_dma_bus_in_request,
 			dma_bus_out_request => cb7210p2_dma_bus_out_request,
 			host_data_bus_out => avalon_data_out,
@@ -534,5 +537,7 @@ begin
 			end if;
 		end if;
 	end process;
+	
+	interrupt <= cb7210p2_interrupt or fifo_interrupt;
 
 end architecture structural;
