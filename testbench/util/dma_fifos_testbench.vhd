@@ -143,7 +143,7 @@ begin
 		wait_for_ticks(1);
 		
 		-- enable host-to-gpib dma requests and fifo half empty interrupt
-		host_write("01", "0000000000000101");
+		host_write("01", "0000000000001001");
 		-- init xfer count
 		host_write("10", std_logic_vector(to_unsigned(16#21#, 16)));
 		
@@ -174,7 +174,7 @@ begin
 
 
 		-- enable gpib-to-host dma requests and fifo half full interrupt
-		host_write("01", "0000010100000000");
+		host_write("01", "0000100100000000");
 		-- init xfer count
 		host_write("10", std_logic_vector(to_unsigned(16#21#, 16)));
 
