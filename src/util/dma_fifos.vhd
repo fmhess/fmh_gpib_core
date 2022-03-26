@@ -180,12 +180,12 @@ begin
 					if to_X01(byteenable(0)) = '1' then
 						host_to_gpib_request_enable <= data(0);
 						host_to_gpib_fifo_reset <= data(1);
-						host_to_gpib_fifo_half_empty_interrupt_enable <= data(2);
+						host_to_gpib_fifo_half_empty_interrupt_enable <= data(3);
 					end if;
 					if to_X01(byteenable(1)) = '1' then
 						gpib_to_host_request_enable <= data(8);
 						gpib_to_host_fifo_reset <= data(9);
-						gpib_to_host_fifo_half_full_interrupt_enable <= data(10);
+						gpib_to_host_fifo_half_full_interrupt_enable <= data(11);
 					end if;
 				when "10" =>
 					xfer_count_var := unsigned(data(11 downto 0));
@@ -213,9 +213,11 @@ begin
 						0 => host_to_gpib_fifo_empty,
 						1 => host_to_gpib_fifo_full,
 						2 => host_to_gpib_fifo_half_empty,
+						3 => host_to_gpib_fifo_half_empty_interrupt_enable,
 						8 => gpib_to_host_fifo_empty,
 						9 => gpib_to_host_fifo_full,
 						10 => gpib_to_host_fifo_half_full,
+						11 => gpib_to_host_fifo_half_full_interrupt_enable,
 						others => '0'
 					);
 				when "10" =>
