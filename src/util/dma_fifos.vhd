@@ -214,10 +214,12 @@ begin
 						1 => host_to_gpib_fifo_full,
 						2 => host_to_gpib_fifo_half_empty,
 						3 => host_to_gpib_fifo_half_empty_interrupt_enable,
+						4 => host_to_gpib_request_enable,
 						8 => gpib_to_host_fifo_empty,
 						9 => gpib_to_host_fifo_full,
 						10 => gpib_to_host_fifo_half_full,
 						11 => gpib_to_host_fifo_half_full_interrupt_enable,
+						12 => gpib_to_host_request_enable,
 						others => '0'
 					);
 				when "10" =>
