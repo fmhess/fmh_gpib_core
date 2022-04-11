@@ -49,7 +49,11 @@ entity integrated_cb7210p2 is
 		avalon_address : in  std_logic_vector(6 downto 0);
 		avalon_data_in : in  std_logic_vector(7 downto 0);
 		avalon_data_out : out std_logic_vector(7 downto 0);
-
+		-- Optional Avalon waitrequest for host bus reads/writes.  
+		-- Alternatively, a fixed 1 cycle wait state for reads and 0 wait 
+		-- states for writes may be used.
+		avalon_waitrequest : out std_logic;
+		
 		interrupt : out std_logic;
 
 		-- dma, avalon mm io port
@@ -61,6 +65,10 @@ entity integrated_cb7210p2 is
 		dma_fifos_data_out : out std_logic_vector(15 downto 0);
 		-- optional byteenable permits safely doing 8 bit writes to address 0
 		dma_fifos_byteenable : in std_logic_vector(1 downto 0) := (others => '1');
+		-- Optional Avalon waitrequest for host bus reads/writes.  
+		-- Alternatively, a fixed 1 cycle wait state for reads and 0 wait 
+		-- states for writes may be used.
+		dma_fifos_waitrequest : out std_logic;
 		
 		-- dma peripherial request
 		dma_single : out std_logic;
@@ -329,6 +337,7 @@ begin
 			host_data_in => dma_fifos_data_in,
 			host_data_out => dma_fifos_data_out,
 			host_byteenable => dma_fifos_byteenable,
+			host_waitrequest => dma_fifos_waitrequest,
 			host_to_gpib_dma_single_request => fifo_host_to_gpib_dma_single_request,
 			host_to_gpib_dma_burst_request => fifo_host_to_gpib_dma_burst_request,
 			host_interrupt => fifo_interrupt,
@@ -361,6 +370,7 @@ begin
 			address => avalon_address,
 			write_inverted => avalon_write_inverted,
 			host_data_bus_in => avalon_data_in,
+			wait_request => avalon_waitrequest,
 			dma_bus_in => cb7210p2_dma_data_in,
 			dma_bus_eoi_in => cb7210p2_dma_data_eoi_in,
 			gpib_ATN_inverted_in => gated_ATN_inverted,

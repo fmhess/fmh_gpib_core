@@ -37,7 +37,11 @@ entity dma_fifos is
 		host_data_out : out std_logic_vector(15 downto 0);
 		-- optional byteenable allows safe 8 bit writes to address 0
 		host_byteenable : in std_logic_vector(1 downto 0) := (others => '1');
-
+		-- Optional Avalon waitrequest for host bus reads/writes.  
+		-- Alternatively, a fixed 1 cycle wait state for reads and 0 wait 
+		-- states for writes may be used.
+		host_waitrequest : out std_logic;
+		
 		host_interrupt : out std_logic;
 		
 		host_to_gpib_dma_single_request : out std_logic;
@@ -143,7 +147,12 @@ begin
 	
 	host_interrupt <= (gpib_to_host_fifo_half_full_interrupt_enable and gpib_to_host_fifo_half_full) or
 		(host_to_gpib_fifo_half_empty_interrupt_enable and host_to_gpib_fifo_half_empty);
-		
+
+	host_waitrequest <= '1' when to_X01(reset) = '1'
+		else '0' when (to_X01(host_write) = '1' and to_X01(host_chip_select) = '1') or
+			(to_X01(host_read) = '1' and to_X01(host_chip_select) = '1' and to_X01(host_read_pending) = '1')  
+		else '1';
+
 	-- process host reads and writes
 	process(reset, clock)
 		variable host_write_selected : std_logic;

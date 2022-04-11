@@ -53,12 +53,14 @@ architecture behav of dual_integrated_cb7210p2_testbench is
 	signal device_reset : std_logic;
 	signal device_address : std_logic_vector(6 downto 0);
 	signal device_write_inverted : std_logic;
+	signal device_waitrequest : std_logic;
 	signal device_dma_fifos_chip_select : std_logic;
 	signal device_dma_fifos_address : std_logic_vector(1 downto 0);
 	signal device_dma_fifos_read : std_logic;
 	signal device_dma_fifos_write : std_logic;
 	signal device_dma_fifos_data_in : std_logic_vector(15 downto 0);
 	signal device_dma_fifos_data_out : std_logic_vector(15 downto 0);
+	signal device_dma_fifos_waitrequest : std_logic;
 	signal device_dma_single : std_logic;
 	signal device_dma_req : std_logic;
 	signal device_dma_ack : std_logic;
@@ -68,16 +70,18 @@ architecture behav of dual_integrated_cb7210p2_testbench is
 	signal controller_reset : std_logic;
 	signal controller_address : std_logic_vector(6 downto 0);
 	signal controller_write_inverted : std_logic;
+	signal controller_waitrequest : std_logic;
 	signal controller_dma_fifos_chip_select : std_logic;
 	signal controller_dma_fifos_address : std_logic_vector(1 downto 0);
 	signal controller_dma_fifos_read : std_logic;
 	signal controller_dma_fifos_write : std_logic;
 	signal controller_dma_fifos_data_in : std_logic_vector(15 downto 0);
 	signal controller_dma_fifos_data_out : std_logic_vector(15 downto 0);
+	signal controller_dma_fifos_waitrequest : std_logic;
 	signal controller_dma_single : std_logic;
 	signal controller_dma_req : std_logic;
 	signal controller_dma_ack : std_logic;
-
+	
 	signal device_interrupt : std_logic;
 	signal device_host_data_bus_in : std_logic_vector(7 downto 0);
 	signal device_host_data_bus_out : std_logic_vector(7 downto 0);
@@ -121,6 +125,7 @@ architecture behav of dual_integrated_cb7210p2_testbench is
 			reset => device_reset,
 			avalon_address => device_address,  
 			avalon_write_inverted => device_write_inverted,
+			avalon_waitrequest => device_waitrequest,
 			pullup_enable_inverted => device_pullup_disable,
 			talk_enable => device_talk_enable,
 			not_controller_in_charge => device_not_controller_in_charge,
@@ -133,6 +138,7 @@ architecture behav of dual_integrated_cb7210p2_testbench is
 			dma_fifos_write => device_dma_fifos_write,
 			dma_fifos_data_in => device_dma_fifos_data_in,
 			dma_fifos_data_out => device_dma_fifos_data_out,
+			dma_fifos_waitrequest => device_dma_fifos_waitrequest,
 			dma_single => device_dma_single,
 			dma_req => device_dma_req,
 			dma_ack => device_dma_ack,
@@ -195,6 +201,7 @@ architecture behav of dual_integrated_cb7210p2_testbench is
 			reset => controller_reset,
 			avalon_address => controller_address,  
 			avalon_write_inverted => controller_write_inverted,
+			avalon_waitrequest => controller_waitrequest,
 			pullup_enable_inverted => controller_pullup_disable,
 			talk_enable => controller_talk_enable,
 			not_controller_in_charge => controller_not_controller_in_charge,
@@ -207,6 +214,7 @@ architecture behav of dual_integrated_cb7210p2_testbench is
 			dma_fifos_write => controller_dma_fifos_write,
 			dma_fifos_data_in => controller_dma_fifos_data_in,
 			dma_fifos_data_out => controller_dma_fifos_data_out,
+			dma_fifos_waitrequest => controller_dma_fifos_waitrequest,
 			dma_single => controller_dma_single,
 			dma_req => controller_dma_req,
 			dma_ack => controller_dma_ack,

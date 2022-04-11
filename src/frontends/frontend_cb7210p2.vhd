@@ -71,6 +71,10 @@ entity frontend_cb7210p2 is
 		address : in std_logic_vector(num_address_lines - 1 downto 0); 
 		write_inverted : in std_logic;
 		host_data_bus_in : in std_logic_vector(7 downto 0);
+		-- Optional Avalon waitrequest for host bus reads/writes.  
+		-- Alternatively, a fixed 1 cycle wait state for reads and 0 wait 
+		-- states for writes may be used.
+		wait_request : out std_logic;
 		dma_bus_in : in std_logic_vector(7 downto 0);
 		-- an extra bit the dma can optionally assert if they want to assert EOI with the byte from dma_bus_in
 		dma_bus_eoi_in : in std_logic := '0';
@@ -527,6 +531,10 @@ begin
 	dma_write_selected <= not dma_write_inverted and not dma_bus_ack_inverted;
 	dma_read_selected <= not dma_read_inverted and not dma_bus_ack_inverted;
 	host_data_bus_out <= host_data_bus_out_buffer;
+	wait_request <= '1' when to_X01(hard_reset) = '1' 
+		else '0' when to_X01(host_write_selected) = '1' or
+			(to_X01(host_read_selected) = '1' and host_read_from_bus_state /= host_io_idle)
+		else '1';
 	
 	-- accept reads from host
 	process (soft_reset, clock)

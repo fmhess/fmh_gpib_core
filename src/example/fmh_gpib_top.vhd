@@ -39,6 +39,10 @@ entity fmh_gpib_top is
 		avalon_address : in  std_logic_vector(6 downto 0);
 		avalon_data_in : in  std_logic_vector(7 downto 0);
 		avalon_data_out : out std_logic_vector(7 downto 0);
+		-- Optional Avalon waitrequest for host bus reads/writes.  
+		-- Alternatively, a fixed 1 cycle wait state for reads and 0 wait 
+		-- states for writes may be used.
+		avalon_waitrequest : out std_logic;
 
 		irq : out std_logic;
 
@@ -50,6 +54,10 @@ entity fmh_gpib_top is
 		dma_fifos_data_in : in  std_logic_vector(15 downto 0);
 		dma_fifos_data_out : out std_logic_vector(15 downto 0);
 		dma_fifos_byteenable : in std_logic_vector(1 downto 0) := (others => '1');
+		-- Optional Avalon waitrequest for host bus reads/writes.  
+		-- Alternatively, a fixed 1 cycle wait state for reads and 0 wait 
+		-- states for writes may be used.
+		dma_fifos_waitrequest : out std_logic;
 		
 		-- dma peripherial request
 		dma_single : out std_logic;
@@ -99,6 +107,7 @@ begin
 			avalon_address => avalon_address,
 			avalon_data_in => avalon_data_in,
 			avalon_data_out => avalon_data_out,
+			avalon_waitrequest => avalon_waitrequest,
 			interrupt => irq,
 			dma_fifos_chip_select => dma_fifos_chip_select,
 			dma_fifos_address => dma_fifos_address,
@@ -107,6 +116,7 @@ begin
 			dma_fifos_data_in => dma_fifos_data_in,
 			dma_fifos_data_out => dma_fifos_data_out,
 			dma_fifos_byteenable => dma_fifos_byteenable,
+			dma_fifos_waitrequest => dma_fifos_waitrequest,
 			dma_single => dma_single,
 			dma_req => dma_req,
 			dma_ack => dma_ack,
